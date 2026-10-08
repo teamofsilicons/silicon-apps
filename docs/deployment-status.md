@@ -8,17 +8,17 @@ The machine-readable deployment receipt is [deploy/production.json](../deploy/pr
 
 | Component | Verified state |
 | --- | --- |
-| Apps API and store | Release `23d18e5b4002cbfe48b5a31a671ca6284b680c31` is active on the ARM64 production host. API version remains **0.1.2**. The API, Caddy and backup timer are active; health, database integrity and foreign-key checks pass, with no pending outbox entries at verification. |
+| Apps API and store | Release `0f41edef91d6de61a3770d2f791a4e352a35f2ae` is active on the ARM64 production host. API version remains **0.1.2**. The API, Caddy and backup timer are active; health, database integrity and foreign-key checks pass, with no pending outbox entries at verification. |
 | Shared developer portal | The existing **Silicon Accounts Next frontend**, extended with Apps authoring, is deployed at `developers.teamofsilicons.com`. Existing Accounts management remains alongside Apps setup, packages, releases, authors and history. It has no Explore/store experience. |
-| Store boundary | `apps.teamofsilicons.com` serves discovery, app pages, reviews and installation documentation. Creation and management links and legacy authoring routes lead to the shared developer portal. Store routes, external management links, CSP, assets/cache behavior, installer bytes and API proxy checks pass. |
+| Store boundary | `apps.teamofsilicons.com` serves discovery, app pages, reviews and installation. Documentation lives in the shared portal at `/docs/apps`. Creation and management links and legacy authoring routes lead to the shared developer portal. Store routes, external management links, CSP, assets/cache behavior, installer bytes and API proxy checks pass. |
 | Legacy developer URLs | `developer.teamofsilicons.com` and `developer.accounts.teamofsilicons.com` redirect to the plural shared portal, preserving the relevant management section. |
-| Silicon Accounts | Source `9b6a701479d7c4912ff1c8be9210861fa2d721b6` is active, with migration 9. The real owner `c:saket` registered Apps and completed production Google and Apps CLI login. No fixture identity or fabricated grant was used. |
+| Silicon Accounts | Source `ace71ff0a39ac7b861d8025000c25d3de4cbfdf0` is active, with migration 9. The real owner `c:saket` registered Apps and completed production Google and Apps CLI login. No fixture identity or fabricated grant was used. |
 | Upload validation | The separate x86_64 worker remains at `b2a3db8e575701575dfc283ba8bab0ed51a1cb60`, with pinned image `python@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2`. **Linux x86_64 is the only provisioned production upload target.** |
 | Worker isolation | The execution probe verified an unprivileged UID, no capabilities, no new privileges, a read-only root, no host secrets or Docker socket, and no internet or instance-metadata access. Unauthenticated worker requests return 401; the API reaches the worker privately. |
 
-The Apps API/store bundle SHA-256 is `c354691f73c119e478b3873e45d8f430ea8a910a7f2ed430889f4975cf33f1f7`; the active API executable SHA-256 is `1a76a4f0bfbaa763da287e6390ba80393d539a9974df52b25b83d827788ee62a`. SSM verification `4058ec2f-5632-42ea-8c7d-f5124af69881` confirmed the final active revision and services. The API binary is unchanged. The store now matches the common developer portal with warm ivory/charcoal surfaces, self-hosted Instrument Serif, Geist and JetBrains Mono, a compact shared-style header, and blue controls. Catalog, details, documentation, settings and install dialogs use the same light/dark visual language.
+The Apps API/store bundle SHA-256 is `857a45c0284559835bc63475659b1e0c2b111a831e7dd6cd62e6e6348f0fe454`; the active API executable SHA-256 is `1a76a4f0bfbaa763da287e6390ba80393d539a9974df52b25b83d827788ee62a`. SSM verification `5bcebb0e-9a5e-48b0-a599-0f504540874a` confirmed the final active revision and services. The API binary is unchanged. The store now matches the common developer portal with warm ivory/charcoal surfaces, self-hosted Instrument Serif, Geist and JetBrains Mono, a compact shared-style header, and blue controls. Catalog, details, documentation, settings and install dialogs use the same light/dark visual language.
 
-The Accounts/shared-portal bundle SHA-256 is `94c00500345d0cf9f9420f3e8668ce481c65c810a72d4edf36af6f3f1ee92c97`, with API executable SHA-256 `bd85e07ded69d47802f3bada4c4de1a4f88c379c16c349168f9bac0abf34de67`. Its deployment receipt and detailed recovery/verification history are in the sibling Accounts repository's `deploy/production.json` and `deploy/verification-2026-10-08.md`. Public session and PKCE checks verified the exact callback `https://developers.teamofsilicons.com/auth/callback`; the common portal's published Docs JavaScript matches its local build byte-for-byte.
+The Accounts/shared-portal bundle SHA-256 is `79d8c3d4526d8ae99feef009cdbb14ca87134c3a936e0fdc016a4952b52cea2c`, with API executable SHA-256 `d4019457215edcb6fd1565a75851f677cc6b2be82a6f5c8dc401a63569f7f28d`. Its deployment receipt and detailed recovery/verification history are in the sibling Accounts repository's `deploy/production.json` and `deploy/verification-2026-10-08.md`. Public session and PKCE checks verified the exact callback `https://developers.teamofsilicons.com/auth/callback`; the common portal's published Docs JavaScript matches its local build byte-for-byte.
 
 ## Published CLI and production catalog
 
@@ -55,7 +55,7 @@ Space Station delivery to `tos.siliconapps` is verified. A read-only post-final-
 
 - [CLI release CI](https://github.com/teamofsilicons/silicon-apps/actions/runs/37791505935) and [all nine native artifact jobs](https://github.com/teamofsilicons/silicon-apps/actions/runs/37791540306) passed at the exact CLI release source.
 - [Common-portal routing source CI](https://github.com/teamofsilicons/silicon-apps/actions/runs/37792428162) passed at `99720289095e34b32b2883fb415e84bfb43a8bde`.
-- The shared Accounts/Apps portal passed **46 browser tests and 15 frontend unit tests**; the separate Apps store passed **15 browser tests**. Production builds and frontend checks passed. Browser tests use controlled test identities and do not substitute for a completed production browser login.
+- The shared Accounts/Apps portal passed **52 browser tests and 18 frontend unit tests**; the separate Apps store passed **18 browser tests**. Production builds and frontend checks passed. Browser tests use controlled test identities and do not substitute for a completed production browser login.
 - Ignored local receipts include `.dev/production/api-final-014-verified.log`, `store-final-014-live.log`, `catalog-install-live-014.log`, `catalog-install-receipt-014.log`, `backup-restore-evidence.json`, `telemetry-post-final.log` and `telemetry-final-readonly-evidence.json`.
 - Release evidence is in `.dev/publication-summary-014.json`, `.dev/public-bootstrap-014-verification.json`, `.dev/registry-install-014-verification.json` and `.dev/release-v0.1.4/`. Public archive command results and provenance are included in the GitHub release.
 
@@ -63,10 +63,51 @@ Space Station delivery to `tos.siliconapps` is verified. A read-only post-final-
 
 - The genuine signed-in developer dashboard is verified. App-specific publishing and Accounts screens have automated browser coverage; every authenticated screen and mutation was not separately exercised against production during this rollout.
 - Exercise production private-app access with legitimate permitted and denied accounts. Local/API authorization tests do not establish that live multi-account flow.
-- Verify real-recipient mail delivery and any remaining identity-provider flows. Postmark is configured and real Google login passed; Apple login, SMS delivery and real-recipient mail remain unverified. No test email was sent during this deployment.
+- Verify remaining identity-provider and SMS flows. Real Google login and both manual verification demo email deliveries are verified; Apple login and SMS delivery remain unverified.
 - Verify startup-service behavior across an actual OS reboot, and execute the Windows bootstrap installer on a Windows host. Native command tests and isolated updater start/stop checks do not establish those results.
 - Provision and verify additional isolated target workers before enabling their production catalog uploads. The currently verified catalog target is Linux x86_64 only.
 
 The common portal now includes central App verification history at `/app-verification`, scoped to currently managed apps, with retained issuance/refresh/revocation events. Accounts user-facing labels use User verification. Public compiled assets match the release; populated history uses local integration/browser fixtures, as production has no proof records.
 
 App Sign-in setup also includes a reason-only manual account verification request for own-domain authentication, with an up-to-48-hour response estimate. Requests are durable, scoped to the signed-in manager and deduplicated while pending; each new request queues notifications to both designated team addresses. The genuine signed-in owner submitted one clearly marked demo, and both recipient mail servers accepted their respective message on the first attempt. This records requests and notifications only; it does not provision domains or grant verified status.
+
+## Shared documentation rollout
+
+The common documentation is live at https://developers.teamofsilicons.com/docs.
+All 42 Accounts pages are preserved under `/docs/accounts`; nine Apps pages live
+under `/docs/apps`, with one shared landing, search and navigation. Markdown,
+`/llms.txt` and `/llms-full.txt` include both products. The account site links to
+the shared docs; legacy Accounts pages retain their paths under the Accounts
+namespace through 308 redirects. The store links and legacy docs route point to
+the Apps namespace. No new CLI or crate release was needed for this move.
+
+Final Accounts source `ace71ff0a39ac7b861d8025000c25d3de4cbfdf0`, bundle SHA-256 `79d8c3d4526d8ae99feef009cdbb14ca87134c3a936e0fdc016a4952b52cea2c`,
+API SHA-256 `d4019457215edcb6fd1565a75851f677cc6b2be82a6f5c8dc401a63569f7f28d`, migration 9. Install SSM `325d61b3-4e54-4c00-8794-e2dde32311f8` and verification
+`bb16fe14-4621-4ca0-8265-2ad3ca1415ad` confirm the exact release, six active services/timers, readiness and
+continued anonymous denials on protected verification APIs. The existing demo
+request and two notification records remain; no request or email was sent by this
+rollout. Backup `backups/predeploy-20261008T162902Z.dump`, SHA-256 `540c6f4ae333ecbb29004300b669ca4d60e388f2a3b7c67aebe78ecd6dd54f8a`, was uploaded;
+previous restore evidence remains separate.
+
+Apps source `0f41edef91d6de61a3770d2f791a4e352a35f2ae` supplies the store links and
+Caddy redirects. Bundle SHA-256 is
+`857a45c0284559835bc63475659b1e0c2b111a831e7dd6cd62e6e6348f0fe454`.
+Its API binary and worker are unchanged. Install `679b906f-4b26-4de3-9079-e66c87e2d7d1` and verification
+`5bcebb0e-9a5e-48b0-a599-0f504540874a` confirm the release, services, catalog and database integrity.
+
+Validation passed: 884 Rust tests (three existing ignored), frontend typechecks,
+lint and builds, 18 developer unit tests, four account-site redirect tests,
+52 developer browser tests and 18 store browser tests. The initial live crawl
+found that Next normalized the standalone listener's 127.0.0.1 origin to localhost,
+causing an internal missing-page rewrite to attempt TLS to the HTTP listener.
+The final release enables the supported `skipProxyUrlNormalize` flag and preserves
+raw origins for rewrites/relative legacy redirects. A new standalone regression
+passes 22 route/header combinations with production Host/forwarded-HTTPS headers,
+including valid pages, unknown-page 404s, Markdown, aliases, CSP and HSTS.
+
+The final live crawl checked all 52 pages, 663 search records,
+5166 rendered internal links, raw Markdown/LLM exports,
+canonical metadata, legacy redirects and metadata/discovery documentation URLs.
+Production IAB verification showed the shared landing and search results from both
+products. Local visual checks covered light/dark at 320/1440 px and mobile theme
+switching; the store's public browser/CSP/assets/installer/API checks also passed.
