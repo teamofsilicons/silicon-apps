@@ -1,6 +1,16 @@
 # The current symlink selects one immutable release containing web/ and bin/.
-# Move Accounts' developer portal before pointing its former domain at this host.
-apps.teamofsilicons.com, developer.teamofsilicons.com {
+# The shared developer frontend lives with Accounts at developers.teamofsilicons.com.
+developer.teamofsilicons.com {
+	@oldApp path_regexp oldApp ^/developer/apps/([a-z0-9_-]+)$
+	redir @oldApp https://developers.teamofsilicons.com/apps/{re.oldApp.1}/publishing?{query} 308
+	@oldRoot path /developer /developer/
+	redir @oldRoot https://developers.teamofsilicons.com/ 308
+	@oldInvites path /developer/invitations
+	redir @oldInvites https://developers.teamofsilicons.com/invitations 308
+	redir https://developers.teamofsilicons.com{uri} 308
+}
+
+apps.teamofsilicons.com {
 	encode zstd gzip
 	header {
 		X-Content-Type-Options nosniff
@@ -10,6 +20,12 @@ apps.teamofsilicons.com, developer.teamofsilicons.com {
 		Strict-Transport-Security "max-age=31536000"
 		-Server
 	}
+	@manageApp path_regexp manageApp ^/developer/apps/([a-z0-9_-]+)$
+	redir @manageApp https://developers.teamofsilicons.com/apps/{re.manageApp.1}/publishing?{query} 308
+	@manageRoot path /developer /developer/
+	redir @manageRoot https://developers.teamofsilicons.com/ 308
+	@manageInvites path /developer/invitations
+	redir @manageInvites https://developers.teamofsilicons.com/invitations 308
 
 	@api path /v1 /v1/* /health
 	handle @api {

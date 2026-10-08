@@ -6,10 +6,14 @@ public address, private versioned artifact storage, scoped instance roles and
 SSM administration. There are no inbound SSH rules. Only the API host can reach
 the worker port. The worker cannot read the API's Accounts credentials.
 
-The API serves the store and developer platform through Caddy. The Accounts
-service owns sign-in, email delivery and account updates. Register the `apps`
+The API serves the store through Caddy at `apps.teamofsilicons.com`. The common
+Apps and Accounts developer frontend remains in `silicon-accounts/developer`
+and runs on the Accounts host at `developers.teamofsilicons.com`. It preserves
+Accounts configuration and adds Apps authoring within the same app workspace;
+it does not serve store discovery. The Accounts service owns sign-in, email
+delivery and account updates. Register the `apps`
 application against an existing, verified Carbon owner, including both callback
-URLs in `README.md`. Do not create an account or verify an email as a shortcut to
+URLs in the operations guide. Do not create an account or verify an email as a shortcut to
 registration. An authenticated owner is also required to publish the CLI in the
 Apps catalog; publishing GitHub archives alone does not publish a catalog app.
 
@@ -59,10 +63,13 @@ and forwarding contracts in `runner/README.md`.
 
 ## DNS and verification
 
-Move the prior Accounts developer portal to its new origin and validate its
-registered callbacks before moving `developer.teamofsilicons.com` to Apps. Keep
-all unrelated DNS records, including mail records. Both public Apps domains point
-to the API host's stable address. Caddy obtains and renews their certificates.
+Point `apps.teamofsilicons.com` to the Apps API host and
+`developers.teamofsilicons.com` to the Accounts host serving the common developer
+frontend. Preserve all unrelated DNS records, including mail records. Update
+the developer application's registered callback to the plural origin before
+cutover, retaining old callbacks while existing flows finish. The singular
+`developer.teamofsilicons.com` and old store `/developer` paths redirect to the
+shared portal. Caddy obtains and renews the certificates.
 
 Before accepting traffic:
 
@@ -71,8 +78,8 @@ Before accepting traffic:
 - Run `deploy/verify-worker.py` on the worker with a checksum-verified release
   archive. It runs all three discovery commands inside the sandbox, retains
   their exact output and verifies unauthenticated requests return 401.
-- Run `node web/scripts/verify-production.mjs https://apps.teamofsilicons.com
-  https://developer.teamofsilicons.com` and complete a real Accounts login.
+- Run `node web/scripts/verify-production.mjs https://apps.teamofsilicons.com`,
+  the common developer frontend checks, and a real Accounts login.
 - Publish via the authenticated author API/CLI, check anonymous public discovery
   and private access denial, and install from a fresh isolated client home.
 - Verify hourly backups and a restore into a separate scratch directory before

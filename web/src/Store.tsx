@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { api, login, useMutation, useResource } from "./api";
 import { useSession } from "./context";
+import { developerUrl } from "./portal";
 import type { App, Review } from "./types";
 import { targetLabel } from "./types";
 import {
@@ -156,9 +157,9 @@ export function Store() {
                   Clear search
                 </Button>
               ) : (
-                <Link className="link-button" to="/developer">
+                <a className="link-button" href={developerUrl()}>
                   Create your first app <ArrowRight size={16} />
-                </Link>
+                </a>
               )
             }
           />
@@ -201,9 +202,9 @@ export function Store() {
           <h2>Made something useful?</h2>
           <p>Give your app a home. Publish when you’re ready.</p>
         </div>
-        <Link to="/developer" className="link-button">
+        <a href={developerUrl()} className="link-button">
           Open developer platform <ArrowRight size={16} />
-        </Link>
+        </a>
       </section>
     </>
   );
@@ -251,12 +252,12 @@ export function AppDetail() {
         </div>
         <div className="row">
           {a.is_author && (
-            <Link
-              to={`/developer/apps/${a.app_id}`}
+            <a
+              href={developerUrl(`/apps/${a.app_id}/publishing`)}
               className="link-button secondary"
             >
               Manage app
-            </Link>
+            </a>
           )}
           <Button onClick={() => setInstall(true)}>
             <Download size={17} /> Install app

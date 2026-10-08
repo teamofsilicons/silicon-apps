@@ -65,7 +65,7 @@ try {
     for (const [path, heading] of [
       ["/store", "Explore apps"],
       ["/docs", "A good place to start"],
-      ["/developer", "Your apps"],
+      ["/settings", "Settings"],
     ]) {
       await page.goto(origin + path);
       await page.getByRole("heading", { name: heading, exact: true }).waitFor();
@@ -80,15 +80,15 @@ try {
       }
     }
     await page.goto(origin + "/");
-    await page.waitForURL(
-      new URL(origin).hostname.startsWith("developer.")
-        ? "**/developer"
-        : "**/store",
-    );
+    await page.waitForURL("**/store");
+    assert.equal(await page.getByRole("link", { name: "Developers", exact: true }).getAttribute("href"), "https://developers.teamofsilicons.com/");
+    const management = await fetch(origin + "/developer/apps/apps?step=3", { redirect: "manual" });
+    assert.equal(management.status, 308);
+    assert.equal(management.headers.get("location"), "https://developers.teamofsilicons.com/apps/apps/publishing?step=3");
     assert.deepEqual(errors, []);
     await page.close();
     console.log(
-      `${origin}: compiled routes, CSP, assets/cache, installer bytes, API proxy and hostname landing route verified.`,
+      `${origin}: store routes, external management links, CSP, assets/cache, installer bytes and API proxy verified.`,
     );
   }
 } finally {

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { developerUrl } from "./portal";
 import { ArrowUpRight } from "lucide-react";
 import { Command, PageTitle, Section } from "./ui";
 
@@ -21,7 +21,11 @@ export function Docs() {
           <Command value="bash install-apps.sh --version 0.1.3 --server https://apps.teamofsilicons.com" />
           <h3>Windows PowerShell</h3>
           <Command value="Invoke-WebRequest -Uri https://apps.teamofsilicons.com/install.ps1 -OutFile install-apps.ps1" />
-          <Command value={"powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-apps.ps1 -Version 0.1.3 -Server https://apps.teamofsilicons.com"} />
+          <Command
+            value={
+              "powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-apps.ps1 -Version 0.1.3 -Server https://apps.teamofsilicons.com"
+            }
+          />
           <p>
             The PowerShell policy option applies only to this installer process.
             Add the directory printed by the installer to PATH before using
@@ -37,9 +41,10 @@ export function Docs() {
           </p>
           <p>
             The initial Apps catalog release for Apps itself supports Linux x64.
-            On other platforms, use the installers above; <code>apps install apps</code>
-            {" "}cannot yet find a matching catalog package. GitHub downloads are
-            available for all nine supported platforms.
+            On other platforms, use the installers above;{" "}
+            <code>apps install apps</code> cannot yet find a matching catalog
+            package. GitHub downloads are available for all nine supported
+            platforms.
           </p>
           <a
             href="https://github.com/teamofsilicons/silicon-apps/releases/tag/v0.1.3"
@@ -98,9 +103,9 @@ export function Docs() {
           </p>
           <Command value="apps setup ring details --description-file description.txt --tags tools,productivity" />
           <Command value="apps setup ring access --visibility public" />
-          <Link to="/developer" className="link-button">
+          <a href={developerUrl()} className="link-button">
             Open developer platform <ArrowUpRight size={15} />
-          </Link>
+          </a>
         </Section>
         <Section title="Prepare a package">
           <p>

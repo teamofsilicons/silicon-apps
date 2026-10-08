@@ -11,34 +11,27 @@ import {
   useNavigate,
   useBlocker,
 } from "react-router-dom";
-import {
-  ArrowUpRight,
-  BookOpen,
-  Code2,
-  Grid2X2,
-  Mail,
-  Menu,
-  Settings as SettingsIcon,
-  Terminal,
-  X,
-} from "lucide-react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import { flushPendingSaves, hasPendingSaves, login, useResource } from "./api";
 import { SessionContext } from "./context";
 import type { Account } from "./types";
-import { AppWorkspace, Developer } from "./Developer";
 import { Docs } from "./Docs";
-import { Invitations } from "./Management";
+import { developerUrl, legacyDeveloperUrl } from "./portal";
 import { AppDetail, Store } from "./Store";
 import { Settings, telemetry } from "./Settings";
-import {
-  Button,
-  Command,
-  Empty,
-  ErrorNotice,
-  IconLogo,
-  PageTitle,
-  Section,
-} from "./ui";
+import { Button, Empty, ErrorNotice, IconLogo } from "./ui";
+function DeveloperRedirect() {
+  const location = useLocation();
+  const destination = legacyDeveloperUrl(location.pathname, location.search);
+  useEffect(() => {
+    window.location.replace(destination);
+  }, [destination]);
+  return (
+    <p>
+      Opening the developer portal… <a href={destination}>Continue</a>
+    </p>
+  );
+}
 function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -67,7 +60,6 @@ function Shell() {
       active = false;
     };
   }, [blocker]);
-  const developer = location.pathname.startsWith("/developer");
   const account = session.data?.account || null;
   useEffect(() => {
     document.documentElement.dataset.theme =
@@ -76,9 +68,9 @@ function Shell() {
   useEffect(() => {
     setMobile(false);
     window.scrollTo(0, 0);
-    document.title = developer ? "Silicon Apps · Developer" : "Silicon Apps";
+    document.title = "Silicon Apps";
     void telemetry("page_view", { path: location.pathname });
-  }, [location.pathname, developer]);
+  }, [location.pathname]);
   const handleNavigation = (event: MouseEvent<HTMLDivElement>) => {
     if (
       event.button !== 0 ||
@@ -129,11 +121,10 @@ function Shell() {
               <span>
                 Silicon <span className="brand-light">Apps</span>
               </span>
-              {developer && <span className="developer-label">Developer</span>}
             </Link>
             <nav className="desktop-nav" aria-label="Main navigation">
               <NavLink to="/store">Discover</NavLink>
-              <NavLink to="/developer">Developers</NavLink>
+              <a href={developerUrl()}>Developers</a>
               <NavLink to="/docs">Docs</NavLink>
             </nav>
             <div className="header-account">
@@ -169,33 +160,13 @@ function Shell() {
           {mobile && (
             <nav className="mobile-nav" aria-label="Mobile navigation">
               <Link to="/store">Discover apps</Link>
-              <Link to="/developer">Your apps</Link>
-              <Link to="/developer/invitations">Invitations</Link>
+              <a href={developerUrl()}>Developer portal</a>
               <Link to="/docs">Docs</Link>
               <Link to="/settings">Settings</Link>
             </nav>
           )}
         </header>
-        {developer && (
-          <div className="developer-subnav">
-            <div>
-              <NavLink to="/developer" end>
-                <Grid2X2 size={15} /> Your apps
-              </NavLink>
-              <NavLink to="/developer/invitations">
-                <Mail size={15} /> Invitations
-              </NavLink>
-              <NavLink to="/settings">
-                <SettingsIcon size={15} /> Settings
-              </NavLink>
-            </div>
-          </div>
-        )}
-        <main
-          id="main"
-          className={`main-container ${developer ? "developer-container" : ""}`}
-          tabIndex={-1}
-        >
+        <main id="main" className="main-container" tabIndex={-1}>
           <ErrorNotice error={navigationError} />
           {session.error && (
             <div className="session-notice">
@@ -203,24 +174,10 @@ function Shell() {
             </div>
           )}
           <Routes>
-            <Route
-              path="/"
-              element={
-                <Navigate
-                  to={
-                    window.location.hostname.startsWith("developer.")
-                      ? "/developer"
-                      : "/store"
-                  }
-                  replace
-                />
-              }
-            />
+            <Route path="/" element={<Navigate to="/store" replace />} />
             <Route path="/store" element={<Store />} />
             <Route path="/store/:appId" element={<AppDetail />} />
-            <Route path="/developer" element={<Developer />} />
-            <Route path="/developer/apps/:appId" element={<AppWorkspace />} />
-            <Route path="/developer/invitations" element={<Invitations />} />
+            <Route path="/developer/*" element={<DeveloperRedirect />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/docs" element={<Docs />} />
             <Route
@@ -245,7 +202,7 @@ function Shell() {
             <span>For Carbons and Silicons.</span>
           </div>
           <nav aria-label="Footer">
-            <Link to="/developer">Build an app</Link>
+            <a href={developerUrl()}>Build an app</a>
             <Link to="/docs">Documentation</Link>
             <Link to="/settings">Settings</Link>
           </nav>

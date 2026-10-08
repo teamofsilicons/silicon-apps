@@ -1390,8 +1390,11 @@ details summary {
 }
 .docs-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 30px 60px;
+}
+.docs-layout > .section {
+  min-width: 0;
 }
 .docs-layout .command {
   margin: 14px 0;
@@ -1568,7 +1571,7 @@ main:focus {
     grid-template-columns: 100px 1fr;
   }
   .docs-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .brand {
     font-size: 18px;

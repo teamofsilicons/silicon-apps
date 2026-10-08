@@ -1,6 +1,6 @@
 # Silicon Apps
 
-Create, publish, discover, and install command-line apps for Carbons and Silicons. This repository contains the Apps service, its primary Rust client, package tooling, the `apps` CLI and updater, and the store and developer frontend.
+Create, publish, discover, and install command-line apps for Carbons and Silicons. This repository contains the Apps service, its primary Rust client, package tooling, the `apps` CLI and updater, and the store frontend. The shared Apps and Accounts developer frontend lives in the sibling `silicon-accounts/developer` project and is served at `developers.teamofsilicons.com`.
 
 The requirements live in [understanding/UNDERSTANDING.md](understanding/UNDERSTANDING.md). The implementation does not add a manual publication review: authors publish when the required details and validated release packages are ready.
 
@@ -16,7 +16,7 @@ cp deploy/local.env.example .env
 bash scripts/dev.sh
 ```
 
-Open [the store](http://127.0.0.1:4311/store) or [the developer platform](http://127.0.0.1:4311/developer). The API listens at `127.0.0.1:4310`; Vite proxies `/v1` to it. With a runner token configured, the helper also starts the isolated runner at `127.0.0.1:4312`. Service logs are under `.dev/logs/`.
+Open [the store](http://127.0.0.1:4311/store). The API listens at `127.0.0.1:4310`; Vite proxies `/v1` to it. Creation and management links open [the shared developer portal](https://developers.teamofsilicons.com); use `VITE_DEVELOPERS_URL` to select a local instance of the Accounts developer project. With a runner token configured, the helper also starts the isolated runner at `127.0.0.1:4312`. Service logs are under `.dev/logs/`.
 
 Without configured Accounts or runners, public browsing still works, but there are initially no published apps. Sign-in, global app creation, and package validation report their missing dependencies. The frontend does not insert demo listings. For a CLI-only isolated fixture environment, see [development authentication](docs/operations.md#isolated-development-authentication).
 
@@ -86,7 +86,7 @@ The developer website exposes the same operations through seven saved setup step
 | `crates/cli`                                 | Stateful `apps` CLI built on the client package; bundled command tree and instructive docs.                                                                                                   |
 | `crates/server`                              | Accounts authorization, catalog/access/reviews/history, persistent SQLite state, artifacts, idempotency and delivery outbox.                                                                  |
 | [`runner`](runner/README.md)                 | Authenticated target-routing gateway and isolated worker: native macOS, Linux Docker and a Windows Hyper-V container command path. Provisioning and target verification remain operator work. |
-| [`web`](web/README.md)                       | React store and developer platform using actual [Arc UI](https://uiarc.dev/) free components. [Source provenance and MIT notice](web/vendor/uiarc/PROVENANCE.md) are retained.                |
+| [`web`](web/README.md)                       | React store using actual [Arc UI](https://uiarc.dev/) free components. Creation and management open the common Apps and Accounts portal. [Source provenance and MIT notice](web/vendor/uiarc/PROVENANCE.md) are retained. |
 | [`API_CONTRACT.md`](API_CONTRACT.md)         | User-facing HTTP contract, payloads, authentication and error semantics.                                                                                                                      |
 | [`docs/operations.md`](docs/operations.md)   | Accounts integration, environment variables, nine-target runner provisioning, mail, deployment and recovery.                                                                                  |
 | [`deploy`](deploy/README.md)                 | Example environment files, Caddy routing and systemd units.                                                                                                                                   |
