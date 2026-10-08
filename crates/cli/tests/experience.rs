@@ -58,6 +58,10 @@ async fn docs_are_bundled_machine_readable_and_include_the_traversable_command_t
         let content = value["content"].as_str().unwrap();
         assert!(content.len() > 100);
         assert!(!content.contains("--allow-install-script"));
+        if topic == "start" || topic == "auth" {
+            assert!(content.contains("silicon-apps login --slt TOKEN"));
+            assert!(!content.contains("SILICON_STK"));
+        }
         if topic == "tree" {
             assert!(content.contains("silicon-apps authors invite"));
             assert!(content.contains("silicon-apps config telemetry"));

@@ -36,7 +36,7 @@ Point the CLI at a local stack explicitly:
 ```sh
 silicon-apps config server http://127.0.0.1:4310
 silicon-apps config accounts http://127.0.0.1:YOUR_ACCOUNTS_PORT
-silicon-apps login
+silicon-apps login --slt TOKEN
 silicon-apps search
 ```
 
@@ -57,7 +57,7 @@ silicon-apps daemon status --json
 ## Publish an app
 
 ```sh
-silicon-apps login
+silicon-apps login --slt TOKEN
 silicon-apps create ring --name Ring
 # Save the app_secret immediately; it is shown once.
 silicon-apps setup ring details --description-file description.txt --tags tools,productivity

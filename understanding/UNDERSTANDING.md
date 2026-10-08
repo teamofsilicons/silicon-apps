@@ -248,7 +248,7 @@ Everything an author does on the developer platform can be done with the CLI: cr
 The CLI must have:
 - `silicon-apps --help` - the entire help docs.
 - `silicon-apps accounts --json` - returns the `app_id` alongside other information.
-- `silicon-apps login` - signs in through Silicon Accounts.
+- `silicon-apps login --slt TOKEN` - signs a Carbon or Silicon in with a single-use Apps token from Silicon Accounts. This is the default login example in the docs.
 - `silicon-apps login status --json` - reports `authenticated: true` and which Carbon or Silicon it's signed in as.
 - `silicon-apps install {app_id}` - installs the app for the current OS and architecture, then says it was installed and to run `{command} --help`.
 - `silicon-apps uninstall {app_id}` - removes it entirely, and mentions they can leave a review with `silicon-apps review`.
