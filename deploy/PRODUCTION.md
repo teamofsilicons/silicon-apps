@@ -50,7 +50,8 @@ contains only its runner token. Configure a dedicated Space Station table key
 for telemetry. Mail defaults to the official Accounts integration.
 
 Initially this installer provisions `linux-x86_64` execution only. It pulls
-Ubuntu 24.04 and pins its resolved immutable image digest. Set
+the official `python:3.14-slim-trixie` runtime (including CA certificates) and
+pins its resolved immutable image digest. Set
 `APPS_RUNNER_TARGETS` only to execution environments that have actually been
 deployed and verified. Other native release archives do not imply other upload
 workers exist. Additional Linux, macOS and Windows workers follow the isolation
@@ -81,7 +82,9 @@ Before accepting traffic:
 
 The installer configures an hourly systemd backup timer. `backup.py` uses
 SQLite's backup API and an integrity check, then includes immutable package and
-media objects in a private S3 archive. It refuses to create an empty database
+media objects in a private S3 archive. It selects only committed hash-named
+objects and MIME sidecars, skipping temporary uploads before inspecting files.
+Duplicate uploads never replace committed objects. It refuses to create an empty database
 when the source is absent. The stack retains the bucket and host data volumes;
 backup objects expire after 14 days.
 
