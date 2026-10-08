@@ -158,6 +158,8 @@ async fn developer_portal_tokens_manage_owned_apps_but_not_store_actions_or_othe
     };
     let active = Arc::new(AtomicBool::new(true));
     let current = active.clone();
+    let mismatched_profile = Arc::new(AtomicBool::new(false));
+    let mismatched = mismatched_profile.clone();
     let key = SigningKey::from_bytes(&[9u8; 32]);
     let x = URL_SAFE_NO_PAD.encode(key.verifying_key().to_bytes());
     let provider = Router::new()
@@ -167,6 +169,9 @@ async fn developer_portal_tokens_manage_owned_apps_but_not_store_actions_or_othe
                 return (StatusCode::UNAUTHORIZED, Json(json!({"error":{"code":"invalid_token","message":"Token family revoked"}}))).into_response();
             }
             Json(json!({"uuid":"alice","kind":"carbon","id":"c:alice","display_name":"Alice"})).into_response()
+        }}))
+        .route("/v1/me", get(move || {let mismatched=mismatched.clone();async move {
+            Json(json!({"uuid":if mismatched.load(Ordering::SeqCst) {"bob"} else {"alice"},"kind":"carbon","id":"c:alice","emails":[{"email":"alice@secondary.example","verified_at":"2026-10-08T00:00:00Z"},{"email":"unverified@example.com"}]}))
         }}))
         .route("/v1/internal/apps", get(|| async {Json(json!({"apps":[]}))}))
         .route("/v1/internal/apps/sync", axum::routing::post(|| async {Json(json!({"status":"ok"}))}));
@@ -180,6 +185,30 @@ async fn developer_portal_tokens_manage_owned_apps_but_not_store_actions_or_othe
     cfg.accounts_service_token = Some("test-service-token".into());
     let state = AppState::new(cfg).unwrap();
     seed_private(&state);
+    {
+        let store = state.store.lock().unwrap();
+        let mut catalog = store.catalog().unwrap();
+        for (id, to) in [
+            ("secondary-invite", "alice@secondary.example"),
+            ("unverified-invite", "unverified@example.com"),
+        ] {
+            catalog.invites.push(Invite {
+                id: id.into(),
+                app_id: "secret-app".into(),
+                to: to.into(),
+                account_uuid: None,
+                status: "pending".into(),
+                created_at: now(),
+            });
+        }
+        store
+            .connection
+            .execute(
+                "UPDATE catalog SET document=?1 WHERE id=1",
+                [serde_json::to_string(&catalog).unwrap()],
+            )
+            .unwrap();
+    }
     let app = router(state.clone());
     let now = chrono::Utc::now().timestamp();
     let token = signed(&key, &issuer, "developer", now + 600);
@@ -193,6 +222,17 @@ async fn developer_portal_tokens_manage_owned_apps_but_not_store_actions_or_othe
         let (status, body) = call(&app, "GET", path, Some(&token), json!({}), None).await;
         assert_eq!(status, 200, "{path}: {body}");
     }
+    let (status, body) = call(&app, "GET", "/v1/me", Some(&token), json!({}), None).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["verified_emails"], json!(["alice@secondary.example"]));
+    let (status, body) = call(&app, "GET", "/v1/invites", Some(&token), json!({}), None).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["items"].as_array().unwrap().len(), 1);
+    assert_eq!(body["items"][0]["id"], "secondary-invite");
+    mismatched_profile.store(true, Ordering::SeqCst);
+    let (status, body) = call(&app, "GET", "/v1/invites", Some(&token), json!({}), None).await;
+    assert_eq!(status, 401, "{body}");
+    mismatched_profile.store(false, Ordering::SeqCst);
     let (status, body) = call(
         &app,
         "PATCH",

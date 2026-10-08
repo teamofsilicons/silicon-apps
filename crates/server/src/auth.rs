@@ -265,17 +265,38 @@ async fn verified_identity(
     if user.uuid != claims.sub {
         return Err(ApiError::auth());
     }
-    Ok(Some(Identity {
-        uuid: user.uuid,
-        id: user.id,
-        display_name: user.display_name,
-        verified_emails: info.verified_emails.unwrap_or_else(|| {
+    let verified_emails = if claims.aud == ["developer"] {
+        // The first-party portal already has permission to read its own full
+        // profile. Use that contract for email invitations even when the OAuth
+        // userinfo view contains only profile scope. Never broaden Apps grants.
+        let me = s
+            .accounts
+            .with_token(token)
+            .me()
+            .await
+            .map_err(accounts_error)?;
+        if me.uuid != claims.sub {
+            return Err(ApiError::auth());
+        }
+        me.emails
+            .into_iter()
+            .filter(|email| email.verified_at.is_some())
+            .map(|email| email.email)
+            .collect()
+    } else {
+        info.verified_emails.unwrap_or_else(|| {
             if user.email_verified == Some(true) {
                 user.email.into_iter().collect()
             } else {
                 vec![]
             }
-        }),
+        })
+    };
+    Ok(Some(Identity {
+        uuid: user.uuid,
+        id: user.id,
+        display_name: user.display_name,
+        verified_emails,
     }))
 }
 pub async fn handle_auth(
