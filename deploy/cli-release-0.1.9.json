@@ -1,0 +1,47 @@
+{
+  "version": "0.1.9",
+  "app_id": "silicon-apps",
+  "source_revision": "e0e5caf89dfaf15953506b0742cf62d2fe7bd4eb",
+  "ci": "https://github.com/teamofsilicons/silicon-apps/actions/runs/37854663546",
+  "native_builds": "https://github.com/teamofsilicons/silicon-apps/actions/runs/37854663015",
+  "release": "https://github.com/teamofsilicons/silicon-apps/releases/tag/v0.1.9",
+  "targets": 9,
+  "assets_verified": 33,
+  "client_crate": "0.1.7",
+  "catalog_target": "linux-x86_64",
+  "catalog_sha256": "df5ffe7622e7a60f8257ed889ed6eb88db386a8815840370f3bc440c8a299f83",
+  "catalog_install_ssm": "c41ad415-9b82-41dc-b40c-ac6d14c79d0c",
+  "catalog_install_evidence_sha256": "6e3cd05025ffb95d381b031f6d7d364082009a74b8e10131a1478d262057bb23",
+  "accounts_id_migration_revision": "5e1e3aa44c0daf51f90dc861d6d3603d397f7722",
+  "preservation": {
+    "accounts": {
+      "app": "a1433dcc68f5921f4ec074cb02b51bc1",
+      "config": "b568372d929158880938f0a3dcf13baa",
+      "membership": "fc0370aea20a846bf13d93ad13d52525",
+      "authors": "1cab22f7c576d0a6892c389982f2416b",
+      "requests": "d4251f449b5deb6a6d219670218d56c1",
+      "notifications": "3cfefad21041dc7f7236d77df8bb2193",
+      "active_apps_sessions": 1
+    },
+    "apps": {
+      "catalog_data": "6c97c7fcbbe31ee88ad55522dad409341763091bec0cc8757896b1b4f7d8c8c7",
+      "app_count": 1
+    },
+    "identical": true
+  },
+  "checks": [
+    "official app ID migration and rollback tests",
+    "full workspace and installer tests",
+    "all GitHub CI jobs",
+    "nine executable archive checks",
+    "33 published asset digests",
+    "live catalog resolve and download",
+    "native Linux catalog install and update check",
+    "two public macOS reinstalls",
+    "fresh zsh PATH",
+    "graceful updater stop and restart",
+    "live saved-session audience and hosted login app ID",
+    "signed-in developer portal canonical ID"
+  ],
+  "verified_at": "2026-10-08T22:53:18.678867+00:00"
+}
