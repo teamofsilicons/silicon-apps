@@ -1,0 +1,2 @@
+// Apply the saved appearance before the body paints. Kept external for the store CSP.
+(function(){var p="system";try{var s=localStorage.getItem("apps.theme");if(s==="light"||s==="dark"||s==="system")p=s}catch(e){}var d=p==="dark"||(p==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=d?"dark":"light";document.documentElement.style.colorScheme=d?"dark":"light"})();
