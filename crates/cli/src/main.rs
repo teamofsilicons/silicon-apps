@@ -7,6 +7,8 @@ use std::{
     path::PathBuf,
 };
 
+const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  apps search terminal\n  apps install briefcase\n  apps login\n  apps create ring --name Ring\n  apps setup ring details --description-file description.txt\n  apps validate ./package\n  apps pack ./package --output ring.tar.gz\n  apps upload ring --target macos-aarch64 ring.tar.gz\n  apps release ring --version 0.1.0 --package PACKAGE_ID\n  apps promote ring RELEASE_ID --version 1.0.0\n  apps publish ring\n\nTraverse every branch with --help. `apps docs` includes the complete guide;\n`apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Only isolated server runners\nexecute upload validation. Local install scripts require --allow-install-script.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://apps.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
 
 #[derive(Parser)]
@@ -351,7 +353,9 @@ async fn main() {
         }
     };
     let json_output = cli.json;
-    match execute(&cli).await {
+    // The command future contains every operation's state; keep it off Windows' 1 MiB
+    // main stack so rendering a nested help tree has enough stack in debug builds too.
+    match Box::pin(execute(&cli)).await {
         Ok(value) => {
             let failed = failed_result(&value);
             if !value.is_null() {
@@ -392,7 +396,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
     }
     if let Command::Accounts = &cli.command {
         return Ok(
-            json!({"app_id":apps::APP_ID,"version":apps::VERSION,"accounts_url":cli.accounts_url.as_deref().unwrap_or("https://accounts.teamofsilicons.com"),"client":"silicon-accounts-client"}),
+            json!({"app_id":apps::APP_ID,"version":CLI_VERSION,"accounts_url":cli.accounts_url.as_deref().unwrap_or("https://accounts.teamofsilicons.com"),"client":"silicon-accounts-client"}),
         );
     }
     let state = LocalState::discover(cli.home.as_deref())?;
@@ -953,7 +957,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
         "command_completed",
         "complete",
         1.0,
-        json!({"os":std::env::consts::OS,"architecture":std::env::consts::ARCH}),
+        json!({"os":std::env::consts::OS,"architecture":std::env::consts::ARCH,"cli_version":CLI_VERSION,"client_version":apps::VERSION}),
     );
     Ok(result)
 }
@@ -977,18 +981,21 @@ fn confirm(message: &str) -> Result<bool> {
 }
 fn bundled_docs(topic: &str) -> String {
     if topic == "tree" {
-        fn walk(mut command: clap::Command, prefix: String, output: &mut String) {
+        // A recursive walk retains complete parent command trees on the stack. On
+        // Windows debug builds that can exhaust the default 1 MiB process stack.
+        let mut pending = vec![(Cli::command(), "apps".to_owned())];
+        let mut output = String::new();
+        while let Some((mut command, prefix)) = pending.pop() {
             output.push_str(&format!(
                 "\n=== {prefix} ===\n{}\n",
                 command.render_long_help()
             ));
-            for child in command.get_subcommands().cloned().collect::<Vec<_>>() {
+            let children = command.get_subcommands().cloned().collect::<Vec<_>>();
+            for child in children.into_iter().rev() {
                 let name = child.get_name().to_owned();
-                walk(child, format!("{prefix} {name}"), output);
+                pending.push((child, format!("{prefix} {name}")));
             }
         }
-        let mut output = String::new();
-        walk(Cli::command(), "apps".into(), &mut output);
         return output;
     }
     apps::docs::guide(topic).into()

@@ -44,7 +44,7 @@ def main():
         command_results = []
         def run(arguments):
             result = subprocess.run(runner + [str(binary)] + arguments, env=environment,
-                                    capture_output=True, text=True, timeout=45, check=False)
+                                    capture_output=True, text=True, encoding='utf-8', timeout=45, check=False)
             command_results.append({'argv': arguments, 'exit_code': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
             if result.returncode != 0:
                 raise SystemExit(f'{arguments!r} failed ({result.returncode}): {result.stderr}\n{result.stdout}')

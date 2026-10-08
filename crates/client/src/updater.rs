@@ -691,7 +691,7 @@ mod tests {
         state.initialize().unwrap();
         fs::write(state.root.join("bin/apps.cmd"), "current command").unwrap();
         let body = windows_service_document(&state, Path::new("runtime/old/apps.exe"));
-        assert!(body.contains("bin/apps.cmd"));
+        assert!(body.contains("bin/apps.cmd") || body.contains(r"bin\apps.cmd"));
         assert!(body.contains("daemon run --detached"));
         assert!(!body.contains("runtime/old"));
     }

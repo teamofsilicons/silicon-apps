@@ -247,3 +247,33 @@ async fn unix_daemon_self_update_executes_new_binary_with_same_supervised_pid() 
     );
     server.abort();
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn complete_help_tree_fits_the_windows_default_process_stack() {
+    let home = tempfile::tempdir().unwrap();
+    let output = Command::new("sh")
+        .args([
+            "-c",
+            "ulimit -s 1024; exec \"$1\" --json docs tree",
+            "apps-small-stack",
+        ])
+        .arg(env!("CARGO_BIN_EXE_apps"))
+        .env("SILICON_HOME", home.path())
+        .output()
+        .await
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "help tree failed on 1 MiB stack: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let guide: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(guide["topic"], "tree");
+    assert!(
+        guide["content"]
+            .as_str()
+            .unwrap()
+            .contains("apps authors invite")
+    );
+}
