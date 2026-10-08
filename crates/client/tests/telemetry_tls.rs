@@ -31,6 +31,10 @@ fn probe(name: &str, preserve: bool) {
         ] {
             let path = home.join("probe.sock");
             eprintln!(
+                "{label} missing parent connect: {:?}",
+                uds_windows::UnixStream::connect(home.join("missing").join("probe.sock"))
+            );
+            eprintln!(
                 "{label} missing connect: {:?}",
                 uds_windows::UnixStream::connect(&path)
             );

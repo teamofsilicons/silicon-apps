@@ -670,8 +670,15 @@ pub fn telemetry(
     // transport requires a process provider when both are linked. Retain the
     // provider already selected by an embedding application.
     let _ = rustls::crypto::ring::default_provider().install_default();
+    // Windows AF_UNIX reports NetworkDown when a socket parent is missing.
+    // Create the intended home before the SDK probes for its local daemon;
+    // the SDK applies its private ACL before writing the credential spool.
+    #[cfg(windows)]
+    if fs::create_dir_all(state.root.join("telemetry")).is_err() {
+        return;
+    }
     if let Ok(client) = space_station::SpaceClient::builder(&key)
-        .home(telemetry_home(&state.root))
+        .home(state.root.join("telemetry"))
         .url(
             std::env::var("SPACE_STATION_URL")
                 .unwrap_or_else(|_| space_station::DEFAULT_URL.into()),
@@ -685,46 +692,9 @@ pub fn telemetry(
     }
 }
 
-fn telemetry_home(root: &Path) -> std::path::PathBuf {
-    let home = root.join("telemetry");
-    #[cfg(windows)]
-    {
-        use std::path::{Component, Prefix};
-        // AF_UNIX expects a Win32 path, while canonicalize returns a verbatim
-        // disk path. Both spellings address the same local storage directory.
-        let mut components = home.components();
-        if let Some(Component::Prefix(prefix)) = components.next()
-            && let Prefix::VerbatimDisk(drive) = prefix.kind()
-        {
-            let mut normalized = std::path::PathBuf::from(format!("{}:\\", drive as char));
-            normalized.extend(components.filter(|part| !matches!(part, Component::RootDir)));
-            return normalized;
-        }
-    }
-    home
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(windows)]
-    #[test]
-    fn telemetry_uses_win32_disk_path_without_changing_other_prefixes() {
-        assert_eq!(
-            telemetry_home(Path::new(r"\\?\C:\Users\Alice\.apps")),
-            std::path::PathBuf::from(r"C:\Users\Alice\.apps\telemetry")
-        );
-        for root in [
-            r"C:\Users\Alice\.apps",
-            r"\\server\share\apps",
-            r"\\?\UNC\server\share\apps",
-        ] {
-            assert_eq!(
-                telemetry_home(Path::new(root)),
-                Path::new(root).join("telemetry")
-            );
-        }
-    }
     #[test]
     fn windows_startup_follows_current_command_instead_of_frozen_runtime() {
         let home = tempfile::tempdir().unwrap();
