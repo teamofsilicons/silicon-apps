@@ -97,6 +97,117 @@ fn publish(s: &mut Store, w: &Identity, id: &str) {
     .unwrap();
 }
 #[test]
+fn author_profiles_use_stable_identity_paginate_and_never_expose_drafts_or_private_apps() {
+    let mut s = Store::memory().unwrap();
+    let alice = who("alice");
+    let bob = who("bob");
+    for id in ["alpha", "bravo", "hidden", "draft"] {
+        create(&mut s, &alice, id);
+        if id != "draft" {
+            publish(&mut s, &alice, id);
+        }
+    }
+    change(
+        &mut s,
+        Some(&alice),
+        "PUT",
+        "apps/hidden/access",
+        "hide-author-app",
+        json!({"visibility":"private","domains":[],"account_ids":[]}),
+        Prepared::default(),
+    )
+    .unwrap();
+    create(&mut s, &bob, "unrelated");
+    publish(&mut s, &bob, "unrelated");
+    let invitation = change(
+        &mut s,
+        Some(&alice),
+        "POST",
+        "apps/alpha/invites",
+        "invite-coauthor",
+        json!({"to":"c:bob"}),
+        Prepared {
+            identities: vec![bob.clone()],
+            ..Default::default()
+        },
+    )
+    .unwrap()
+    .0;
+    assert_eq!(
+        s.read("authors/bob", &BTreeMap::new(), None).unwrap()["total"],
+        1
+    );
+    change(
+        &mut s,
+        Some(&bob),
+        "POST",
+        &format!("invites/{}/accept", invitation["id"].as_str().unwrap()),
+        "accept-coauthor",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    let coauthored = s.read("authors/bob", &BTreeMap::new(), None).unwrap();
+    assert_eq!(coauthored["total"], 2);
+    assert_eq!(coauthored["items"][0]["app_id"], "alpha");
+    let all = s.read("authors/alice", &BTreeMap::new(), None).unwrap();
+    assert_eq!(all["uuid"], "alice");
+    assert_eq!(all["total"], 2);
+    assert_eq!(all["items"][0]["app_id"], "alpha");
+    assert_eq!(all["items"][1]["app_id"], "bravo");
+    let q = BTreeMap::from([("limit".into(), "1".into()), ("offset".into(), "1".into())]);
+    let page = s.read("authors/alice", &q, None).unwrap();
+    assert_eq!(page["total"], 2);
+    assert_eq!(page["items"].as_array().unwrap().len(), 1);
+    assert_eq!(page["items"][0]["app_id"], "bravo");
+    let owner = s
+        .read(
+            "authors/alice",
+            &BTreeMap::from([("mine".into(), "true".into())]),
+            Some(&alice),
+        )
+        .unwrap();
+    assert_eq!(owner["total"], 3);
+    assert!(
+        owner["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|app| app["app_id"] != "draft")
+    );
+    assert_eq!(
+        s.read("authors/unknown", &BTreeMap::new(), None)
+            .unwrap_err()
+            .status,
+        404
+    );
+    assert_eq!(
+        s.read("authors/c:alice", &BTreeMap::new(), None)
+            .unwrap_err()
+            .status,
+        404
+    );
+    let private = who("private-author");
+    create(&mut s, &private, "private-only");
+    publish(&mut s, &private, "private-only");
+    change(
+        &mut s,
+        Some(&private),
+        "PUT",
+        "apps/private-only/access",
+        "hide-private-only",
+        json!({"visibility":"private","domains":[],"account_ids":[]}),
+        Prepared::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        s.read("authors/private-author", &BTreeMap::new(), None)
+            .unwrap_err()
+            .status,
+        404
+    );
+}
+#[test]
 fn idempotency_replays_exact_result_and_conflicts_on_payload_route_or_actor_scope() {
     let mut s = Store::memory().unwrap();
     let a = who("alice");

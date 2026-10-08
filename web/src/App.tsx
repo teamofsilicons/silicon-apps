@@ -16,7 +16,9 @@ import { flushPendingSaves, hasPendingSaves, login, useResource } from "./api";
 import { SessionContext } from "./context";
 import type { Account } from "./types";
 import { developerUrl, legacyDeveloperUrl, docsUrl } from "./portal";
-import { AppDetail, Store } from "./Store";
+import { AppDetail, AuthorProfile, Store } from "./Store";
+import { ThemeSwitch } from "./components/arc/theme-switch/theme-switch";
+import { useTheme } from "./use-theme";
 import { Settings, telemetry } from "./Settings";
 import { Button, Empty, ErrorNotice, IconLogo } from "./ui";
 function DeveloperRedirect() {
@@ -48,6 +50,7 @@ function DocsRedirect() {
   );
 }
 function Shell() {
+  const { theme, change } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const session = useResource<{
@@ -76,10 +79,7 @@ function Shell() {
     };
   }, [blocker]);
   const account = session.data?.account || null;
-  useEffect(() => {
-    document.documentElement.dataset.theme =
-      localStorage.getItem("apps.theme") || "light";
-  }, []);
+
   useEffect(() => {
     setMobile(false);
     window.scrollTo(0, 0);
@@ -151,6 +151,14 @@ function Shell() {
               </nav>
             </div>
             <div className="header-account">
+              <ThemeSwitch
+                theme={theme}
+                variant="eclipse"
+                iconOnly
+                onThemeChange={(next, _variant, trigger) =>
+                  change(next, trigger)
+                }
+              />
               {account ? (
                 <Link
                   to="/settings"
@@ -199,8 +207,12 @@ function Shell() {
           <Routes>
             <Route path="/" element={<Navigate to="/store" replace />} />
             <Route path="/store" element={<Store />} />
-            <Route path="/store/apps" element={<Navigate to="/store/silicon-apps" replace />} />
+            <Route
+              path="/store/apps"
+              element={<Navigate to="/store/silicon-apps" replace />}
+            />
             <Route path="/store/:appId" element={<AppDetail />} />
+            <Route path="/authors/:authorUuid" element={<AuthorProfile />} />
             <Route path="/developer/*" element={<DeveloperRedirect />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/docs/*" element={<DocsRedirect />} />

@@ -13,3 +13,5 @@ Each item came from `https://uiarc.dev/r/<item>.json`. Its complete registry res
 The application imports Arc foundation once and uses its button, input, textarea, search field, badge, empty state, Radix-backed dialog, switch, copy button, and segmented control directly. App-specific screens compose those components. The setup navigation is application-specific because the required freely traversable wizard differs from Arc Stepper's sequential-only navigation.
 
 Fonts are bundled through `@fontsource/inter` and `@fontsource/geist`, retaining their package licenses.
+
+The theme-switch component and its light/dark/system theme behavior are reused from the Silicon Accounts developer portal on 2026-10-09. They retain the same Arc button and motion tokens; store persistence uses `apps.theme`. The theme transition CSS and author surfaces adapt the shared Silicon design tokens.

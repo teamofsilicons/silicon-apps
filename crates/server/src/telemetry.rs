@@ -64,6 +64,8 @@ pub fn route_template(path: &str) -> String {
                 p[3] = ":resource_id";
             }
         }
+    } else if p.first() == Some(&"authors") && p.len() > 1 {
+        p[1] = ":author_uuid";
     } else if p.first() == Some(&"store") && p.len() > 1 {
         p[1] = ":app_id";
     } else if p.first() == Some(&"invites") && p.len() > 1 {

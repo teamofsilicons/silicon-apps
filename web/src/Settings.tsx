@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Bug, Check, ExternalLink, LogOut } from "lucide-react";
 import { api, login, useMutation } from "./api";
+import { useTheme, type ThemePreference } from "./use-theme";
 import { useSession } from "./context";
 import {
   Button,
@@ -35,9 +36,9 @@ export async function telemetry(
   }
 }
 export function Settings() {
+  const { preference, change } = useTheme();
   const { account, refresh } = useSession();
   const [telemetryOn, setTelemetryOn] = useState(true);
-  const [theme, setTheme] = useState("light");
   const [message, setMessage] = useState("");
   const [pr, setPr] = useState("");
   const [sent, setSent] = useState(false);
@@ -45,7 +46,6 @@ export function Settings() {
   const logout = useMutation(refresh);
   useEffect(() => {
     setTelemetryOn(telemetryEnabled());
-    setTheme(localStorage.getItem("apps.theme") || "light");
   }, []);
   return (
     <>
@@ -96,15 +96,14 @@ export function Settings() {
           <label className="field-label">
             Theme
             <select
+              aria-label="Theme"
               className="native-input"
-              value={theme}
+              value={preference}
               onChange={(e) => {
-                const value = e.target.value;
-                setTheme(value);
-                localStorage.setItem("apps.theme", value);
-                document.documentElement.dataset.theme = value;
+                change(e.target.value as ThemePreference, e.currentTarget);
               }}
             >
+              <option value="system">System</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
             </select>

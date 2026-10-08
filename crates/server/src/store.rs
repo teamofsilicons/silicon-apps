@@ -290,6 +290,29 @@ impl Store {
                 json!({"available":valid_app_id(p[2])&&!reserved_app_id(p[2])&&!c.apps.contains_key(p[2])}),
             );
         }
+        if p.len() == 2 && p[0] == "authors" {
+            let mut apps: Vec<_> = c
+                .apps
+                .values()
+                .filter(|app| app.published && app.visible(who))
+                .filter(|app| app.authors.iter().any(|author| author.uuid == p[1]))
+                .collect();
+            let author = apps
+                .iter()
+                .flat_map(|app| &app.authors)
+                .find(|author| author.uuid == p[1])
+                .cloned()
+                .ok_or_else(ApiError::missing)?;
+            apps.sort_by_key(|app| (app.name.to_lowercase(), app.app_id.clone()));
+            let total = apps.len();
+            let limit = page(q, "limit", 24).clamp(1, 100);
+            let offset = page(q, "offset", 0);
+            return Ok(json!({
+                "uuid":author.uuid,"id":author.id,"display_name":author.display_name,
+                "items":apps.into_iter().skip(offset).take(limit).map(|app|app.view(who)).collect::<Vec<_>>(),
+                "total":total
+            }));
+        }
         if p == ["apps"] {
             let mine = q.get("mine").is_some_and(|v| v == "true");
             if mine || q.get("visibility").is_some_and(|v| v == "private") {

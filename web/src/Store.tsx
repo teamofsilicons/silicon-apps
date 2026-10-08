@@ -17,7 +17,7 @@ import {
 import { api, login, useMutation, useResource } from "./api";
 import { useSession } from "./context";
 import { developerUrl } from "./portal";
-import type { App, Review } from "./types";
+import type { Account, App, Review } from "./types";
 import { targetLabel } from "./types";
 import {
   AppCard,
@@ -241,6 +241,18 @@ export function AppDetail() {
           <AppLogo app={a} large />
           <div>
             <h1>{a.name}</h1>
+            <ul className="detail-authors" aria-label="App authors">
+              {a.authors.map((author) => (
+                <li key={author.uuid}>
+                  <Link
+                    to={`/authors/${encodeURIComponent(author.uuid)}`}
+                    title={author.id}
+                  >
+                    {author.display_name || author.id}
+                  </Link>
+                </li>
+              ))}
+            </ul>
             <div className="row muted small">
               <span>{a.app_id}</span>
               <span>·</span>
@@ -355,7 +367,11 @@ export function AppDetail() {
           <Section title="Authors">
             <div className="stack">
               {a.authors.map((author) => (
-                <div key={author.uuid} className="row">
+                <Link
+                  key={author.uuid}
+                  className="row author-link"
+                  to={`/authors/${encodeURIComponent(author.uuid)}`}
+                >
                   <div className="avatar">
                     {(author.display_name || author.id)
                       .slice(0, 1)
@@ -365,7 +381,7 @@ export function AppDetail() {
                     <span>{author.display_name || author.id}</span>
                     <p className="small muted">{author.id}</p>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </Section>
@@ -399,6 +415,92 @@ export function AppDetail() {
         </aside>
       </div>
       <InstallModal app={a} open={install} close={() => setInstall(false)} />
+    </div>
+  );
+}
+export function AuthorProfile() {
+  const { authorUuid = "" } = useParams();
+  const [params, setParams] = useSearchParams();
+  const page = Math.max(1, Math.min(100000, Number(params.get("page")) || 1));
+  const currentPage = Math.floor(page);
+  const profile = useResource<Account & { items: App[]; total: number }>(
+    `/authors/${encodeURIComponent(authorUuid)}?limit=24&offset=${(currentPage - 1) * 24}`,
+  );
+  if (profile.loading) return <Loading label="Loading author…" />;
+  if (profile.error)
+    return <ErrorNotice error={profile.error} retry={profile.reload} />;
+  if (!profile.data) return null;
+  const author = profile.data;
+  return (
+    <div className="author-page">
+      <Link to="/store" className="back-link">
+        <ArrowLeft size={15} /> All apps
+      </Link>
+      <header className="author-profile-header">
+        <div className="avatar author-avatar" aria-hidden="true">
+          {(author.display_name || author.id).slice(0, 1).toUpperCase()}
+        </div>
+        <div className="author-profile-identity">
+          <p className="eyebrow">Author</p>
+          <h1>{author.display_name || author.id}</h1>
+          <div className="row muted">
+            <span>{author.id}</span>
+            <Badge>{author.id.startsWith("si:") ? "Silicon" : "Carbon"}</Badge>
+          </div>
+        </div>
+      </header>
+      <section
+        aria-labelledby="published-apps-heading"
+        className="author-catalog"
+      >
+        <div className="catalog-heading">
+          <div>
+            <h2 id="published-apps-heading">Published apps</h2>
+            <p>
+              {author.total} {author.total === 1 ? "app" : "apps"} by{" "}
+              {author.display_name || author.id}
+            </p>
+          </div>
+        </div>
+        {author.items.length ? (
+          <div className="app-grid">
+            {author.items.map((app) => (
+              <AppCard key={app.app_id} app={app} />
+            ))}
+          </div>
+        ) : (
+          <Empty
+            title="No apps on this page"
+            description="Go back to see this author’s published apps."
+            icon={<Box />}
+          />
+        )}
+        {(author.total > 24 || currentPage > 1) && (
+          <div className="pagination">
+            <span className="muted small">
+              Page {currentPage} of {Math.max(1, Math.ceil(author.total / 24))}
+            </span>
+            <div className="row">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setParams({ page: String(currentPage - 1) })}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={currentPage * 24 >= author.total}
+                onClick={() => setParams({ page: String(currentPage + 1) })}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

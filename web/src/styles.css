@@ -2468,3 +2468,73 @@ main:focus {
     transition: none;
   }
 }
+
+/* Author surfaces use the shared developer portal's type, paper and controls. */
+.detail-authors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  font-size: var(--text-sm);
+}
+.detail-authors a {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: color-mix(in oklab, var(--accent-ink) 30%, transparent);
+  overflow-wrap: anywhere;
+}
+.detail-authors a:hover { text-decoration-color: currentColor; }
+.author-link { border-radius: 12px; padding: 8px; margin: -8px; }
+.author-link:hover { background: var(--surface-muted); }
+.author-link > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+.author-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 0 40px;
+  margin-bottom: 36px;
+  border-bottom: 1px solid var(--border);
+}
+.author-profile-identity { min-width: 0; }
+.author-profile-header h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(38px, 4.8vw, 52px);
+  line-height: 1.1;
+  font-weight: 400;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+  margin: 8px 0 16px;
+}
+.author-profile-header .row { flex-wrap: wrap; }
+.author-profile-header .eyebrow {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.author-avatar { width: 80px; height: 80px; border-radius: 22px; font-size: 28px; }
+.author-catalog .catalog-heading h2 { font-family: var(--font-serif); font-size: 32px; font-weight: 400; }
+.author-catalog .catalog-heading p { margin-top: 8px; }
+@supports (corner-shape: squircle) { .author-avatar, .author-link { corner-shape: squircle; } }
+@media (max-width: 640px) {
+  .header-account { gap: 6px; }
+  .author-profile-header { align-items: flex-start; gap: 16px; padding-bottom: 28px; margin-bottom: 28px; }
+  .author-avatar { width: 56px; height: 56px; border-radius: 16px; font-size: 24px; }
+  .author-profile-header h1 { font-size: 38px; }
+  .detail-authors { gap: 6px 12px; }
+}
+/* Arc eclipse theme transition, shared with Silicon Developer. */
+::view-transition { pointer-events: none; }
+::view-transition-old(root), ::view-transition-new(root) { mix-blend-mode: normal; }
+:root[data-transition="eclipse"]::view-transition-old(root) { animation: none; }
+:root[data-transition="eclipse"]::view-transition-new(root) { animation: eclipse-sweep var(--eclipse-duration, 720ms) var(--ease-in-out) both; }
+@keyframes eclipse-sweep {
+  from { clip-path: circle(var(--eclipse-r) at var(--eclipse-x0) var(--eclipse-y0)); }
+  to { clip-path: circle(var(--eclipse-r) at var(--eclipse-x1) var(--eclipse-y1)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

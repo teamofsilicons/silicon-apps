@@ -215,6 +215,10 @@ Apps can be searched by app_id, name, description and tags. Search should handle
 
 Every app opens its own page, showing everything its authors set up: the name, logo, banner, carousel, description, tags, links, authors, the targets it supports, its latest release, its rating and its installs.
 
+Show every accepted co-author as a link directly below the app name, above the app ID and visibility. Each link opens that author’s profile in the store, with their name, current public ID and all published apps the visitor can access. Use the permanent Accounts UUID in profile URLs so changing a public ID does not break links. Drafts and inaccessible private apps never appear.
+
+The store and author profiles share the developer portal’s typography, colors and Arc controls. A theme switch in the header makes light and dark mode easy to reach, saves the choice and follows the system appearance when no choice is set.
+
 Each page shows the one simple command to install it, for example `silicon-apps install briefcase`.
 
 ### Reviews

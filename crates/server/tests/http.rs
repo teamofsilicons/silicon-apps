@@ -417,6 +417,14 @@ async fn author_refresh_uses_subscribed_profile_and_id_only_fallback_preserves_d
         assert_eq!(author["display_name"], "Alice Current");
         assert!(author.get("authors").is_none());
         assert!(author.get("items").is_none());
+        let (status, profile) = call(&app, "GET", "/v1/authors/alice", None, json!({}), None).await;
+        assert_eq!(status, 200, "{profile}");
+        assert_eq!(profile["uuid"], "alice");
+        assert_eq!(profile["id"], expected_id);
+        assert_eq!(profile["display_name"], "Alice Current");
+        assert_eq!(profile["total"], 1);
+        assert_eq!(profile["items"][0]["authors"][0]["id"], expected_id);
+
         let stored = state.store.lock().unwrap().app("secret-app").unwrap();
         assert_eq!(stored.authors[0].display_name, "Alice Current");
         assert_eq!(stored.authors[0].id, expected_id);

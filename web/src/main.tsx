@@ -8,6 +8,8 @@ import "@fontsource/jetbrains-mono/latin-400.css";
 import "./components/arc/foundation.css";
 import "./styles.css";
 import App from "./App";
+import { applyTheme } from "./theme";
+applyTheme();
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />

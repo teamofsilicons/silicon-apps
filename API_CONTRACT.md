@@ -22,6 +22,7 @@ Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys a
 - `POST /apps/{app_id}/secret/rotate` body `{}` → `{app_secret:"…"}`. All authors.
 
 ## Ownership and history
+- `GET /authors/{uuid}?limit=24&offset=0` → `{uuid,id,display_name,items:[App],total:n}`. The stable profile URL uses the Accounts UUID; public ID and display name are refreshed from Accounts. Lists published apps the caller may see, ordered by name then app ID, with a maximum page size of 100. Drafts never appear, even for their authors. Unknown authors and authors with no visible published apps return 404.
 - `GET /apps/{app_id}/authors` → `{items:[{uuid,id,display_name,joined_at}]}`; admin isn't marked publicly.
 - `POST /apps/{app_id}/invites` body `{to:"c:alice"|"si:bot"|"alice@example.com"}` → Invite; author only.
 - `GET /apps/{app_id}/invites` → `{items:[Invite]}`; author only.
