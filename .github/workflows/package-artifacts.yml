@@ -60,6 +60,13 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reuse_commit || github.sha }}
+      - name: Load the current verifier without changing the release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .release-tools
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.98.0"
@@ -90,15 +97,23 @@ jobs:
           chmod +x "$RUNNER_TEMP/apps-python/python3"
           echo "$RUNNER_TEMP/apps-python" >> "$GITHUB_PATH"
       - name: Download exact archives from the original build
+        id: download
         if: inputs.reuse_run != ''
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
           run-id: ${{ inputs.reuse_run }}
           name: apps-${{ matrix.target }}-${{ inputs.reuse_commit }}
           path: dist
+      - name: Install the Windows x86 assembler when a package must be built
+        if: runner.os == 'Windows' && matrix.target != 'windows-aarch64' && (inputs.reuse_run == '' || steps.download.outcome == 'failure')
+        shell: pwsh
+        run: |
+          choco install nasm --yes --no-progress
+          "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Build package
-        if: inputs.reuse_run == ''
+        if: inputs.reuse_run == '' || steps.download.outcome == 'failure'
         env:
           PACKAGE_TARGET: ${{ matrix.target }}
         run: bash scripts/build-release.sh --target "$PACKAGE_TARGET" --output dist
@@ -106,7 +121,7 @@ jobs:
         env:
           PACKAGE_TARGET: ${{ matrix.target }}
           APPS_SOURCE_COMMIT: ${{ inputs.reuse_commit || github.sha }}
-        run: python3 scripts/verify-release.py --target "$PACKAGE_TARGET" --directory dist
+        run: python3 .release-tools/scripts/verify-release.py --target "$PACKAGE_TARGET" --directory dist
       - name: Retain verified archive, checksum and verification evidence
         uses: actions/upload-artifact@v4
         with:
