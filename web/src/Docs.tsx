@@ -14,16 +14,16 @@ export function Docs() {
           <p>
             Download the installer for your system, review it, then run it. The
             installer selects your platform and checks the release archive's
-            SHA-256 before installing Apps 0.1.3.
+            SHA-256 before installing Apps 0.1.4.
           </p>
           <h3>macOS and Linux</h3>
           <Command value="curl -fsSL https://apps.teamofsilicons.com/install.sh -o install-apps.sh" />
-          <Command value="bash install-apps.sh --version 0.1.3 --server https://apps.teamofsilicons.com" />
+          <Command value="bash install-apps.sh --version 0.1.4 --server https://apps.teamofsilicons.com" />
           <h3>Windows PowerShell</h3>
           <Command value="Invoke-WebRequest -Uri https://apps.teamofsilicons.com/install.ps1 -OutFile install-apps.ps1" />
           <Command
             value={
-              "powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-apps.ps1 -Version 0.1.3 -Server https://apps.teamofsilicons.com"
+              "powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-apps.ps1 -Version 0.1.4 -Server https://apps.teamofsilicons.com"
             }
           />
           <p>
@@ -34,7 +34,7 @@ export function Docs() {
             <code> -NoStartup</code> on Windows to skip startup registration.
           </p>
           <h3>Build with Cargo</h3>
-          <Command value="cargo install silicon-apps-cli --version 0.1.3 --locked" />
+          <Command value="cargo install silicon-apps-cli --version 0.1.4 --locked" />
           <p>
             Cargo installs the standalone CLI. The installers above also
             register Apps itself for automatic updates.
@@ -47,7 +47,7 @@ export function Docs() {
             platforms.
           </p>
           <a
-            href="https://github.com/teamofsilicons/silicon-apps/releases/tag/v0.1.3"
+            href="https://github.com/teamofsilicons/silicon-apps/releases/tag/v0.1.4"
             target="_blank"
             rel="noreferrer"
             className="link-button"
