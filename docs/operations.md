@@ -265,7 +265,7 @@ Development and production releases each use independent strict `x.y.z` versions
 The CLI artifact helper builds a target-specific `apps.yaml` archive and a SHA-256 sidecar:
 
 ```sh
-bash scripts/build-release.sh --target macos-aarch64 --output dist --version 0.1.3
+bash scripts/build-release.sh --target macos-aarch64 --output dist --version 0.1.4
 ```
 
 Use the version declared by the CLI package; its patch version may differ from the client and package libraries. A version argument does not rewrite Cargo package metadata. Cross compilation needs the matching Rust target, system linker/runtime and any native dependencies; a target name is not a provisioned toolchain.
@@ -278,7 +278,7 @@ The bootstrap installers verify the archive checksum before starting the bundled
 
 ```sh
 bash scripts/install.sh \
-  --archive ./dist/apps-0.1.3-macos-aarch64.tar.gz \
+  --archive ./dist/apps-0.1.4-macos-aarch64.tar.gz \
   --sha256 TRUSTED_64_HEX_SHA256_DIGEST \
   --home /existing/test-home \
   --server http://127.0.0.1:4310 \

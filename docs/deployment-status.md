@@ -1,34 +1,66 @@
 # Deployment status — 8 October 2026
 
-This continues the [initial local verification phase](verification.md). The complete public Apps deployment is **not yet active**. Operational steps are in [the production deployment guide](../deploy/PRODUCTION.md).
+The [Apps store and API](https://apps.teamofsilicons.com) and the [shared developer portal](https://developers.teamofsilicons.com) are deployed. A legitimate Silicon Accounts login, publication of Apps CLI 0.1.4, and a fresh native Linux installation from the production catalog have passed. A fresh authenticated browser session on the plural developer hostname remains pending because this Mac's local Unbound resolver retains an NXDOMAIN response. Authoritative DNS, Google and Cloudflare resolvers, and certificate-validated HTTPS checks already pass.
 
-## Verified production work
+The machine-readable deployment receipt is [deploy/production.json](../deploy/production.json); operating and recovery steps are in [the production deployment guide](../deploy/PRODUCTION.md). The [initial local verification report](verification.md) describes earlier checks and is not the current production status.
 
-| Component | Observed state |
+## Active services and routing
+
+| Component | Verified state |
 | --- | --- |
-| Silicon Accounts | Revision `875a30af17a49a8e694e830e7e3ab7107566f0f9` is active on the existing production host. Additive migration 7 is applied; public readiness and authenticated registry listing pass. |
-| Accounts recovery | The predeployment PostgreSQL dump was restored into a separate temporary database, verified at migration 6 with zero accounts and two built-in apps, then removed. Production retained those records. No local fixture identities were migrated. |
-| Apps infrastructure | AWS stack `silicon-apps-production` in `us-east-2` is created: separate ARM64 API/web and x86_64 validation hosts, private versioned artifacts, SSM administration and restricted worker ingress. |
-| Validation worker | Revision `b2a3db8e575701575dfc283ba8bab0ed51a1cb60` is active. The actual Apps 0.1.3 Linux x86_64 archive passed `--help`, `accounts --json` and signed-out `login status --json` inside its pinned container. Unauthenticated requests return 401. |
-| Worker isolation | A separate execution probe confirmed an unprivileged UID, no capabilities, no new privileges, read-only root, no host secrets or Docker socket, and no internet or instance-metadata access. The API host reaches the worker privately. |
-| API and website | Revision `b2a3db8e575701575dfc283ba8bab0ed51a1cb60` is staged. Its exact API executable passed an ephemeral AWS health/anonymous-session check with an isolated database. Production API/web services are **not activated**, and that check did not create a production catalog. |
-| Mail and telemetry | Accounts' native Postmark provider is configured. Dedicated Space Station table `tos.siliconapps` exists with `@c:saket` access; its recording key and the private worker URL are stored in the Apps runtime secret. No real-recipient email was sent. |
+| Apps API and store | Release `f1932610bde7d3de43f89e688e59d74d27b431dd` is active on the ARM64 production host. API version remains **0.1.2**. The API, Caddy and backup timer are active; health, database integrity and foreign-key checks pass, with no pending outbox entries at verification. |
+| Shared developer portal | The existing **Silicon Accounts Next frontend**, extended with Apps authoring, is deployed at `developers.teamofsilicons.com`. Existing Accounts management remains alongside Apps setup, packages, releases, authors and history. It has no Explore/store experience. |
+| Store boundary | `apps.teamofsilicons.com` serves discovery, app pages, reviews and installation documentation. Creation and management links and legacy authoring routes lead to the shared developer portal. Store routes, external management links, CSP, assets/cache behavior, installer bytes and API proxy checks pass. |
+| Legacy developer URLs | `developer.teamofsilicons.com` and `developer.accounts.teamofsilicons.com` redirect to the plural shared portal, preserving the relevant management section. |
+| Silicon Accounts | Source `6e828d99d449369754bcc63ff32b5d2bbd19b79a` is active, with migration 7. The real owner `c:saket` registered Apps and completed production Google and Apps CLI login. No fixture identity or fabricated grant was used. |
+| Upload validation | The separate x86_64 worker remains at `b2a3db8e575701575dfc283ba8bab0ed51a1cb60`, with pinned image `python@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2`. **Linux x86_64 is the only provisioned production upload target.** |
+| Worker isolation | The execution probe verified an unprivileged UID, no capabilities, no new privileges, a read-only root, no host secrets or Docker socket, and no internet or instance-metadata access. Unauthenticated worker requests return 401; the API reaches the worker privately. |
 
-The deployed worker bundle SHA-256 is `7a4c010798a73571f0225556b7eed703464e947caf38518bb14c2f8cf7cd1c31`. Its API executable SHA-256 is `0e4797c48e2242706ab94c3269bc0fa2e442d33141688c0e73771dd78c4c4ac9`. The exercised Linux CLI archive SHA-256 is `03d41d8658c550b55fc3475ec41824ea7e1b4cb5a72af6fa20ec32ef7f87d7b7`.
+The Apps API/store bundle SHA-256 is `c36a3e26bbe9e1044e4436d21b72395a8e2941159ab6e454d7b2d0a6104a50be`; the active API executable SHA-256 is `1a76a4f0bfbaa763da287e6390ba80393d539a9974df52b25b83d827788ee62a`. SSM verification `edc483fb-26de-4d58-9c79-06c50e01c41a` confirmed the final active revision and services. The binary is unchanged from the preceding common-portal bundle; the final store build updates the published CLI installation instructions.
 
-Accounts backup `backups/predeploy-20261008T124704Z.dump` has SHA-256 `2c6cbaba7b55b61afdf68dccbd68958e7452d88c587b8b81f677c4a96e3a483b`. Accounts deployment receipts are tracked in the sibling Accounts repository under `deploy/production.json` and `deploy/verification-2026-10-08.md`. Ignored local Apps evidence includes `.dev/production/worker-proof-013.log`, `worker-isolation.log`, `api-stage.log`, `api-smoke.log`, and the bundle receipt named by its revision. An earlier verification harness encountered a closed connection while submitting a large unauthenticated body; the final proof used a small unauthorized request and verified the actual 401 response.
+The Accounts/shared-portal bundle SHA-256 is `4e2ffa0367b4693063ace2a2739f1aa86499e20055d02056741560da0d9b057b`, with API executable SHA-256 `77c4bee655eff6c9e37ae90664b2771bd7ae0dfd880a884bb500160f82520f35`. Its deployment receipt and detailed recovery/verification history are in the sibling Accounts repository's `deploy/production.json` and `deploy/verification-2026-10-08.md`. Public session and PKCE checks verified the exact callback `https://developers.teamofsilicons.com/auth/callback`; the common portal's published Docs JavaScript matches its local build byte-for-byte.
 
-## Remaining cutover gates
+## Published CLI and production catalog
 
-- A real production Accounts owner must sign up/sign in and identify their account for Apps registration; resolve its genuine immutable UUID from Accounts. The existing IAM identity used for Space Station is a separate identity system; it does not establish Accounts ownership. Register Apps and merge its credentials without creating or verifying an account on the user's behalf.
-- Move the existing Accounts developer portal to `developer.accounts.teamofsilicons.com`, verify HTTPS and its callback, then move the Apps store/developer domains to the Apps host. DNS changes and this hostname migration remain pending.
-- Activate the staged API/web release after credentials and domain routing are ready. Complete real public Accounts login, catalog publication, private-access checks, a fresh install, live telemetry delivery and an Apps backup restore before claiming end-to-end production verification.
-- Only Linux x86_64 upload execution is currently provisioned in production. Other supported package targets require their own verified isolated workers. Native release archives alone do not prove those workers exist.
+[Apps CLI v0.1.4](https://github.com/teamofsilicons/silicon-apps/releases/tag/v0.1.4) contains **nine target archives and 33 assets**: archives, individual checksums, captured command results, both installers, aggregate checksums and provenance. Every public asset size and digest was compared with the assembled release. The exact tag and artifact source are `fa1caf26a24c628c3f9f0127deb9fe1687156b4e`.
 
-## Published packages and source checks
+The GitHub release covers Linux x86_64, i686, aarch64 and armv7hf; macOS x86_64 and aarch64; and Windows x86_64, i686 and aarch64. ARMv7 execution used QEMU; the other checks used native or compatible hosts. These artifact checks do not imply nine permanent catalog validation workers.
 
-- [silicon-apps-cli 0.1.3](https://crates.io/crates/silicon-apps-cli/0.1.3) is published, with [silicon-apps-client 0.1.2](https://crates.io/crates/silicon-apps-client/0.1.2), [silicon-apps-package 0.1.2](https://crates.io/crates/silicon-apps-package/0.1.2) and the official [silicon-accounts-client 0.1.0](https://crates.io/crates/silicon-accounts-client/0.1.0).
-- [Source CI for b2a3db8](https://github.com/teamofsilicons/silicon-apps/actions/runs/37781034398) passed Rust tests, formatting, strict Clippy, browser behavior, native Windows/macOS client contracts, worker safety on three operating systems and deployment rollback/backup tests.
-- [Apps CLI v0.1.3](https://github.com/teamofsilicons/silicon-apps/releases/tag/v0.1.3) is public with all nine target archives, installers, checksums and full command-output evidence (33 assets). The tag and recorded artifact source are `073a950`. [All nine native/compatible-host checks](https://github.com/teamofsilicons/silicon-apps/actions/runs/37780427814) passed; ARMv7 execution used QEMU.
-- [Follow-up full CI](https://github.com/teamofsilicons/silicon-apps/actions/runs/37781706492) passed at `87155a8`. A fresh crates.io CLI install passed. The public GitHub installer downloaded the published macOS ARM64 archive, verified its checksum, installed version 0.1.3 and passed signed-out discovery and updater start/stop checks in an isolated home. No real OS startup registration was created.
-- Local receipts are `.dev/publication-summary.json`, `.dev/public-bootstrap-013-verification.json`, `.dev/registry-install-013-verification.json` and `.dev/release-v0.1.3/`. GitHub/crates distribution is published; production Apps catalog publication still requires registration, authentication and activation above.
+| Production catalog field | Verified value |
+| --- | --- |
+| App / version / target | `apps` / `0.1.4` / `linux-x86_64` |
+| Package ID | `54e5011d-ac7f-4bf7-9a34-e108fcfef5af` |
+| Production release ID | `1114010e-bf50-47a9-9584-77967a8765a8` |
+| Archive SHA-256 | `dfe6aa8fd560e2bd5f2d582b99b88583314d6ca029f6aa7e86a2f3253b3610e7` |
+
+The legitimate Apps author uploaded those exact release bytes through production validation and promoted the release. Anonymous catalog resolution and download match the published GitHub digest. macOS catalog resolution remains unavailable because no macOS upload worker is provisioned; GitHub's macOS archive verification is separate evidence.
+
+A fresh **native Linux x86_64** home installed `apps@0.1.4` from the production registry. Verification checked the recorded server, package and release IDs, checksum, installed executable's `--help`, `accounts --json` and signed-out `login status --json`, updater status and update check, then stopped the isolated updater. SSM `f802ed7c-9420-4d7d-a9d9-702d6dabb511` ran this check; `302cbd5d-9453-4701-96dd-5b27523ce9b9` collected its persistent JSON receipt. Receipt SHA-256: `b7a80a955aed887e63ff69d39bc4f245dd6575a4c458e992d34dceb88d717688`.
+
+The published GitHub installer also passed a fresh macOS ARM64 installation: checksum verification, Apps 0.1.4 registration, discovery/status commands and updater start/stop. A clean crates.io CLI installation passed independently. These isolated checks deliberately omitted OS startup registration; neither a Windows installer execution nor reboot persistence is claimed.
+
+Published Rust packages are [silicon-apps-cli 0.1.4](https://crates.io/crates/silicon-apps-cli/0.1.4), [silicon-apps-client 0.1.3](https://crates.io/crates/silicon-apps-client/0.1.3), [silicon-apps-package 0.1.2](https://crates.io/crates/silicon-apps-package/0.1.2), and the official [silicon-accounts-client 0.1.0](https://crates.io/crates/silicon-accounts-client/0.1.0). The CLI/client update fixes TLS provider selection for explicitly configured direct telemetry and Windows first-use telemetry socket startup. Fresh-process loopback TLS tests pass on Linux, macOS and Windows, including preservation of an embedding application's existing provider.
+
+## Recovery and telemetry evidence
+
+Apps backup `backups/20261008T143156Z.tar.gz`, SHA-256 `df7f06b9cca9ea8eb3aee617985bba0fb494b7d340007b4cb8d1e94173ca9e08`, was restored into scratch storage. SQLite integrity passed with zero foreign-key errors, the Apps catalog remained published, and **both package objects** matched their stored digests. The scratch restore was removed afterward.
+
+Accounts' pre-cutover backup `backups/predeploy-20261008T142732Z.dump`, SHA-256 `e891291f36b1804cadc6f963b2907fb7a1dd2f637c1b79518490f7ff2efeaa5c`, was restored into a separate PostgreSQL database. Migration 7, the genuine account, three registered apps, membership and Apps ownership were checked before removing that database. Its newer redundant backup `backups/predeploy-20261008T143304Z.dump` was uploaded but was not the restored copy.
+
+Space Station delivery to `tos.siliconapps` is verified. A read-only post-final-restart check at 14:38:13 UTC verified last spool sequence **170**, acknowledgement cursor **170** and **zero pending records**, without modifying the spool (SSM `c7dc2c37-ef21-4b81-9cdd-ebfee9bcf9f5`). Separately, a **read-only** destination query observed nine new records with nine distinct record IDs after the earlier `9972028` deployment; this final check did not copy a spool, replay records, change a cursor or emit a probe event. An earlier isolated diagnostic replay of 136 existing records produced 136 duplicate destination rows: its snapshot had 274 rows but only 138 distinct record IDs. Those duplicate rows are diagnostic history and must not be counted as new production events.
+
+## Test and receipt references
+
+- [CLI release CI](https://github.com/teamofsilicons/silicon-apps/actions/runs/37791505935) and [all nine native artifact jobs](https://github.com/teamofsilicons/silicon-apps/actions/runs/37791540306) passed at the exact CLI release source.
+- [Common-portal routing source CI](https://github.com/teamofsilicons/silicon-apps/actions/runs/37792428162) passed at `99720289095e34b32b2883fb415e84bfb43a8bde`.
+- The shared Accounts/Apps portal passed **25 browser tests and 13 frontend unit tests**; the separate Apps store passed **15 browser tests**. Production builds and frontend checks passed. Browser tests use controlled test identities and do not substitute for a completed production browser login.
+- Ignored local receipts include `.dev/production/api-final-014-verified.log`, `store-final-014-live.log`, `catalog-install-live-014.log`, `catalog-install-receipt-014.log`, `backup-restore-evidence.json`, `telemetry-post-final.log` and `telemetry-final-readonly-evidence.json`.
+- Release evidence is in `.dev/publication-summary-014.json`, `.dev/public-bootstrap-014-verification.json`, `.dev/registry-install-014-verification.json` and `.dev/release-v0.1.4/`. Public archive command results and provenance are included in the GitHub release.
+
+## Remaining verification
+
+- Complete a fresh authenticated browser session on `developers.teamofsilicons.com` after clearing this Mac's local Unbound negative cache. Both authoritative nameservers and public resolvers already return the intended Accounts host; the remaining cache is local, not an authoritative DNS cutover failure. The targeted cache reload requires local administrator access and remains pending.
+- Exercise production private-app access with legitimate permitted and denied accounts. Local/API authorization tests do not establish that live multi-account flow.
+- Verify real-recipient mail delivery and any remaining identity-provider flows. Postmark is configured and real Google login passed; Apple login, SMS delivery and real-recipient mail remain unverified. No test email was sent during this deployment.
+- Verify startup-service behavior across an actual OS reboot, and execute the Windows bootstrap installer on a Windows host. Native command tests and isolated updater start/stop checks do not establish those results.
+- Provision and verify additional isolated target workers before enabling their production catalog uploads. The currently verified catalog target is Linux x86_64 only.
