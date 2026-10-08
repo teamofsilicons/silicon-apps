@@ -41,9 +41,11 @@ def main():
             environment.pop(name, None)
         environment['SILICON_HOME'] = str(home)
         environment['APPS_URL'] = 'http://127.0.0.1:9'
+        command_results = []
         def run(arguments):
             result = subprocess.run(runner + [str(binary)] + arguments, env=environment,
                                     capture_output=True, text=True, timeout=45, check=False)
+            command_results.append({'argv': arguments, 'exit_code': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
             if result.returncode != 0:
                 raise SystemExit(f'{arguments!r} failed ({result.returncode}): {result.stderr}\n{result.stdout}')
             return result.stdout
@@ -59,7 +61,9 @@ def main():
                     'commands': ['--help', 'accounts --json', 'login status --json'],
                     'authenticated': status['authenticated'], 'app_id': account['app_id'],
                     'runtime': runner or ['native-or-host-compatible'],
-                    'source_commit': os.environ.get('GITHUB_SHA')}
+                    'source_commit': os.environ.get('APPS_SOURCE_COMMIT', os.environ.get('GITHUB_SHA')),
+                    'verifier_commit': os.environ.get('GITHUB_SHA'),
+                    'command_results': command_results}
     output = archive.with_name(archive.name.removesuffix('.tar.gz') + '.verification.json')
     output.write_text(json.dumps(evidence, indent=2) + '\n')
     print(json.dumps(evidence, indent=2))

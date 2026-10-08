@@ -3,9 +3,19 @@ name: Build native CLI package artifacts
 # Archives stay reviewable workflow artifacts until the release is explicitly published.
 on:
   workflow_dispatch:
+    inputs:
+      reuse_run:
+        description: Optional completed build run ID whose exact archives should be reverified
+        required: false
+        type: string
+      reuse_commit:
+        description: Exact source commit of reused archives (required with reuse_run)
+        required: false
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
@@ -79,12 +89,24 @@ jobs:
           WRAPPER
           chmod +x "$RUNNER_TEMP/apps-python/python3"
           echo "$RUNNER_TEMP/apps-python" >> "$GITHUB_PATH"
-      - name: Build package and verify its required discovery commands
+      - name: Download exact archives from the original build
+        if: inputs.reuse_run != ''
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.reuse_run }}
+          name: apps-${{ matrix.target }}-${{ inputs.reuse_commit }}
+          path: dist
+      - name: Build package
+        if: inputs.reuse_run == ''
         env:
           PACKAGE_TARGET: ${{ matrix.target }}
-        run: |
-          bash scripts/build-release.sh --target "$PACKAGE_TARGET" --output dist
-          python3 scripts/verify-release.py --target "$PACKAGE_TARGET" --directory dist
+        run: bash scripts/build-release.sh --target "$PACKAGE_TARGET" --output dist
+      - name: Verify required discovery commands and retain their complete output
+        env:
+          PACKAGE_TARGET: ${{ matrix.target }}
+          APPS_SOURCE_COMMIT: ${{ inputs.reuse_commit || github.sha }}
+        run: python3 scripts/verify-release.py --target "$PACKAGE_TARGET" --directory dist
       - name: Retain verified archive, checksum and verification evidence
         uses: actions/upload-artifact@v4
         with:
