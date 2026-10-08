@@ -25,3 +25,6 @@ uuid.workspace = true
 
 [dev-dependencies]
 axum.workspace = true
+
+[target.'cfg(windows)'.dev-dependencies]
+uds_windows = "1.2.1"

@@ -21,6 +21,31 @@ fn probe(name: &str, preserve: bool) {
         }
         let before = rustls::crypto::CryptoProvider::get_default().cloned();
         let state = LocalState::new(std::env::var_os("APPS_TEST_TELEMETRY_HOME").unwrap()).unwrap();
+        #[cfg(windows)]
+        for (label, home) in [
+            (
+                "win32",
+                std::path::PathBuf::from(std::env::var_os("APPS_TEST_TELEMETRY_HOME").unwrap()),
+            ),
+            ("canonical", state.home.clone()),
+        ] {
+            let path = home.join("probe.sock");
+            eprintln!(
+                "{label} missing connect: {:?}",
+                uds_windows::UnixStream::connect(&path)
+            );
+            match uds_windows::UnixListener::bind(&path) {
+                Ok(listener) => {
+                    eprintln!(
+                        "{label} bound connect: {:?}",
+                        uds_windows::UnixStream::connect(&path)
+                    );
+                    drop(listener);
+                    let _ = fs::remove_file(path);
+                }
+                Err(error) => eprintln!("{label} bind: {error}"),
+            }
+        }
         updater::telemetry(
             &state,
             &Config::default(),
@@ -34,20 +59,6 @@ fn probe(name: &str, preserve: bool) {
         if let Some(before) = before {
             assert!(Arc::ptr_eq(&before, after), "host provider was replaced");
         }
-        // Retain recorder diagnostics on Windows, where socket startup failures
-        // otherwise disappear behind the intentionally quiet telemetry hook.
-        #[cfg(windows)]
-        let diagnostic = space_station::SpaceClient::builder(
-            &std::env::var("APPS_TELEMETRY_TABLE_KEY").unwrap(),
-        )
-        .home(state.root.join("telemetry"))
-        .url(std::env::var("SPACE_STATION_URL").unwrap())
-        .flush_timeout(Duration::from_millis(100))
-        .on_error(|error| eprintln!("recorder transport: {error}"))
-        .build()
-        .unwrap();
-        #[cfg(windows)]
-        diagnostic.record(serde_json::json!({"event":"tls-test"}));
         let marker = state.home.join("tls-observed");
         let deadline = Instant::now() + Duration::from_secs(15);
         while !marker.exists() && Instant::now() < deadline {
@@ -106,6 +117,11 @@ fn probe(name: &str, preserve: bool) {
     }
     fs::write(home.path().join("tls-observed"), "done").unwrap();
     let output = child.wait_with_output().unwrap();
+    #[cfg(windows)]
+    eprintln!(
+        "Windows socket probe: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert!(
         output.status.success(),
         "child failed: {} {}",

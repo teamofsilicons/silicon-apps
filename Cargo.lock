@@ -2470,6 +2470,7 @@ dependencies = [
  "space-station",
  "tempfile",
  "tokio",
+ "uds_windows",
  "url",
  "uuid",
 ]
