@@ -1,0 +1,29 @@
+{
+  "version": "0.1.8",
+  "source_revision": "6bf7fde0434815752681665f29eb2f4b5ed77f2c",
+  "ci": "https://github.com/teamofsilicons/silicon-apps/actions/runs/37827528142",
+  "native_builds": "https://github.com/teamofsilicons/silicon-apps/actions/runs/37827527855",
+  "release": "https://github.com/teamofsilicons/silicon-apps/releases/tag/v0.1.8",
+  "targets": 9,
+  "assets_verified": 33,
+  "catalog_target": "linux-x86_64",
+  "catalog_sha256": "95a3f233da756b601735028fbaf7addc5226787c937439b6a2d9eb194a519471",
+  "catalog_install_ssm": "a0e2a2da-eb7a-4292-9ab2-f25f140d30fe",
+  "catalog_install_evidence_sha256": "80bed561180b9ccee0ca43c5d305741dbaefa6275dec303272bbbbf3d6499c3d",
+  "accounts_revision": "56b9c9307988120fad382ec5ef488cb3e2f8fca5",
+  "accounts_archive_sha256": "ab4f8a9a5cc211da542c4cb253af882328ce8755d351ce07905d6a36e2dee228",
+  "local_checks": [
+    "two consecutive macOS reinstalls",
+    "graceful stop remained stopped for 12 seconds and explicit start resumed it",
+    "fresh zsh command resolution",
+    "public installer bytes matched deployed source",
+    "installed record omitted removed setting",
+    "fresh crates.io install",
+    "SLT starter guide"
+  ],
+  "live_browser_widths": [
+    390,
+    1440
+  ],
+  "verified_at": "2026-10-08T19:02:21.623271+00:00"
+}
