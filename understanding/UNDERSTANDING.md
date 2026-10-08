@@ -16,6 +16,14 @@ The developer platform is the common frontend for Silicon Apps and Silicon Accou
 
 Silicon Accounts calls ATA `App verification` and OBO `User verification` in the product. Existing `ata` and `obo` API values, routes and integration commands stay compatible. Each app's App verification page supports creating and revoking proofs. The central `developers.teamofsilicons.com/app-verification` page shows all retained App verification records for apps the signed-in user currently manages, including active, expired and revoked records, with app and status filters and issuance, refresh and revocation history. Every page checks current management access. Raw token values are shown only when generated and cannot be recovered from history. These verification proofs are separate from publishing, which does not require a review.
 
+## Requesting a verified account
+
+When setting up an app's authorization in the shared developer portal, its signed-in manager can request account verification to use their own domain for authentication, for example `login.theirapp.com`. This is a separate manual account review, not an App verification token or a review required for publishing.
+
+Show a `Request account verification` option with a mini form asking only for the reason. Explain before submission and in the confirmation that it may take up to 48 hours to respond. A submitted request is real and is retained with the requesting account and app context. Notify both `lords@teamofsilicons.com` and `saket@teamofsilicons.com` with who requested verification, which app they were configuring, their reason and the request time. Repeated submissions while that account has a pending request must show the existing request instead of sending duplicate notifications.
+
+This feature collects requests and notifies the team for manual follow-up. It does not automatically approve an account or provision authentication on a custom domain. Show `Request submitted` or `Pending review`, never `Verified` merely because the form was submitted.
+
 
 # Glossary
 
