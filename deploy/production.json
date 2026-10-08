@@ -12,8 +12,8 @@
   "DeveloperUrl": "https://developers.teamofsilicons.com",
   "AccountsDeveloperUrl": "https://developers.teamofsilicons.com",
   "Runtime": "native-systemd",
-  "ApiSourceRevision": "f1932610bde7d3de43f89e688e59d74d27b431dd",
-  "ApiArchiveSha256": "c36a3e26bbe9e1044e4436d21b72395a8e2941159ab6e454d7b2d0a6104a50be",
+  "ApiSourceRevision": "23d18e5b4002cbfe48b5a31a671ca6284b680c31",
+  "ApiArchiveSha256": "c354691f73c119e478b3873e45d8f430ea8a910a7f2ed430889f4975cf33f1f7",
   "ApiBinarySha256": "1a76a4f0bfbaa763da287e6390ba80393d539a9974df52b25b83d827788ee62a",
   "ApiVersion": "0.1.2",
   "WorkerSourceRevision": "b2a3db8e575701575dfc283ba8bab0ed51a1cb60",
@@ -38,7 +38,7 @@
   "RestoredBackupSha256": "df7f06b9cca9ea8eb3aee617985bba0fb494b7d340007b4cb8d1e94173ca9e08",
   "CatalogInstallVerified": true,
   "CatalogInstallEvidenceSha256": "b7a80a955aed887e63ff69d39bc4f245dd6575a4c458e992d34dceb88d717688",
-  "VerifiedAt": "2026-10-08T14:43:40.878485+00:00",
+  "VerifiedAt": "2026-10-08T15:10:46.211631+00:00",
   "DeveloperFrontendRepository": "silicon-accounts",
   "DeveloperFrontendPath": "developer",
   "DeveloperPublicIp": "3.138.98.112",
@@ -61,5 +61,21 @@
   "TelemetrySpoolCursor": 170,
   "TelemetryPendingRecords": 0,
   "TelemetrySpoolCheckedAt": "2026-10-08T14:38:13.811019+00:00",
-  "BrowserLoginEvidence": "Genuine Chrome session on developers.teamofsilicons.com showed signed-in owner Saket Gupta and Silicon Apps in Your apps after user refreshed local Unbound DNS cache."
+  "BrowserLoginEvidence": "Genuine Chrome session on developers.teamofsilicons.com showed signed-in owner Saket Gupta and Silicon Apps in Your apps after user refreshed local Unbound DNS cache.",
+  "StoreStyle": "Shared developer portal typography, warm palette, header and controls",
+  "StoreVisualChecks": {
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "widths": [
+      390,
+      1440
+    ],
+    "page_views": 16,
+    "install_dialogs": 4,
+    "mobile_navigation_verified": true,
+    "input_focus_verified": true,
+    "public_assets_match_build": true
+  }
 }
