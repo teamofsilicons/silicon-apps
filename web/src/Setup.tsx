@@ -244,7 +244,7 @@ function Packages({ app, refresh }: Props) {
   const selectFile = (selected?: File) => {
     if (selected && !selected.name.endsWith(".tar.gz")) {
       setFileError(
-        new Error("Choose a .tar.gz package created with apps pack."),
+        new Error("Choose a .tar.gz package created with silicon-apps pack."),
       );
       return;
     }
@@ -350,7 +350,7 @@ function Packages({ app, refresh }: Props) {
           )}
           <ErrorNotice error={mutation.error} />
           <p className="small muted">
-            Build locally with <code>apps pack</code>. An optional install
+            Build locally with <code>silicon-apps pack</code>. An optional install
             script runs after installation.
           </p>
         </div>
@@ -1036,7 +1036,7 @@ function Publish({
             <p>
               Default installs use production releases. After creating a
               development release, promote it in Releases so people can install
-              with <code>apps install {app.app_id}</code>.
+              with <code>silicon-apps install {app.app_id}</code>.
             </p>
           </div>
         )}

@@ -129,7 +129,7 @@ pub async fn validate_package(
             axum::http::StatusCode::UNPROCESSABLE_ENTITY,
             "invalid_archive",
             format!("Package archive failed validation: {e:#}"),
-            "Run apps validate and resolve every error before uploading.",
+            "Run silicon-apps validate and resolve every error before uploading.",
         );
         e2.details = json!({"stage":"archive","error":format!("{e:#}")});
         e2
