@@ -264,6 +264,8 @@ Never just say something went wrong. Say exactly what and why, like a programmin
 
 # Updates
 
+The standard install instructions use the latest releases without version pins. Bootstrap Silicon Apps for the current operating system, then run `silicon-apps install silicon-accounts`. Both CLIs must be available as native packages on all supported macOS, Linux and Windows targets, without requiring Rust on the user's computer.
+
 Silicon Apps keeps every installed app up to date. A daemon checks every minute for a new release of each installed app, on the channel it was installed from (production or development), and updates it. This is the only updater; apps must not run one of their own. The `silicon-apps` CLI updates itself the same way.
 
 # Docs

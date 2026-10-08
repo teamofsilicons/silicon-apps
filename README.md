@@ -22,10 +22,12 @@ Without configured Accounts or runners, public browsing still works, but there a
 
 ## Use the CLI
 
-Build and install the CLI from this checkout:
+For the latest prebuilt CLI and Accounts, use the [combined installation commands](https://developers.teamofsilicons.com/docs/apps/start/install#install-apps-and-accounts-together). Accounts installs with `silicon-apps install silicon-accounts` and receives updates through Apps.
+
+To build and install the CLI from this checkout:
 
 ```sh
-cargo install --path crates/cli --locked
+cargo install --path crates/cli
 silicon-apps --help
 silicon-apps accounts --json
 silicon-apps login status --json

@@ -12,9 +12,9 @@
   "DeveloperUrl": "https://developers.teamofsilicons.com",
   "AccountsDeveloperUrl": "https://developers.teamofsilicons.com",
   "Runtime": "native-systemd",
-  "ApiSourceRevision": "e0e5caf89dfaf15953506b0742cf62d2fe7bd4eb",
-  "ApiArchiveSha256": "9ee8030c19ab8098a4d6bd96e2fc42e64724983a199ca762ae4586cdd2e03248",
-  "ApiBinarySha256": "b924edf72f79d7e1668a4790e404956081c7550be6cbaa17a42866033fbe0c8f",
+  "ApiSourceRevision": "a6447cf18417da80d3512488ffd6650d74db9d1f",
+  "ApiArchiveSha256": "8db972f096996ca8bc40b11b3ccddf7ad634a31745212fff0f6d1c873ba08a1e",
+  "ApiBinarySha256": "ac14a11e171ebf03ca1365ca0b931a4b269c5556f7917528edef1b43fb798e64",
   "ApiVersion": "0.1.2",
   "WorkerSourceRevision": "b2a3db8e575701575dfc283ba8bab0ed51a1cb60",
   "WorkerImage": "python@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2",
@@ -23,13 +23,20 @@
   ],
   "OwnerPublicId": "c:saket",
   "OwnerAccountsUuid": "zQo",
-  "CliCatalogVersion": "0.1.9",
+  "CliCatalogVersion": "0.1.10",
   "CliCatalogTargets": [
-    "linux-x86_64"
+    "linux-aarch64",
+    "linux-armv7hf",
+    "linux-i686",
+    "linux-x86_64",
+    "macos-aarch64",
+    "macos-x86_64",
+    "windows-aarch64",
+    "windows-i686",
+    "windows-x86_64"
   ],
   "CliGithubTargets": 9,
-  "CliCatalogSha256": "df5ffe7622e7a60f8257ed889ed6eb88db386a8815840370f3bc440c8a299f83",
-  "CliCatalogProductionReleaseId": "431e8f7a-3a58-4ee4-92e1-95999797e6ce",
+  "CliCatalogProductionReleaseId": "a401472f-4942-51ad-ae89-95fc4e43ba9a",
   "CliLoginVerified": true,
   "BrowserLoginVerified": true,
   "BackupRestoreVerified": true,
@@ -38,7 +45,7 @@
   "RestoredBackupSha256": "df7f06b9cca9ea8eb3aee617985bba0fb494b7d340007b4cb8d1e94173ca9e08",
   "CatalogInstallVerified": true,
   "CatalogInstallEvidenceSha256": "6e3cd05025ffb95d381b031f6d7d364082009a74b8e10131a1478d262057bb23",
-  "VerifiedAt": "2026-10-08T22:58:37.499916+00:00",
+  "VerifiedAt": "2026-10-08T23:30:59.800049+00:00",
   "DeveloperFrontendRepository": "silicon-accounts",
   "DeveloperFrontendPath": "developer",
   "DeveloperPublicIp": "3.138.98.112",
@@ -46,17 +53,16 @@
     "https://developer.teamofsilicons.com",
     "https://developer.accounts.teamofsilicons.com"
   ],
-  "CliCatalogPackageId": "3e6d897c-2dc3-4803-a498-b38f9f720e55",
-  "CliSourceRevision": "e0e5caf89dfaf15953506b0742cf62d2fe7bd4eb",
-  "ClientCrateVersion": "0.1.7",
+  "CliSourceRevision": "a6447cf18417da80d3512488ffd6650d74db9d1f",
+  "ClientCrateVersion": "0.1.8",
   "PackageCrateVersion": "0.1.2",
   "RestoredPackageObjects": 2,
   "StoreBrowserTests": 18,
   "CommonPortalBrowserTests": 52,
   "CommonPortalUnitTests": 18,
-  "AccountsSourceRevision": "c6c8bbfaddc93a49d7ff4648fa3914adc50e82ce",
-  "AccountsApiBinarySha256": "adaf8d38bd48552cd051746ab1c90c74c5ca87b162e95251b3037fc571d89977",
-  "AccountsArchiveSha256": "835e6b325eb19fdd22bd1e3634ec092ed761e0fecb4e36886b5f0d8a9659fb23",
+  "AccountsSourceRevision": "0940a941d4101d5cbee6031c25d5bc047ec43f0a",
+  "AccountsApiBinarySha256": "bb82d925d90c23570ed74e48a176fd30dfa6fbc5b633286ad3fd4a7d74190f7b",
+  "AccountsArchiveSha256": "454971d31b0dee7ee6df42ecc846d3c77c1534f7bdf521744f08baa491ddd47b",
   "TelemetrySpoolSequence": 170,
   "TelemetrySpoolCursor": 170,
   "TelemetryPendingRecords": 0,
@@ -78,32 +84,141 @@
     "input_focus_verified": true,
     "public_assets_match_build": true
   },
-  "AccountsMigrationVersion": 11,
+  "AccountsMigrationVersion": 12,
   "ManualAccountVerificationRequests": true,
   "SharedDocsUrl": "https://developers.teamofsilicons.com/docs",
   "SharedDocsPages": 52,
   "SharedDocsPublicHttpVerified": true,
   "SharedDocsPublicBrowserVerified": true,
-  "InstallCommandId": "0d6d64d3-584e-4b6a-a5c4-adee1053d871",
+  "InstallCommandId": "ec0c8c90-fee8-492e-b02a-8aec1de80923",
   "VerificationCommandId": "4a636b41-56ac-41de-af9d-641e6eede113",
-  "LatestBackupKey": "backups/20261008T224103Z.tar.gz",
+  "LatestBackupKey": "backups/20261008T233013Z.tar.gz",
   "CliCommand": "silicon-apps",
-  "CliGithubVersion": "0.1.9",
+  "CliGithubVersion": "0.1.10",
   "CatalogInstallVerificationCommandId": "c41ad415-9b82-41dc-b40c-ac6d14c79d0c",
   "InstallScriptsAutomatic": true,
   "InstallScriptPermissionSettingRemoved": true,
   "DefaultDocsLogin": "silicon-apps login --slt TOKEN",
-  "CliNativeBuildRun": 37854663015,
-  "CliCiRun": 37854663546,
+  "CliNativeBuildRun": 37858023179,
+  "CliCiRun": 37858022669,
   "CliPathAndReinstallVerified": true,
   "CliGracefulStopRestartVerified": true,
   "CliRegistryInstallVerified": true,
   "CliDocsPublicBrowserVerified": true,
-  "MacCatalogSelfUpdateAvailable": false,
+  "MacCatalogSelfUpdateAvailable": true,
   "AppId": "silicon-apps",
   "AppIdMigrationPreservationVerified": true,
   "VerificationNames": [
     "app_verification",
     "user_verification"
+  ],
+  "FirstPartyPublicationCommandId": "b7fd7148-24cc-449e-a6b0-7d032a60807a",
+  "AccountsCliCatalogVersion": "0.3.1",
+  "AccountsCliCatalogTargets": [
+    "linux-aarch64",
+    "linux-armv7hf",
+    "linux-i686",
+    "linux-x86_64",
+    "macos-aarch64",
+    "macos-x86_64",
+    "windows-aarch64",
+    "windows-i686",
+    "windows-x86_64"
+  ],
+  "AccountsCliCatalogProductionReleaseId": "0910d78a-772b-52c2-b3ff-dfacb48aa9b8",
+  "AccountsCliNativeBuildRun": 37858774166,
+  "CliCatalogPackages": [
+    {
+      "id": "40c70708-d74b-5ba8-b72c-e81e774f7352",
+      "target": "linux-aarch64",
+      "sha256": "186b9c7ede8b0fda85220d6cfc53ad1122bea1889aa8682836167a6abad08016"
+    },
+    {
+      "id": "81e14df8-0de4-5b30-a6d8-ef73f396d65e",
+      "target": "linux-armv7hf",
+      "sha256": "ab32fac1245af886ef9de7eb1da08ffb37c7e82f1841b5790117809829de2dcc"
+    },
+    {
+      "id": "f943555f-6931-50e7-8030-04098727e8bc",
+      "target": "linux-i686",
+      "sha256": "a796407b36b3ed68e93a7ce63a85d9c310323d7a430c6e60b2c9a6f0858b33d2"
+    },
+    {
+      "id": "d7bb3273-f88a-5ca5-9094-c3e732ed0eee",
+      "target": "linux-x86_64",
+      "sha256": "2babc87c93f95f07d50267fb9e41ae3481e3b67183d116abcd848567e3b01e92"
+    },
+    {
+      "id": "25280ce6-cfe4-5e56-8623-dd4132580eb0",
+      "target": "macos-aarch64",
+      "sha256": "e01d2923f8ae0573db4fad111258c3ee54d97d9e8db7f8bef59f75176d40ccb9"
+    },
+    {
+      "id": "d06f2104-f000-587f-ada0-e14ae12ca1c9",
+      "target": "macos-x86_64",
+      "sha256": "7e8083c9512480d7210006f5618bcec8f617e1573b3859e592c7babcc81245e6"
+    },
+    {
+      "id": "91b27cff-e408-5484-b244-fbe82d094664",
+      "target": "windows-aarch64",
+      "sha256": "97398c13b98257a67ada0d2beea2f4b5467f2f27785c3f57139816e7b3970a31"
+    },
+    {
+      "id": "b414514b-7b1f-535d-8174-02cdd7edd2a2",
+      "target": "windows-i686",
+      "sha256": "4d69504890f5031db46b710c2ba22764f486ebcef575e9f8d3ddd207ca4dae37"
+    },
+    {
+      "id": "bca14c30-651b-5abf-9530-e16663429b3d",
+      "target": "windows-x86_64",
+      "sha256": "3dd7eaf2597f10fb86c1a5cdbe218a78ec8938b2f367457fb850217760b96dc5"
+    }
+  ],
+  "AccountsCliCatalogPackages": [
+    {
+      "id": "d3d463cd-e736-51c5-85e0-6927e5330b2d",
+      "target": "linux-aarch64",
+      "sha256": "623000a38fe431ef5ef6b0ba97873a746e07da11592bea51441ef79a7f0a9e77"
+    },
+    {
+      "id": "ae2f5307-e82f-50ab-af65-72191fce1ca7",
+      "target": "linux-armv7hf",
+      "sha256": "fcb89d241e455556c2436b449eebf87561eaa39bf1839ef73ac264b53e7b8673"
+    },
+    {
+      "id": "aba8a6cf-2eed-5ec2-969c-e5f631a302bb",
+      "target": "linux-i686",
+      "sha256": "55e7c4f7d631b192889a410940cc8e56ad8bda8a1db3701ec49a017e59d0594f"
+    },
+    {
+      "id": "db8bf4ab-d002-5f6d-9258-b24fd516f39e",
+      "target": "linux-x86_64",
+      "sha256": "c678b999f2e16b0136fd3fa3d299f9fd5beaba41ba557be475d2da7d27b03eb5"
+    },
+    {
+      "id": "2bdd864b-8b02-5405-97e2-d2a46721e605",
+      "target": "macos-aarch64",
+      "sha256": "269f56fce8c39aeeef68fc1e364af241e3404a9833872f84ed82d05d1ffc49d3"
+    },
+    {
+      "id": "5944a8ce-61d3-5e88-9d3d-14cc913aad1f",
+      "target": "macos-x86_64",
+      "sha256": "4694ca1a55c062451b08151b00835540547adf6c4ae84ab3abb637b0a523389d"
+    },
+    {
+      "id": "e996719d-c228-58e0-a246-4ed92e2ee866",
+      "target": "windows-aarch64",
+      "sha256": "8a9f0e9ce437d9afe84478ad3fbc449eee239ef706e551fc6d768d423382d0f6"
+    },
+    {
+      "id": "3a71caf0-eefb-5568-8835-c3664b4a8520",
+      "target": "windows-i686",
+      "sha256": "2ff644f1be669002599a8f44423dd84a7ba5890ddb0ab5132a7a342326748485"
+    },
+    {
+      "id": "1067d841-ed0f-5207-aca2-163b3a4ef34f",
+      "target": "windows-x86_64",
+      "sha256": "d47866e00a5b645c076d1d7be140c47feb5b927187281bde0be4f7932d020dba"
+    }
   ]
 }
