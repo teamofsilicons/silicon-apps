@@ -97,7 +97,7 @@ export function Store() {
             <span className="terminal-comment">
               Your next tool is a command away.
             </span>
-            <Command value="apps search" />
+            <Command value="silicon-apps search" />
             <div className="terminal-caption">
               <Check size={14} /> Public apps, no account needed
             </div>
@@ -337,7 +337,7 @@ export function AppDetail() {
         </div>
         <aside>
           <Section title="Install with the CLI">
-            <Command value={`apps install ${a.app_id}`} />
+            <Command value={`silicon-apps install ${a.app_id}`} />
             <p className="small muted">
               Installs the latest production release for your platform.
             </p>
@@ -415,7 +415,7 @@ function InstallModal({
   const [version, setVersion] = useState("");
   const release =
     channel === "production" ? app.latest_production : app.latest_development;
-  const command = `apps install '${app.app_id}${channel === "development" ? ">dev" : ""}${version ? "@" + version : ""}'`;
+  const command = `silicon-apps install '${app.app_id}${channel === "development" ? ">dev" : ""}${version ? "@" + version : ""}'`;
   const validVersion =
     !version || /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version);
   return (

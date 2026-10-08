@@ -125,7 +125,7 @@ pub async fn run_with_overrides(
                     .arg(&config.accounts_url)
                     .args(["daemon", "run"])
                     .exec();
-                return Err(error).context("Apps updated, but its updater could not reload the new executable; restart it with apps daemon start");
+                return Err(error).context("Apps updated, but its updater could not reload the new executable; restart it with silicon-apps daemon start");
             }
             #[cfg(not(unix))]
             return start_process_configured(state, &executable, &config).await;
@@ -291,7 +291,7 @@ pub fn service_definition(
     {
         let _ = (state, executable);
         anyhow::bail!(
-            "This platform has no supported service manager; run `apps daemon run` under your session manager."
+            "This platform has no supported service manager; run `silicon-apps daemon run` under your session manager."
         )
     }
 }
@@ -368,6 +368,27 @@ pub fn install_service(state: &LocalState, executable: &Path) -> Result<Value> {
     Ok(json!({"status":"installed","service_file":path}))
 }
 
+/// A freshly installed CLI has already started its updater. Let that first check
+/// finish before replacing startup registration, without interrupting an install.
+pub async fn reinstall_service(state: &LocalState, executable: &Path) -> Result<Value> {
+    stop(state).await?;
+    wait_until_stopped(state, Duration::from_secs(60)).await?;
+    remove_service(state).await?;
+    install_service(state, executable)
+}
+
+async fn wait_until_stopped(state: &LocalState, timeout: Duration) -> Result<()> {
+    let deadline = tokio::time::Instant::now() + timeout;
+    while status(state)?["running"] == true {
+        ensure!(
+            tokio::time::Instant::now() < deadline,
+            "updater is still finishing its current operation; retry silicon-apps daemon install after it finishes"
+        );
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    Ok(())
+}
+
 #[cfg(any(windows, test))]
 fn windows_service_document(state: &LocalState, executable: &Path) -> String {
     let escaped = |s: &str| {
@@ -376,7 +397,12 @@ fn windows_service_document(state: &LocalState, executable: &Path) -> String {
             .replace('>', "&gt;")
             .replace('"', "&quot;")
     };
-    let shim = state.root.join("bin/apps.cmd");
+    let current = state.root.join("bin/silicon-apps.cmd");
+    let shim = if current.is_file() {
+        current
+    } else {
+        state.root.join("bin/apps.cmd")
+    };
     let launcher = if shim.is_file() {
         shim
     } else {
@@ -429,7 +455,7 @@ fn activate_registered_service() -> Result<()> {
                 .arg(&label)
                 .status()?
                 .success(),
-            "launchctl kickstart failed; run apps daemon remove then install to repair its definition"
+            "launchctl kickstart failed; run silicon-apps daemon remove then install to repair its definition"
         );
     }
     #[cfg(target_os = "linux")]
@@ -589,7 +615,7 @@ pub fn defer_self_install_archive(
         detach_process(&mut command);
         command.spawn()?;
         Ok(Some(
-            json!({"status":"scheduled","message":"Apps self-update is continuing in a separate helper after this process exits. Inspect `apps installed` and the self-update log for its result.","log":state.root.join("self-update.log")}),
+            json!({"status":"scheduled","message":"Apps self-update is continuing in a separate helper after this process exits. Inspect `silicon-apps installed` and the self-update log for its result.","log":state.root.join("self-update.log")}),
         ))
     }
     #[cfg(not(windows))]
@@ -695,6 +721,46 @@ pub fn telemetry(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn service_registration_waits_past_the_original_three_second_stop_window() {
+        let home = tempfile::tempdir().unwrap();
+        let state = LocalState::new(home.path()).unwrap();
+        let lock = state.lock("daemon").unwrap();
+        let worker = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(3200)).await;
+            drop(lock);
+        });
+        wait_until_stopped(&state, Duration::from_secs(5))
+            .await
+            .unwrap();
+        worker.await.unwrap();
+        assert_eq!(status(&state).unwrap()["running"], false);
+    }
+
+    #[tokio::test]
+    async fn busy_updater_is_not_interrupted_when_registration_times_out() {
+        let home = tempfile::tempdir().unwrap();
+        let state = LocalState::new(home.path()).unwrap();
+        let _lock = state.lock("daemon").unwrap();
+        assert!(
+            wait_until_stopped(&state, Duration::from_millis(20))
+                .await
+                .is_err()
+        );
+        assert_eq!(status(&state).unwrap()["running"], true);
+    }
+
+    #[test]
+    fn windows_startup_uses_renamed_command() {
+        let home = tempfile::tempdir().unwrap();
+        let state = LocalState::new(home.path()).unwrap();
+        state.initialize().unwrap();
+        fs::write(state.root.join("bin/silicon-apps.cmd"), "current command").unwrap();
+        let body = windows_service_document(&state, Path::new("runtime/old/apps.exe"));
+        assert!(body.contains("silicon-apps.cmd"));
+        assert!(!body.contains("runtime/old"));
+    }
+
     #[test]
     fn windows_startup_follows_current_command_instead_of_frozen_runtime() {
         let home = tempfile::tempdir().unwrap();

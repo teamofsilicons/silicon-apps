@@ -4,7 +4,8 @@ param(
     [string]$Sha256 = "",
     [string]$HomeDirectory = $(if ($env:SILICON_HOME) { $env:SILICON_HOME } else { $env:USERPROFILE }),
     [string]$Server = $(if ($env:APPS_URL) { $env:APPS_URL } else { "https://apps.teamofsilicons.com" }),
-    [switch]$NoStartup
+    [switch]$NoStartup,
+    [switch]$NoPath
 )
 $ErrorActionPreference = "Stop"
 if (-not (Test-Path -LiteralPath $HomeDirectory -PathType Container)) { throw "$HomeDirectory`: not a directory" }
@@ -31,29 +32,49 @@ try {
     if ($Sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw "-Archive requires a trusted 64-character -Sha256 digest" }
     if ((Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash -ine $Sha256) { throw "Checksum mismatch. Nothing was executed or installed." }
     $Archive = (Resolve-Path -LiteralPath $Archive).Path
-    $binary = Join-Path $temp "apps.exe"
+    $binary = Join-Path $temp "silicon-apps.exe"
     # Copy one known member as raw bytes. PowerShell text redirection would corrupt an EXE.
     $start = New-Object System.Diagnostics.ProcessStartInfo
     $start.FileName = "tar.exe"
-    $start.Arguments = '-xOzf "' + $Archive + '" bin/apps.exe'
     $start.UseShellExecute = $false
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
-    $process = [System.Diagnostics.Process]::Start($start)
-    $file = [System.IO.File]::Create($binary)
-    try { $process.StandardOutput.BaseStream.CopyTo($file) } finally { $file.Dispose() }
-    $errorText = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
+    foreach ($commandName in @('silicon-apps', 'apps')) {
+        $start.Arguments = '-xOzf "' + $Archive + '" bin/' + $commandName + '.exe'
+        $process = [System.Diagnostics.Process]::Start($start)
+        $file = [System.IO.File]::Create($binary)
+        try { $process.StandardOutput.BaseStream.CopyTo($file) } finally { $file.Dispose() }
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -eq 0) { break }
+    }
     if ($process.ExitCode -ne 0) { throw "Archive extraction failed: $errorText" }
     & $binary --home $HomeDirectory --server $Server install apps --archive $Archive --sha256 $Sha256
     if ($LASTEXITCODE -ne 0) { throw "Apps installation failed with exit code $LASTEXITCODE" }
-    if (-not $NoStartup) {
-        & (Join-Path $HomeDirectory '.apps\bin\apps.cmd') --home $HomeDirectory daemon install
-        if ($LASTEXITCODE -ne 0) { throw "Apps was installed, but its startup service could not be registered" }
+    $binDirectory = Join-Path $HomeDirectory '.apps\bin'
+    $command = Join-Path $binDirectory ($commandName + '.cmd')
+    if (-not $NoPath) {
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        if ($binDirectory -notin ($userPath -split ';')) {
+            [Environment]::SetEnvironmentVariable('Path', ($binDirectory + ';' + $userPath), 'User')
+        }
+        Write-Host 'Configured your user PATH. Open a new terminal to use the command.'
     }
-    Write-Host "Add $(Join-Path $HomeDirectory '.apps\bin') to PATH."
-    Write-Host "Check automatic updates with: apps daemon status"
-    if ($NoStartup) { Write-Host "Startup service skipped. Enable it later with: apps daemon install" }
+    Write-Host "Run: & '$command' --help"
+    if (-not $NoStartup) {
+        & $command --home $HomeDirectory daemon stop | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Could not request a graceful updater stop' }
+        for ($attempt = 0; $attempt -lt 60; $attempt++) {
+            $status = (& $command --home $HomeDirectory --json daemon status | ConvertFrom-Json)
+            if ($LASTEXITCODE -ne 0) { throw 'Could not read updater status' }
+            if (-not $status.running) { break }
+            Start-Sleep -Seconds 1
+        }
+        & $command --home $HomeDirectory daemon install
+        if ($LASTEXITCODE -ne 0) { Write-Warning "$commandName is installed. Startup registration is incomplete; retry: $commandName daemon install" }
+    }
+    Write-Host "Check automatic updates with: $commandName daemon status"
+    if ($NoStartup) { Write-Host "Startup service skipped. Enable it later with: $commandName daemon install" }
 } finally {
     Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }

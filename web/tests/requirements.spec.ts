@@ -166,7 +166,7 @@ test("store preserves relevance order, private filter and development exact inst
   ).toBeVisible();
   await page.getByLabel("Exact version (optional)").fill("0.3.0");
   await expect(page.getByRole("dialog").locator("code")).toHaveText(
-    "apps install 'test-app>dev@0.3.0'",
+    "silicon-apps install 'test-app>dev@0.3.0'",
   );
 });
 

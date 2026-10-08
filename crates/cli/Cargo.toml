@@ -1,13 +1,13 @@
 [package]
 name = "silicon-apps-cli"
-version = "0.1.4"
+version = "0.1.5"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Create, publish, discover and install Silicon Apps"
 
 [[bin]]
-name = "apps"
+name = "silicon-apps"
 path = "src/main.rs"
 
 [dependencies]

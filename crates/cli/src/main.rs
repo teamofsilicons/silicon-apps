@@ -9,10 +9,10 @@ use std::{
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  apps search terminal\n  apps install briefcase\n  apps login\n  apps create ring --name Ring\n  apps setup ring details --description-file description.txt\n  apps validate ./package\n  apps pack ./package --output ring.tar.gz\n  apps upload ring --target macos-aarch64 ring.tar.gz\n  apps release ring --version 0.1.0 --package PACKAGE_ID\n  apps promote ring RELEASE_ID --version 1.0.0\n  apps publish ring\n\nTraverse every branch with --help. `apps docs` includes the complete guide;\n`apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Only isolated server runners\nexecute upload validation. Local install scripts require --allow-install-script.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
+const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Only isolated server runners\nexecute upload validation. Local install scripts require --allow-install-script.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
 
 #[derive(Parser)]
-#[command(name="apps",version,about="Create, publish, discover and install Silicon Apps",long_about=HELP,subcommand_required=true,arg_required_else_help=true)]
+#[command(name="silicon-apps",version,about="Create, publish, discover and install Silicon Apps",long_about=HELP,subcommand_required=true,arg_required_else_help=true)]
 struct Cli {
     /// Return structured machine-readable JSON.
     #[arg(long, global = true)]
@@ -129,7 +129,7 @@ enum Command {
     Readiness { app: String },
     /// Make a ready app immediately live; no manual verification or review gate.
     Publish { app: String },
-    /// Set your one review, remove it, or list reviews. Example: apps review ring --rating 5.
+    /// Set your one review, remove it, or list reviews. Example: silicon-apps review ring --rating 5.
     Review {
         app: String,
         #[arg(long,value_parser=clap::value_parser!(u8).range(1..=5))]
@@ -792,7 +792,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
                     Err(error) => {
                         let previous = result["warning"].as_str().unwrap_or("");
                         result["warning"] = json!(format!(
-                            "{previous} Automatic updates could not start: {error:#}. Run `apps daemon start` to retry."
+                            "{previous} Automatic updates could not start: {error:#}. Run `silicon-apps daemon start` to retry."
                         ));
                         result["updater"] = json!({"status":"unavailable"});
                     }
@@ -851,8 +851,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
             Daemon::Status => updater::status(&state)?,
             Daemon::Install => {
                 state.save_config(&config)?;
-                updater::remove_service(&state).await?;
-                updater::install_service(&state, &std::env::current_exe()?)?
+                updater::reinstall_service(&state, &std::env::current_exe()?).await?
             }
             Daemon::Remove => updater::remove_service(&state).await?,
             Daemon::Definition => {
@@ -983,7 +982,7 @@ fn bundled_docs(topic: &str) -> String {
     if topic == "tree" {
         // A recursive walk retains complete parent command trees on the stack. On
         // Windows debug builds that can exhaust the default 1 MiB process stack.
-        let mut pending = vec![(Cli::command(), "apps".to_owned())];
+        let mut pending = vec![(Cli::command(), "silicon-apps".to_owned())];
         let mut output = String::new();
         while let Some((mut command, prefix)) = pending.pop() {
             output.push_str(&format!(

@@ -38,4 +38,4 @@ Telemetry is configurable and default-on. The optional `APPS_TELEMETRY_TABLE_KEY
 
 The package intentionally has no endpoints for isolated-runner verdict submission, account migration or other service-internal administration.
 
-The instructive guides and informative rationale are available without filesystem or network access through `docs::guide(topic)`, and the CLI renders the same text with `apps docs TOPIC`. The CLI also offers `apps docs tree` for every subcommand and flag.
+The instructive guides and informative rationale are available without filesystem or network access through `docs::guide(topic)`, and the CLI renders the same text with `silicon-apps docs TOPIC`. The CLI also offers `silicon-apps docs tree` for every subcommand and flag.

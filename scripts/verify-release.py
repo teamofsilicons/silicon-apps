@@ -24,7 +24,7 @@ def main():
     expected = archive.with_name(archive.name + '.sha256').read_text().split()[0]
     if digest != expected:
         raise SystemExit('Archive SHA-256 differs from its sidecar; no binary executed')
-    binary_name = 'apps.exe' if args.target.startswith('windows-') else 'apps'
+    binary_name = 'silicon-apps.exe' if args.target.startswith('windows-') else 'silicon-apps'
     runner = json.loads(os.environ.get('APPS_VERIFY_RUNNER', '[]'))
     with tempfile.TemporaryDirectory(prefix='apps-release-verify-') as temporary:
         home = Path(temporary)

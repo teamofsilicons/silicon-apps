@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use tokio::process::Command;
 
 fn apps(home: &std::path::Path) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_apps"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_silicon-apps"));
     command.args(["--json", "--home"]).arg(home);
     for name in [
         "APPS_TOKEN",
@@ -58,8 +58,8 @@ async fn docs_are_bundled_machine_readable_and_include_the_traversable_command_t
         let content = value["content"].as_str().unwrap();
         assert!(content.len() > 100);
         if topic == "tree" {
-            assert!(content.contains("apps authors invite"));
-            assert!(content.contains("apps config telemetry"));
+            assert!(content.contains("silicon-apps authors invite"));
+            assert!(content.contains("silicon-apps config telemetry"));
             assert!(content.contains("--idempotency-key"));
         } else {
             assert_eq!(content, silicon_apps_client::docs::guide(topic));
@@ -258,7 +258,7 @@ async fn complete_help_tree_fits_the_windows_default_process_stack() {
             "ulimit -s 1024; exec \"$1\" --json docs tree",
             "apps-small-stack",
         ])
-        .arg(env!("CARGO_BIN_EXE_apps"))
+        .arg(env!("CARGO_BIN_EXE_silicon-apps"))
         .env("SILICON_HOME", home.path())
         .output()
         .await
@@ -274,6 +274,6 @@ async fn complete_help_tree_fits_the_windows_default_process_stack() {
         guide["content"]
             .as_str()
             .unwrap()
-            .contains("apps authors invite")
+            .contains("silicon-apps authors invite")
     );
 }

@@ -1,6 +1,6 @@
 # Silicon Apps
 
-Create, publish, discover, and install command-line apps for Carbons and Silicons. This repository contains the Apps service, its primary Rust client, package tooling, the `apps` CLI and updater, and the store frontend. The shared Apps and Accounts developer frontend lives in the sibling `silicon-accounts/developer` project and is served at `developers.teamofsilicons.com`.
+Create, publish, discover, and install command-line apps for Carbons and Silicons. This repository contains the Apps service, its primary Rust client, package tooling, the `silicon-apps` CLI and updater, and the store frontend. The shared Apps and Accounts developer frontend lives in the sibling `silicon-accounts/developer` project and is served at `developers.teamofsilicons.com`.
 
 The requirements live in [understanding/UNDERSTANDING.md](understanding/UNDERSTANDING.md). The implementation does not add a manual publication review: authors publish when the required details and validated release packages are ready.
 
@@ -26,56 +26,56 @@ Build and install the CLI from this checkout:
 
 ```sh
 cargo install --path crates/cli --locked
-apps --help
-apps accounts --json
-apps login status --json
+silicon-apps --help
+silicon-apps accounts --json
+silicon-apps login status --json
 ```
 
 Point the CLI at a local stack explicitly:
 
 ```sh
-apps config server http://127.0.0.1:4310
-apps config accounts http://127.0.0.1:YOUR_ACCOUNTS_PORT
-apps login
-apps search
+silicon-apps config server http://127.0.0.1:4310
+silicon-apps config accounts http://127.0.0.1:YOUR_ACCOUNTS_PORT
+silicon-apps login
+silicon-apps search
 ```
 
 Public search and public production installs work without login. Installed commands live in the selected home’s `.apps/bin`; add that directory to your shell’s `PATH`.
 
 ```sh
-apps install ring
-apps install 'ring>dev'
-apps install 'ring@1.2.3'
-apps install 'ring>dev@0.4.0'
-apps installed
-apps daemon install
-apps daemon status --json
+silicon-apps install ring
+silicon-apps install 'ring>dev'
+silicon-apps install 'ring@1.2.3'
+silicon-apps install 'ring>dev@0.4.0'
+silicon-apps installed
+silicon-apps daemon install
+silicon-apps daemon status --json
 ```
 
-`ring` is an example identifier; use an app that exists on your configured service. Exact versions choose the initial release, and subsequent updates follow the installed channel. `apps daemon install` configures launchd, systemd user services, or Windows Task Scheduler. See [state and updates](docs/operations.md#cli-state-and-updates) before using multiple homes or moving a CLI executable.
+`ring` is an example identifier; use an app that exists on your configured service. Exact versions choose the initial release, and subsequent updates follow the installed channel. `silicon-apps daemon install` configures launchd, systemd user services, or Windows Task Scheduler. See [state and updates](docs/operations.md#cli-state-and-updates) before using multiple homes or moving a CLI executable.
 
 ## Publish an app
 
 ```sh
-apps login
-apps create ring --name Ring
+silicon-apps login
+silicon-apps create ring --name Ring
 # Save the app_secret immediately; it is shown once.
-apps setup ring details --description-file description.txt --tags tools,productivity
-apps setup ring access --visibility public
-apps validate ./package
-apps pack ./package --output ./ring.tar.gz
-apps upload ring --target macos-aarch64 ./ring.tar.gz
-apps release ring --version 0.1.0 --package PACKAGE_ID
-apps promote ring DEVELOPMENT_RELEASE_ID --version 1.0.0
+silicon-apps setup ring details --description-file description.txt --tags tools,productivity
+silicon-apps setup ring access --visibility public
+silicon-apps validate ./package
+silicon-apps pack ./package --output ./ring.tar.gz
+silicon-apps upload ring --target macos-aarch64 ./ring.tar.gz
+silicon-apps release ring --version 0.1.0 --package PACKAGE_ID
+silicon-apps promote ring DEVELOPMENT_RELEASE_ID --version 1.0.0
 apps readiness ring
-apps publish ring
+silicon-apps publish ring
 ```
 
 Use the actual package and release IDs returned by the preceding commands. The description must contain 200–600 characters. New app IDs contain 3–30 lowercase letters, digits, hyphens or underscores and cannot change. An app needs at least one validated package in a release before publishing; promote a release to production for the default installation command to work.
 
 Every target’s binary must provide `--help`, `accounts --json` containing its `app_id`, and `login status --json`. Local `validate` checks manifest/files/archive safety; upload executes the three commands through a configured isolated target runner. An unavailable runner does not count as a passed validation.
 
-The developer website exposes the same operations through seven saved setup steps. Optional links, media, Accounts webhook updates, co-authors and private access can be configured through either interface. Explore each command with `--help` or read `apps docs publish`.
+The developer website exposes the same operations through seven saved setup steps. Optional links, media, Accounts webhook updates, co-authors and private access can be configured through either interface. Explore each command with `--help` or read `silicon-apps docs publish`.
 
 ## Packages and interfaces
 
@@ -83,7 +83,7 @@ The developer website exposes the same operations through seven saved setup step
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`crates/package`](crates/package/README.md) | Manifest validation, deterministic `.tar.gz` packing, checksums and bounded extraction; never executes archive contents.                                                                      |
 | [`crates/client`](crates/client/README.md)   | Stateless HTTP interface; authentication and installation adapters take explicit local state.                                                                                                 |
-| `crates/cli`                                 | Stateful `apps` CLI built on the client package; bundled command tree and instructive docs.                                                                                                   |
+| `crates/cli`                                 | Stateful `silicon-apps` CLI built on the client package; bundled command tree and instructive docs.                                                                                                   |
 | `crates/server`                              | Accounts authorization, catalog/access/reviews/history, persistent SQLite state, artifacts, idempotency and delivery outbox.                                                                  |
 | [`runner`](runner/README.md)                 | Authenticated target-routing gateway and isolated worker: native macOS, Linux Docker and a Windows Hyper-V container command path. Provisioning and target verification remain operator work. |
 | [`web`](web/README.md)                       | React store using actual [Arc UI](https://uiarc.dev/) free components. Creation and management open the common Apps and Accounts portal. [Source provenance and MIT notice](web/vendor/uiarc/PROVENANCE.md) are retained. |

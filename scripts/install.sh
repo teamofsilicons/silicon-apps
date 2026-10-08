@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # Bootstrap ONLY the checksum-verified Apps binary, then delegate validation/install to Rust.
 set -eu
-ARCHIVE=""; DIGEST=""; VERSION=""; NO_STARTUP=0; APPS_HOME="${SILICON_HOME:-$HOME}"; SERVER="${APPS_URL:-https://apps.teamofsilicons.com}"
+ARCHIVE=""; DIGEST=""; VERSION=""; NO_STARTUP=0; NO_PATH=0; APPS_HOME="${SILICON_HOME:-$HOME}"; SERVER="${APPS_URL:-https://apps.teamofsilicons.com}"
 RELEASES="${APPS_RELEASES_URL:-https://github.com/teamofsilicons/silicon-apps/releases}"
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -11,7 +11,8 @@ while [ "$#" -gt 0 ]; do
     --home) APPS_HOME="${2:?--home requires an existing directory}"; shift 2 ;;
     --server) SERVER="${2:?--server requires a URL}"; shift 2 ;;
     --no-startup) NO_STARTUP=1; shift ;;
-    --help|-h) echo "Usage: install.sh [--version x.y.z] [--home DIRECTORY] [--server URL] [--archive FILE --sha256 TRUSTED_DIGEST] [--no-startup]"; exit 0 ;;
+    --no-path) NO_PATH=1; shift ;;
+    --help|-h) echo "Usage: install.sh [--version x.y.z] [--home DIRECTORY] [--server URL] [--archive FILE --sha256 TRUSTED_DIGEST] [--no-startup] [--no-path]"; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -49,13 +50,50 @@ if command -v sha256sum >/dev/null 2>&1; then ACTUAL="$(sha256sum "$ARCHIVE" | a
 EXPECTED="$(printf '%s' "$DIGEST" | tr A-F a-f)"
 [ "$ACTUAL" = "$EXPECTED" ] || { echo "Checksum mismatch. Nothing was executed or installed." >&2; exit 1; }
 # Stream a single known archive member into a fresh file; never extract archive paths or links.
-tar -xOzf "$ARCHIVE" bin/apps > "$TEMP/apps"
+COMMAND=silicon-apps
+if ! tar -xOzf "$ARCHIVE" bin/silicon-apps > "$TEMP/apps" 2>/dev/null; then
+  COMMAND=apps
+  tar -xOzf "$ARCHIVE" bin/apps > "$TEMP/apps"
+fi
 [ -s "$TEMP/apps" ] || { echo "Release does not contain bin/apps" >&2; exit 1; }
 chmod 700 "$TEMP/apps"
 "$TEMP/apps" --home "$APPS_HOME" --server "$SERVER" install apps --archive "$ARCHIVE" --sha256 "$EXPECTED"
-if [ "$NO_STARTUP" -eq 0 ]; then
-  "$APPS_HOME/.apps/bin/apps" --home "$APPS_HOME" daemon install
+CLI="$APPS_HOME/.apps/bin/$COMMAND"
+BIN_DIR="$(cd "$APPS_HOME/.apps/bin" && pwd)"
+# Quote as shell data, including homes containing spaces or apostrophes.
+quote_shell() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+PATH_LINE="export PATH=$(quote_shell "$BIN_DIR"):\"\$PATH\""
+PROFILE_LINE="case \":\$PATH:\" in *:$(quote_shell "$BIN_DIR"):*) ;; *) $PATH_LINE ;; esac"
+if [ "$NO_PATH" -eq 0 ]; then
+  PROFILE=""
+  USER_SHELL="${SHELL:-sh}"
+  case "${USER_SHELL##*/}" in
+    zsh) PROFILE="${ZDOTDIR:-$HOME}/.zshrc" ;;
+    bash) PROFILE="$HOME/.bashrc" ;;
+    sh|dash|ksh) PROFILE="$HOME/.profile" ;;
+  esac
+  if [ -n "$PROFILE" ]; then
+    mkdir -p "$(dirname "$PROFILE")"
+    if ! grep -Fqx "$PROFILE_LINE" "$PROFILE" 2>/dev/null; then
+      printf '\n# Silicon Apps command-line tools\n%s\n' "$PROFILE_LINE" >> "$PROFILE"
+    fi
+    printf '\nConfigured PATH in %s.\n' "$PROFILE"
+  fi
 fi
-printf '\nAdd this directory to PATH: %s/.apps/bin\n' "$APPS_HOME"
-printf 'Check automatic updates with: apps daemon status\n'
-if [ "$NO_STARTUP" -eq 1 ]; then printf 'Startup service skipped. Enable it later with: apps daemon install\n'; fi
+printf '\nTo use %s in this terminal now, run:\n  %s\n  %s --help\n' "$COMMAND" "$PATH_LINE" "$COMMAND"
+if [ "$NO_STARTUP" -eq 0 ]; then
+  # Older releases start a detached updater during install, then give it only
+  # three seconds to stop. Wait for the in-flight operation before registering.
+  "$CLI" --home "$APPS_HOME" daemon stop >/dev/null
+  WAITED=0
+  while "$CLI" --home "$APPS_HOME" --json daemon status | grep -Eq '"running"[[:space:]]*:[[:space:]]*true'; do
+    if [ "$WAITED" -ge 60 ]; then break; fi
+    sleep 1
+    WAITED=$((WAITED + 1))
+  done
+  if ! "$CLI" --home "$APPS_HOME" daemon install; then
+    printf '\n%s is installed. Startup registration is incomplete; retry: %s daemon install\n' "$COMMAND" "$COMMAND" >&2
+  fi
+fi
+printf '\nCheck automatic updates with: %s daemon status\n' "$COMMAND"
+if [ "$NO_STARTUP" -eq 1 ]; then printf 'Startup service skipped. Enable it later with: %s daemon install\n' "$COMMAND"; fi

@@ -56,7 +56,7 @@ impl ApiError {
             StatusCode::UNAUTHORIZED,
             "authentication_required",
             "Sign in to Silicon Accounts to continue.",
-            "Run apps login and retry.",
+            "Run silicon-apps login and retry.",
         )
     }
     pub fn conflict(message: impl Into<String>) -> Self {

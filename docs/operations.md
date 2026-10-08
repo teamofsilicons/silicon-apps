@@ -69,7 +69,7 @@ Before the first production import:
 1. Back up the Accounts database and Apps data directory.
 2. Confirm the Accounts registry export returns accepted authors and valid permanent account UUIDs for every existing app.
 3. Start Apps with the private service credential and startup import enabled. Invalid/unsafe IDs or missing authors fail startup with an actionable error.
-4. Verify original IDs and authors through `apps list --mine`, `apps show APP`, the developer UI and the import history entries.
+4. Verify original IDs and authors through `silicon-apps list --mine`, `silicon-apps show APP`, the developer UI and the import history entries.
 5. Test existing Accounts sign-in for a migrated app. Import keeps its existing users and secret in Accounts; it does not reveal an old secret to Apps. If an author chooses to rotate the app secret later, save the replacement and update the consuming app immediately.
 6. Add real release packages and publish each app when ready. Migration itself is not store publication.
 
@@ -214,7 +214,7 @@ An optional `APPS_MAIL_URL` adapter receives `{id,kind,data}` with `Idempotency-
 
 For the native Space Station integration, set `APPS_TELEMETRY_TABLE_KEY` and optionally `SPACE_STATION_URL`. The service writes source, route template, step, progress and operation context; frontend input is allowlisted and raw identities/secrets are excluded. The CLI also uses `APPS_TELEMETRY_TABLE_KEY` and its selected `.apps/telemetry` spool; `APPS_TELEMETRY_KEY` remains a legacy alias. Telemetry is opted in by default, but no configured destination means no remote delivery. The frontend returns to normal work even when telemetry is unavailable.
 
-Browser settings persist telemetry opt-out locally and send `X-Apps-Telemetry: off`. CLI users run `apps config telemetry off`; operators can disable service telemetry with `APPS_TELEMETRY_ENABLED=false`. Registered platform counts are maintained separately from diagnostic telemetry. The Packages step’s market counts describe distinct observed registered accounts, including deduplicated reach across selected targets; they do not estimate every ecosystem user.
+Browser settings persist telemetry opt-out locally and send `X-Apps-Telemetry: off`. CLI users run `silicon-apps config telemetry off`; operators can disable service telemetry with `APPS_TELEMETRY_ENABLED=false`. Registered platform counts are maintained separately from diagnostic telemetry. The Packages step’s market counts describe distinct observed registered accounts, including deduplicated reach across selected targets; they do not estimate every ecosystem user.
 
 ## Host both websites
 
@@ -228,35 +228,35 @@ Use one API instance per persistent SQLite data directory. The catalog and mutat
 
 Home selection has this precedence:
 
-1. `apps --home EXISTING_DIRECTORY ...`
+1. `silicon-apps --home EXISTING_DIRECTORY ...`
 2. `SILICON_HOME`
-3. the location saved by `apps config home EXISTING_DIRECTORY`
+3. the location saved by `silicon-apps config home EXISTING_DIRECTORY`
 4. the operating system’s normal home directory
 
 The selected directory must already exist and be a directory. State is then under `<selected-home>/.apps`. The saved-home pointer is in the normal home’s `.apps/home`; setting it does not migrate another home’s sessions or installed files. Use the same explicit home for installation, login, update and daemon commands.
 
 The primary Rust HTTP client does not discover a home or write state on construction. Its installation/authentication/updater adapters accept an explicit `LocalState`. CLI configuration is persisted in `config.json`; installed records in `installed.json`; commands in `bin/`; package trees in `installed/`; sessions, locks and delivery receipts remain under the same `.apps` root. Unix session/state files use owner-only permissions.
 
-Since 0.1.1, a saved login session is scoped to the exact Apps and Accounts service URLs, including a tenant path. Changing either endpoint requires a matching session or a new login; credentials are not sent to a newly selected service. Installed app records are also bound to their registry source. The updater refuses to resolve an existing install against a different registry merely because `apps config server` changed.
+Since 0.1.1, a saved login session is scoped to the exact Apps and Accounts service URLs, including a tenant path. Changing either endpoint requires a matching session or a new login; credentials are not sent to a newly selected service. Installed app records are also bound to their registry source. The updater refuses to resolve an existing install against a different registry merely because `silicon-apps config server` changed.
 
-For a 0.1.0 home, run `apps login` again after upgrading because the old session has no trusted service binding. For an old installed record without a registry source, select the intended server and explicitly reinstall that app with `apps install APP --yes` to bind it. Review the registry and channel before confirming. Keep a backup of the original state until fresh login, installation and an update check succeed.
+For a 0.1.0 home, run `silicon-apps login` again after upgrading because the old session has no trusted service binding. For an old installed record without a registry source, select the intended server and explicitly reinstall that app with `silicon-apps install APP --yes` to bind it. Review the registry and channel before confirming. Keep a backup of the original state until fresh login, installation and an update check succeed.
 
 A successful CLI install attempts to start the updater. For persistence across login/restart, review and install its native service:
 
 ```sh
-apps --home /existing/home config server https://apps.teamofsilicons.com
-apps --home /existing/home daemon definition
-apps --home /existing/home daemon install
-apps --home /existing/home daemon status --json
+silicon-apps --home /existing/home config server https://apps.teamofsilicons.com
+silicon-apps --home /existing/home daemon definition
+silicon-apps --home /existing/home daemon install
+silicon-apps --home /existing/home daemon status --json
 ```
 
 The generated service embeds the exact executable and `--home` paths. Keep that executable installed, and reinstall the service definition if the executable or home is moved. Native service names are per operating-system user, so do not register competing startup services for multiple Apps homes. `daemon start` starts or reactivates the configured updater, `daemon stop` stops after the current installation, and `daemon remove` removes startup registration. `daemon run --once` is useful for a supervised verification pass.
 
-The default interval is 60 seconds. `apps config set update_interval_seconds N` changes it, with a minimum of ten seconds. Each app follows its installed production or development channel, including `apps` itself when installed from the store. An exact-version install is not a permanent pin. `apps update [APP]` performs an immediate check; inspect per-app failures and `.apps/updater.json`/`updater.log` rather than treating a running daemon as proof every app updated.
+The default interval is 60 seconds. `silicon-apps config set update_interval_seconds N` changes it, with a minimum of ten seconds. Each app follows its installed production or development channel, including `apps` itself when installed from the store. An exact-version install is not a permanent pin. `silicon-apps update [APP]` performs an immediate check; inspect per-app failures and `.apps/updater.json`/`updater.log` rather than treating a running daemon as proof every app updated.
 
 Channel changes prompt before switching; `--yes` explicitly allows a noninteractive switch. Install scripts require explicit consent with `--allow-install-script`; that consent is retained for that installed app’s updates. An install stages and verifies the archive, preserves a backup, checks command ownership and restores the previous installation on managed-file errors. A script’s external side effects cannot be undone by archive rollback.
 
-On Windows, updater execution uses a separate copy so the installed executable can be replaced. Interactive self-install may return `scheduled`; inspect `apps installed` and `.apps/self-update.log` for completion. Native service activation and reboot persistence still need verification on the actual Windows host.
+On Windows, updater execution uses a separate copy so the installed executable can be replaced. Interactive self-install may return `scheduled`; inspect `silicon-apps installed` and `.apps/self-update.log` for completion. Native service activation and reboot persistence still need verification on the actual Windows host.
 
 ## Build and deliver releases
 
@@ -282,10 +282,10 @@ bash scripts/install.sh \
   --sha256 TRUSTED_64_HEX_SHA256_DIGEST \
   --home /existing/test-home \
   --server http://127.0.0.1:4310 \
-  --no-startup
+  --no-startup --no-path
 ```
 
-Use the artifact for the current host and its trusted checksum. Windows uses `scripts/install.ps1 -Archive PATH -Sha256 DIGEST -HomeDirectory PATH -Server URL -NoStartup`. The home must already exist. `--no-startup` / `-NoStartup` suppresses native startup registration; a successful installation may still start its updater process, which can be stopped with `apps --home PATH daemon stop`. Without this option, the installers also register the native updater service. A temporary `--home` does not isolate that service registration from the real operating-system user.
+Use the artifact for the current host and its trusted checksum. Windows uses `scripts/install.ps1 -Archive PATH -Sha256 DIGEST -HomeDirectory PATH -Server URL -NoStartup -NoPath`. The home must already exist. `--no-startup` / `-NoStartup -NoPath` suppresses native startup registration; a successful installation may still start its updater process, which can be stopped with `silicon-apps --home PATH daemon stop`. Without this option, the installers also register the native updater service. A temporary `--home` does not isolate that service registration from the real operating-system user.
 
 Network bootstrap mode selects a release by `--version` (PowerShell `-Version`) or the latest GitHub release and uses the published archive and `.sha256` sidecar. The POSIX installer accepts `APPS_RELEASES_URL` to override the HTTPS releases base; the PowerShell installer uses the project's GitHub releases. Do not use a checksum from an untrusted source to authorize executable bootstrap.
 

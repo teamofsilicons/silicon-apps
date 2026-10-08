@@ -103,12 +103,12 @@ pub fn service_scope(value: &str) -> Result<String> {
 fn check_scope(session: &SavedSession, config: &Config) -> Result<()> {
     ensure!(
         !session.server.is_empty() && !session.accounts_url.is_empty(),
-        "This saved session predates server scoping and cannot be safely reused. Run `apps login` against the intended Apps and Accounts servers."
+        "This saved session predates server scoping and cannot be safely reused. Run `silicon-apps login` against the intended Apps and Accounts servers."
     );
     ensure!(
         session.server == service_scope(&config.server)?
             && session.accounts_url == service_scope(&config.accounts_url)?,
-        "Saved sign-in belongs to Apps {} and Accounts {}; selected servers are Apps {} and Accounts {}. No saved access or refresh token was sent. Select the original servers or run `apps login` for these servers.",
+        "Saved sign-in belongs to Apps {} and Accounts {}; selected servers are Apps {} and Accounts {}. No saved access or refresh token was sent. Select the original servers or run `silicon-apps login` for these servers.",
         session.server,
         session.accounts_url,
         config.server,
@@ -141,7 +141,7 @@ pub async fn authenticated_client(
         return Ok(base.authenticated(Some(session.tokens.access_token.expose().into())));
     }
     let Some(refresh) = session.tokens.refresh_token else {
-        bail!("Apps sign-in expired and has no refresh token. Run `apps login` again.");
+        bail!("Apps sign-in expired and has no refresh token. Run `silicon-apps login` again.");
     };
     let value = base
         .request(

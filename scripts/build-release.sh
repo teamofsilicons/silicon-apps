@@ -42,8 +42,8 @@ if [[ -z "$VERSION" ]]; then
   VERSION="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"] == "silicon-apps-cli"))')"
 fi
 if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then echo "Version must be x.y.z: $VERSION" >&2; exit 2; fi
-NAME=apps
-[[ "$TARGET" == windows-* ]] && NAME=apps.exe
+NAME=silicon-apps
+[[ "$TARGET" == windows-* ]] && NAME=silicon-apps.exe
 if [[ -z "$BINARY" ]]; then
   cargo build --locked --release --target "$TRIPLE" -p silicon-apps-cli
   BINARY="$ROOT/target/$TRIPLE/release/$NAME"
@@ -60,7 +60,7 @@ cat > "$STAGING/apps.yaml" <<EOF
 schema_version: 1
 app_id: apps
 version: $VERSION
-command: apps
+command: silicon-apps
 targets:
   $TARGET:
     binary: bin/$NAME
