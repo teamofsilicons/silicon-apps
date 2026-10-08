@@ -1,6 +1,7 @@
 //! Primary Silicon Apps interface. Clients read no environment or local files implicitly.
 //! Persistent operations take an explicit [`LocalState`]; callers own credentials and configuration.
 pub mod auth;
+pub mod docs;
 pub mod install;
 pub mod state;
 pub mod updater;
@@ -166,22 +167,24 @@ impl Client {
         body: Option<Value>,
         idempotency_key: Option<&str>,
     ) -> Result<Value> {
+        let method = Method::from_bytes(method.as_bytes())?;
+        let operation_key = (method != Method::GET).then(|| {
+            idempotency_key
+                .map(str::to_owned)
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string())
+        });
         let response = self
-            .response(
-                Method::from_bytes(method.as_bytes())?,
-                path,
-                query,
-                body,
-                idempotency_key,
-            )
+            .response(method, path, query, body, operation_key.as_deref())
             .await?;
         if response.status() == reqwest::StatusCode::NO_CONTENT {
             return Ok(json!({}));
         }
-        response
-            .json()
-            .await
-            .context("Silicon Apps returned malformed JSON")
+        response.json().await.with_context(|| {
+            match operation_key {
+                Some(key) => format!("Silicon Apps returned malformed JSON after a mutation. Operation Idempotency-Key: {key}. Retry the identical request with --idempotency-key {key}."),
+                None => "Silicon Apps returned malformed JSON".into(),
+            }
+        })
     }
     pub async fn me(&self) -> Result<Value> {
         self.request("GET", &["v1", "me"], &[], None, None).await

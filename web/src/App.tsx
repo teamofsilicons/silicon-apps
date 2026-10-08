@@ -1,6 +1,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import {
-  BrowserRouter,
+  createBrowserRouter,
+  RouterProvider,
   Link,
   NavLink,
   Navigate,
@@ -8,6 +9,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useBlocker,
 } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -20,10 +22,11 @@ import {
   Terminal,
   X,
 } from "lucide-react";
-import { api, flushPendingSaves, login, useResource } from "./api";
+import { flushPendingSaves, hasPendingSaves, login, useResource } from "./api";
 import { SessionContext } from "./context";
 import type { Account } from "./types";
 import { AppWorkspace, Developer } from "./Developer";
+import { Docs } from "./Docs";
 import { Invitations } from "./Management";
 import { AppDetail, Store } from "./Store";
 import { Settings, telemetry } from "./Settings";
@@ -45,6 +48,25 @@ function Shell() {
   }>("/session");
   const [mobile, setMobile] = useState(false);
   const [navigationError, setNavigationError] = useState<Error>();
+  const blocker = useBlocker(() => hasPendingSaves());
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+    let active = true;
+    void flushPendingSaves()
+      .then(() => {
+        if (!active) return;
+        setNavigationError(undefined);
+        blocker.proceed();
+      })
+      .catch((error) => {
+        if (!active) return;
+        setNavigationError(error as Error);
+        blocker.reset();
+      });
+    return () => {
+      active = false;
+    };
+  }, [blocker]);
   const developer = location.pathname.startsWith("/developer");
   const account = session.data?.account || null;
   useEffect(() => {
@@ -233,76 +255,7 @@ function Shell() {
     </SessionContext.Provider>
   );
 }
-function Docs() {
-  return (
-    <>
-      <PageTitle
-        title="A good place to start"
-        description="Discover, install, and publish from your terminal."
-      />
-      <div className="docs-layout">
-        <Section title="Find and install an app">
-          <p>
-            Search public apps without an account, then install the latest
-            production release for your platform.
-          </p>
-          <Command value="apps search" />
-          <Command value="apps install <app_id>" />
-          <p>
-            After installation, run the app’s help command. Silicon Apps checks
-            for updates every minute.
-          </p>
-          <Command value="apps --help" />
-        </Section>
-        <Section title="Create and publish">
-          <p>
-            Sign in with Silicon Accounts, create an app, and open its
-            publishing steps. You can do the same work in the developer
-            platform.
-          </p>
-          <Command value="apps login" />
-          <Command value="apps setup --help" />
-          <Command value="apps pack --help" />
-          <Command value="apps validate --help" />
-          <Link to="/developer" className="link-button">
-            Open developer platform <ArrowUpRight size={15} />
-          </Link>
-        </Section>
-        <Section title="Every CLI speaks the same language">
-          <p>
-            Every package must include an apps.yaml manifest and support three
-            commands. They are validated for each target before the package is
-            accepted.
-          </p>
-          <Command value="<command> --help" />
-          <Command value="<command> accounts --json" />
-          <Command value="<command> login status --json" />
-          <p>
-            The accounts command returns the app_id. Login status returns
-            authenticated and the signed-in Carbon or Silicon when present.
-          </p>
-        </Section>
-        <Section title="Choose a release">
-          <p>
-            Development and production releases have independent versions. Quote
-            the app reference so your shell treats it as one argument.
-          </p>
-          <Command value="apps install '<app_id>>dev'" />
-          <Command value="apps install '<app_id>@1.2.3'" />
-          <Command value="apps install '<app_id>>dev@1.2.3'" />
-          <p>
-            If you switch channels, the CLI asks before replacing your installed
-            release.
-          </p>
-        </Section>
-      </div>
-    </>
-  );
-}
+const router = createBrowserRouter([{ path: "*", element: <Shell /> }]);
 export default function App() {
-  return (
-    <BrowserRouter>
-      <Shell />
-    </BrowserRouter>
-  );
+  return <RouterProvider router={router} />;
 }

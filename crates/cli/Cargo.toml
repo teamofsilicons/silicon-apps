@@ -16,3 +16,7 @@ clap.workspace = true
 serde_json.workspace = true
 silicon-apps-client.workspace = true
 tokio.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+tempfile.workspace = true

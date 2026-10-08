@@ -285,6 +285,9 @@ impl Store {
         if p.len() == 2 {
             return Ok(app.view(who));
         }
+        if p.len() != 3 {
+            return Err(ApiError::missing());
+        }
         match p[2] {
             "authors" => Ok(json!({"items":app.authors})),
             "readiness" => {
@@ -427,6 +430,9 @@ fn page(q: &BTreeMap<String, String>, key: &str, default: usize) -> usize {
 }
 fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -> Result<Value> {
     let p: Vec<_> = m.path.trim_matches('/').split('/').collect();
+    if !mutation_route_exists(m.method, &p) {
+        return Err(ApiError::missing());
+    }
     let b = m.body;
     let who = m.who;
     let actor = who.map(|i| i.uuid.as_str()).unwrap_or("anonymous");
@@ -588,6 +594,13 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
     }
     if p.len() == 3 && p[2] == "review" {
         let w = need(who)?;
+        if m.method == "DELETE" && app.reviews.iter().any(|r| r.uuid == w.uuid) {
+            // Review ownership survives loss of access to the app. This returns no
+            // app details and only removes the authenticated account's own review.
+            app.reviews.retain(|r| r.uuid != w.uuid);
+            app.event(actor, "review.removed", json!({}));
+            return Ok(json!({"status":"removed"}));
+        }
         if !app.published || !app.visible(who) {
             return Err(ApiError::missing());
         }
@@ -813,7 +826,12 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     return Err(ApiError::conflict("This account is already an author."));
                 }
                 if c.invites.iter().any(|i| {
-                    i.app_id == app.app_id && i.status == "pending" && i.to.eq_ignore_ascii_case(to)
+                    i.app_id == app.app_id
+                        && i.status == "pending"
+                        && (i.to.eq_ignore_ascii_case(to)
+                            || resolved.is_some_and(|account| {
+                                i.account_uuid.as_ref() == Some(&account.uuid)
+                            }))
                 }) {
                     return Err(ApiError::conflict(
                         "A pending invitation already exists for this account.",
@@ -968,6 +986,29 @@ fn valid_email(value: &str) -> bool {
                     .all(|b| b.is_ascii_alphanumeric() || b == b'-')
         })
 }
+pub(crate) fn mutation_route_exists(method: &str, p: &[&str]) -> bool {
+    matches!(
+        (method, p),
+        ("POST", ["apps" | "platforms" | "reports" | "telemetry"])
+            | ("PATCH", ["apps", _])
+            | ("POST", ["invites", _, "accept" | "decline"])
+            | ("PUT", ["apps", _, "access" | "webhook" | "review"])
+            | ("DELETE", ["apps", _, "review"])
+            | (
+                "POST",
+                [
+                    "apps",
+                    _,
+                    "publish" | "admin" | "invites" | "releases" | "media" | "installs",
+                ],
+            )
+            | ("POST", ["apps", _, "secret" | "webhook", "rotate"])
+            | ("POST", ["apps", _, "authors", "leave"])
+            | ("DELETE", ["apps", _, "authors" | "invites", _])
+            | ("POST", ["apps", _, "packages", _])
+            | ("POST", ["apps", _, "releases", _, "promote"])
+    )
+}
 fn validate_url(value: &str) -> bool {
     value.is_empty()
         || url::Url::parse(value).is_ok_and(|u| {
@@ -1113,13 +1154,34 @@ fn search_score(a: &App, q: &str) -> Option<u32> {
     {
         return Some(400);
     }
-    if q.chars().count() >= 3
-        && id
-            .split(['-', '_'])
-            .chain(name.split_whitespace())
-            .any(|word| edit_distance(word, q) <= if q.len() > 6 { 2 } else { 1 })
-    {
-        return Some(200);
+    if q.chars().count() >= 3 {
+        let threshold = if q.chars().count() > 6 { 2 } else { 1 };
+        if edit_distance(&id, q) <= threshold
+            || edit_distance(&name, q) <= threshold
+            || id
+                .split(['-', '_'])
+                .chain(name.split_whitespace())
+                .any(|word| edit_distance(word, q) <= threshold)
+        {
+            return Some(300);
+        }
+        if a.tags.iter().any(|tag| {
+            let tag = tag.to_lowercase();
+            edit_distance(&tag, q) <= threshold
+                || tag
+                    .split_whitespace()
+                    .any(|word| edit_distance(word, q) <= threshold)
+        }) {
+            return Some(200);
+        }
+        if a.description
+            .to_lowercase()
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|word| !word.is_empty())
+            .any(|word| edit_distance(word, q) <= threshold)
+        {
+            return Some(100);
+        }
     }
     None
 }

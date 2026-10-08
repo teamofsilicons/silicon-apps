@@ -176,6 +176,25 @@ fn invitees_have_no_author_rights_until_acceptance_and_only_admin_can_remove() {
     .unwrap()
     .0;
     assert_eq!(s.app("test-app").unwrap().authors.len(), 1);
+    let mut renamed = b.clone();
+    renamed.id = "c:bob-renamed".into();
+    assert_eq!(
+        change(
+            &mut s,
+            Some(&a),
+            "POST",
+            "apps/test-app/invites",
+            "duplicate-renamed-invite",
+            json!({"to":"c:bob-renamed"}),
+            Prepared {
+                identities: vec![renamed],
+                ..Default::default()
+            }
+        )
+        .unwrap_err()
+        .status,
+        409
+    );
     assert!(
         change(
             &mut s,
@@ -309,6 +328,150 @@ fn private_search_details_releases_and_verified_domain_access_are_consistent() {
     assert!(view.get("admin_uuid").is_none());
 }
 #[test]
+fn invitations_can_be_cancelled_or_declined_and_adminship_transfers_to_an_accepted_author() {
+    let mut s = Store::memory().unwrap();
+    let owner = who("owner");
+    let coauthor = who("coauthor");
+    let invitee = who("invitee");
+    create(&mut s, &owner, "team-app");
+    let invite = |store: &mut Store, recipient: &Identity, key: &str| {
+        change(
+            store,
+            Some(&owner),
+            "POST",
+            "apps/team-app/invites",
+            key,
+            json!({"to":recipient.id}),
+            Prepared {
+                identities: vec![recipient.clone()],
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .0["id"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let joined = invite(&mut s, &coauthor, "invite-coauthor");
+    change(
+        &mut s,
+        Some(&coauthor),
+        "POST",
+        &format!("invites/{joined}/accept"),
+        "accept-coauthor",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    let cancelled = invite(&mut s, &invitee, "invite-cancel");
+    change(
+        &mut s,
+        Some(&coauthor),
+        "DELETE",
+        &format!("apps/team-app/invites/{cancelled}"),
+        "coauthor-cancels",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        change(
+            &mut s,
+            Some(&invitee),
+            "POST",
+            &format!("invites/{cancelled}/accept"),
+            "cancelled-cannot-accept",
+            json!({}),
+            Prepared::default()
+        )
+        .unwrap_err()
+        .status,
+        409
+    );
+    let declined = invite(&mut s, &invitee, "invite-decline");
+    assert_eq!(
+        change(
+            &mut s,
+            Some(&coauthor),
+            "POST",
+            &format!("invites/{declined}/decline"),
+            "wrong-account-decline",
+            json!({}),
+            Prepared::default()
+        )
+        .unwrap_err()
+        .status,
+        404
+    );
+    change(
+        &mut s,
+        Some(&invitee),
+        "POST",
+        &format!("invites/{declined}/decline"),
+        "recipient-declines",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    assert!(
+        s.read("invites", &BTreeMap::new(), Some(&invitee)).unwrap()["items"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    change(
+        &mut s,
+        Some(&owner),
+        "POST",
+        "apps/team-app/admin",
+        "transfer-to-coauthor",
+        json!({"uuid":"coauthor"}),
+        Prepared::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        change(
+            &mut s,
+            Some(&owner),
+            "PUT",
+            "apps/team-app/access",
+            "old-admin-cannot-change",
+            json!({"visibility":"private"}),
+            Prepared::default()
+        )
+        .unwrap_err()
+        .status,
+        403
+    );
+    change(
+        &mut s,
+        Some(&coauthor),
+        "DELETE",
+        "apps/team-app/authors/owner",
+        "new-admin-removes",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    let app = s.app("team-app").unwrap();
+    assert_eq!(app.authors.len(), 1);
+    assert_eq!(app.admin_uuid, "coauthor");
+    assert!(
+        app.history
+            .iter()
+            .all(|event| event.idempotency_key.is_some())
+    );
+    for kind in [
+        "author.invite_cancelled",
+        "author.invite_declined",
+        "author.admin_transferred",
+        "author.removed",
+    ] {
+        assert!(app.history.iter().any(|event| event.kind == kind));
+    }
+}
+#[test]
 fn immutable_releases_keep_separate_channel_versions_and_latest_semver() {
     let mut s = Store::memory().unwrap();
     let a = who("alice");
@@ -426,6 +589,126 @@ fn installs_are_idempotent_reviews_one_per_uuid_and_catalog_survives_restart() {
     assert_eq!(app.reviews.len(), 1);
     assert_eq!(app.rating(), Some(5.));
     assert!(app.history.iter().any(|h| h.kind == "app.installed"));
+}
+#[test]
+fn search_handles_typos_in_names_tags_and_description_without_rating_overriding_relevance() {
+    let mut s = Store::memory().unwrap();
+    let owner = who("owner");
+    for id in ["name-app", "tag-app", "description-app", "private-app"] {
+        create(&mut s, &owner, id);
+        publish(&mut s, &owner, id);
+    }
+    for (id, body) in [
+        ("name-app", json!({"name":"Image Editor"})),
+        ("tag-app", json!({"tags":["photography"]})),
+        (
+            "description-app",
+            json!({"description":format!("Synchronizes calendars. {}", "x".repeat(200))}),
+        ),
+        ("private-app", json!({"tags":["photography"]})),
+    ] {
+        change(
+            &mut s,
+            Some(&owner),
+            "PATCH",
+            &format!("apps/{id}"),
+            &format!("edit-{id}"),
+            body,
+            Prepared::default(),
+        )
+        .unwrap();
+    }
+    change(
+        &mut s,
+        Some(&owner),
+        "PUT",
+        "apps/private-app/access",
+        "make-private",
+        json!({"visibility":"private"}),
+        Prepared::default(),
+    )
+    .unwrap();
+    for (query, expected) in [
+        ("image edtor", "name-app"),
+        ("photgraphy", "tag-app"),
+        ("calndars", "description-app"),
+    ] {
+        let results = s
+            .read("apps", &BTreeMap::from([("q".into(), query.into())]), None)
+            .unwrap();
+        assert_eq!(
+            results["items"][0]["app_id"], expected,
+            "{query}: {results}"
+        );
+        assert_eq!(results["total"], 1);
+    }
+}
+#[test]
+fn reviewer_can_remove_own_review_after_losing_private_access_without_reading_app() {
+    let mut s = Store::memory().unwrap();
+    let owner = who("owner");
+    let mut reviewer = who("reviewer");
+    create(&mut s, &owner, "review-app");
+    publish(&mut s, &owner, "review-app");
+    change(
+        &mut s,
+        Some(&reviewer),
+        "PUT",
+        "apps/review-app/review",
+        "review-before-private",
+        json!({"rating":4,"text":"My review"}),
+        Prepared::default(),
+    )
+    .unwrap();
+    change(
+        &mut s,
+        Some(&owner),
+        "PUT",
+        "apps/review-app/access",
+        "make-app-private",
+        json!({"visibility":"private"}),
+        Prepared::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        s.read("apps/review-app", &BTreeMap::new(), Some(&reviewer))
+            .unwrap_err()
+            .status,
+        404
+    );
+    assert_eq!(
+        change(
+            &mut s,
+            Some(&who("outsider")),
+            "DELETE",
+            "apps/review-app/review",
+            "outsider-delete",
+            json!({}),
+            Prepared::default()
+        )
+        .unwrap_err()
+        .status,
+        404
+    );
+    reviewer.id = "c:renamed-reviewer".into();
+    let removed = change(
+        &mut s,
+        Some(&reviewer),
+        "DELETE",
+        "apps/review-app/review",
+        "remove-own-review",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    assert_eq!(removed.0, json!({"status":"removed"}));
+    assert!(s.app("review-app").unwrap().reviews.is_empty());
+    assert_eq!(
+        s.read("apps/review-app/reviews", &BTreeMap::new(), Some(&reviewer))
+            .unwrap_err()
+            .status,
+        404
+    );
 }
 #[test]
 fn immutable_id_limits_and_readiness_cannot_be_bypassed() {

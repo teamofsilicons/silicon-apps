@@ -141,6 +141,14 @@ function CreateApp({ open, close }: { open: boolean; close: () => void }) {
           className="stack"
           onSubmit={async (e) => {
             e.preventDefault();
+            if (
+              !name.trim() ||
+              !valid ||
+              id !== checked ||
+              !availability.data?.available ||
+              mutation.pending
+            )
+              return;
             const result = await mutation.run(() =>
               api<{ app: App; app_secret: string }>("/apps", {
                 method: "POST",
@@ -185,6 +193,12 @@ function CreateApp({ open, close }: { open: boolean; close: () => void }) {
             <p className="small success row">
               <Check size={14} /> This app ID is available
             </p>
+          )}
+          {valid && id === checked && (
+            <ErrorNotice
+              error={availability.error}
+              retry={availability.reload}
+            />
           )}
           <Textarea
             label="Description (optional)"
@@ -233,10 +247,10 @@ export function AppWorkspace() {
   const [tab, setTab] = useState("setup");
   const [navigationError, setNavigationError] = useState<Error>();
   const app = resource.data;
-  const step = Math.max(
-    1,
-    Math.min(7, Number(params.get("step") || app?.setup_step || 1)),
-  );
+  const requestedStep = Number(params.get("step") || app?.setup_step || 1);
+  const step = Number.isInteger(requestedStep)
+    ? Math.max(1, Math.min(7, requestedStep))
+    : 1;
   const navigateStep = async (next: number) => {
     try {
       await flushPendingSaves();
@@ -278,9 +292,25 @@ export function AppWorkspace() {
             <h1>{app.name}</h1>
             <p className="small muted">{app.app_id}</p>
           </div>
-          <Badge tone={app.published ? "success" : "warning"}>
-            {app.published ? "Published" : "Continue setup"}
-          </Badge>
+          {app.published ? (
+            <Badge tone="success">Published</Badge>
+          ) : (
+            <button
+              className="badge-action"
+              aria-label="Resume app setup"
+              onClick={async () => {
+                try {
+                  await flushPendingSaves();
+                  setTab("setup");
+                  setNavigationError(undefined);
+                } catch (error) {
+                  setNavigationError(error as Error);
+                }
+              }}
+            >
+              <Badge tone="warning">Continue setup</Badge>
+            </button>
+          )}
         </div>
         {app.published && (
           <Link className="link-button secondary" to={`/store/${app.app_id}`}>

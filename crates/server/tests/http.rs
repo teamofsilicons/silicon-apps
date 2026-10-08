@@ -192,6 +192,14 @@ async fn author_refresh_uses_subscribed_profile_and_id_only_fallback_preserves_d
         let store = state.store.lock().unwrap();
         let mut catalog = store.catalog().unwrap();
         catalog.apps.get_mut("secret-app").unwrap().visibility = "public".into();
+        catalog.invites.push(Invite {
+            id: "rename-invite".into(),
+            app_id: "secret-app".into(),
+            to: "c:alice".into(),
+            account_uuid: Some("alice".into()),
+            status: "pending".into(),
+            created_at: now(),
+        });
         store
             .connection
             .execute(
@@ -214,8 +222,78 @@ async fn author_refresh_uses_subscribed_profile_and_id_only_fallback_preserves_d
         let stored = state.store.lock().unwrap().app("secret-app").unwrap();
         assert_eq!(stored.authors[0].display_name, "Alice Current");
         assert_eq!(stored.authors[0].id, expected_id);
+        assert_eq!(
+            state.store.lock().unwrap().catalog().unwrap().invites[0].to,
+            expected_id
+        );
         assert_eq!(lookups.load(Ordering::SeqCst), usize::from(step > 0));
     }
+    task.abort();
+}
+#[tokio::test]
+async fn malformed_routes_are_rejected_before_contacting_accounts_or_creating_history() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = calls.clone();
+    let provider = Router::new().fallback(move || {
+        let count = count.clone();
+        async move {
+            count.fetch_add(1, Ordering::SeqCst);
+            Json(json!({"secret":"whsec_should-never-be-created"}))
+        }
+    });
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut cfg = config(dir.path());
+    cfg.accounts_url = format!("http://{}", listener.local_addr().unwrap());
+    let task = tokio::spawn(async move { axum::serve(listener, provider).await.unwrap() });
+    let state = AppState::new(cfg).unwrap();
+    seed_private(&state);
+    let before = state
+        .store
+        .lock()
+        .unwrap()
+        .app("secret-app")
+        .unwrap()
+        .history
+        .len();
+    let app = router(state.clone());
+    for (method, path) in [
+        ("DELETE", "/v1/apps/secret-app/webhook/rotate"),
+        ("POST", "/v1/apps/secret-app/webhook"),
+        ("PUT", "/v1/apps/secret-app/webhook/unrecognized"),
+        ("PUT", "/v1/apps/secret-app/media"),
+        ("DELETE", "/v1/apps/secret-app/packages/linux-x86_64"),
+        ("POST", "/v1/apps/secret-app/publish/unrecognized"),
+        ("GET", "/v1/apps/secret-app/authors/unrecognized"),
+        ("GET", "/v1/apps/availability/example/unrecognized"),
+    ] {
+        let (status, body) = call(
+            &app,
+            method,
+            path,
+            Some("dev:alice:c:alice"),
+            json!({"url":"https://example.com/events"}),
+            Some("malformed-route-key"),
+        )
+        .await;
+        assert_eq!(status, 404, "{method} {path}: {body}");
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        state
+            .store
+            .lock()
+            .unwrap()
+            .app("secret-app")
+            .unwrap()
+            .history
+            .len(),
+        before
+    );
     task.abort();
 }
 #[tokio::test]

@@ -60,6 +60,24 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  native-client:
+    name: Native client contracts (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+      APPS_TELEMETRY_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
+      - run: cargo test -p silicon-apps-client -p silicon-apps-package -p silicon-apps-cli --locked
+
   runner:
     name: Worker safety tests (${{ matrix.os }})
     strategy:

@@ -2,6 +2,7 @@ import base64
 import hashlib
 import io
 import json
+import os
 import platform
 import tarfile
 import tempfile
@@ -22,6 +23,22 @@ def archive(files):
 
 
 class RunnerTests(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "POSIX package mount permissions")
+    def test_restrictive_service_umask_does_not_block_unprivileged_container_reads(self):
+        manifest = {"schema_version": 1, "app_id": "sample", "version": "1.0.0", "command": "sample",
+                    "targets": {"linux-x86_64": {"binary": "nested/bin/sample"}}}
+        data = archive({"apps.yaml": json.dumps(manifest).encode(), "nested/bin/sample": b"executable"})
+        previous_umask = os.umask(0o077)
+        try:
+            with tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                unpack(data, root, manifest)
+                self.assertEqual((root / "nested").stat().st_mode & 0o777, 0o755)
+                self.assertEqual((root / "nested/bin").stat().st_mode & 0o777, 0o755)
+                self.assertEqual((root / "nested/bin/sample").stat().st_mode & 0o777, 0o755)
+        finally:
+            os.umask(previous_umask)
+
     def test_traversal_and_symlinks_are_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaisesRegex(ValueError, "Unsafe"):

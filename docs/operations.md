@@ -211,7 +211,7 @@ Set `ACCOUNTS_SILICON_APPS_URL` in the **Accounts service's** environment to the
 
 An optional `APPS_MAIL_URL` adapter receives `{id,kind,data}` with `Idempotency-Key: <outbox-id>` and the optional mail bearer token. It must implement idempotent processing for `mail.invite` and `mail.report`, including private Carbon contact resolution where needed. The durable worker retries undelivered records every ten seconds. Inspect `outbox.attempts`, `last_error` and `delivered_at`; do not delete pending records to hide a delivery failure.
 
-For the native Space Station integration, set `APPS_TELEMETRY_TABLE_KEY` and optionally `SPACE_STATION_URL`. The service writes source, route template, step, progress and operation context; frontend input is allowlisted and raw identities/secrets are excluded. The CLI uses `APPS_TELEMETRY_KEY` and its selected `.apps/telemetry` spool. Telemetry is opted in by default, but no configured destination means no remote delivery. The frontend returns to normal work even when telemetry is unavailable.
+For the native Space Station integration, set `APPS_TELEMETRY_TABLE_KEY` and optionally `SPACE_STATION_URL`. The service writes source, route template, step, progress and operation context; frontend input is allowlisted and raw identities/secrets are excluded. The CLI also uses `APPS_TELEMETRY_TABLE_KEY` and its selected `.apps/telemetry` spool; `APPS_TELEMETRY_KEY` remains a legacy alias. Telemetry is opted in by default, but no configured destination means no remote delivery. The frontend returns to normal work even when telemetry is unavailable.
 
 Browser settings persist telemetry opt-out locally and send `X-Apps-Telemetry: off`. CLI users run `apps config telemetry off`; operators can disable service telemetry with `APPS_TELEMETRY_ENABLED=false`. Registered platform counts are maintained separately from diagnostic telemetry. The Packages step’s market counts describe distinct observed registered accounts, including deduplicated reach across selected targets; they do not estimate every ecosystem user.
 
@@ -235,6 +235,10 @@ Home selection has this precedence:
 The selected directory must already exist and be a directory. State is then under `<selected-home>/.apps`. The saved-home pointer is in the normal home’s `.apps/home`; setting it does not migrate another home’s sessions or installed files. Use the same explicit home for installation, login, update and daemon commands.
 
 The primary Rust HTTP client does not discover a home or write state on construction. Its installation/authentication/updater adapters accept an explicit `LocalState`. CLI configuration is persisted in `config.json`; installed records in `installed.json`; commands in `bin/`; package trees in `installed/`; sessions, locks and delivery receipts remain under the same `.apps` root. Unix session/state files use owner-only permissions.
+
+Since 0.1.1, a saved login session is scoped to the exact Apps and Accounts service URLs, including a tenant path. Changing either endpoint requires a matching session or a new login; credentials are not sent to a newly selected service. Installed app records are also bound to their registry source. The updater refuses to resolve an existing install against a different registry merely because `apps config server` changed.
+
+For a 0.1.0 home, run `apps login` again after upgrading because the old session has no trusted service binding. For an old installed record without a registry source, select the intended server and explicitly reinstall that app with `apps install APP --yes` to bind it. Review the registry and channel before confirming. Keep a backup of the original state until fresh login, installation and an update check succeed.
 
 A successful CLI install attempts to start the updater. For persistence across login/restart, review and install its native service:
 
@@ -260,7 +264,7 @@ Development and production releases each use independent strict `x.y.z` versions
 The CLI artifact helper builds a target-specific `apps.yaml` archive and a SHA-256 sidecar:
 
 ```sh
-bash scripts/build-release.sh --target macos-aarch64 --output dist --version 0.1.0
+bash scripts/build-release.sh --target macos-aarch64 --output dist --version 0.1.2
 ```
 
 Use the version declared by the workspace. A version argument does not rewrite Cargo package metadata. Cross compilation needs the matching Rust target, system linker/runtime and any native dependencies; a target name is not a provisioned toolchain.
@@ -273,7 +277,7 @@ The bootstrap installers verify the archive checksum before starting the bundled
 
 ```sh
 bash scripts/install.sh \
-  --archive ./dist/apps-0.1.0-macos-aarch64.tar.gz \
+  --archive ./dist/apps-0.1.2-macos-aarch64.tar.gz \
   --sha256 TRUSTED_64_HEX_SHA256_DIGEST \
   --home /existing/test-home \
   --server http://127.0.0.1:4310 \

@@ -149,9 +149,15 @@ export function useMutation(onDone?: () => void) {
   };
   return { pending, error, run, clearError: () => setError(undefined) };
 }
-const pendingSaves = new Map<symbol, () => Promise<void>>();
+const pendingSaves = new Map<
+  symbol,
+  { save: () => Promise<void>; dirty: () => boolean }
+>();
+export function hasPendingSaves() {
+  return [...pendingSaves.values()].some((entry) => entry.dirty());
+}
 export async function flushPendingSaves() {
-  await Promise.all([...pendingSaves.values()].map((save) => save()));
+  await Promise.all([...pendingSaves.values()].map((entry) => entry.save()));
 }
 export function useAutosave<T extends object>(
   path: string,
@@ -199,19 +205,23 @@ export function useAutosave<T extends object>(
     running.current = request;
     await request;
   }, [path, method]);
-  const update = useCallback((next: Partial<T>) => {
-    dirty.current = true;
-    version.current++;
-    setStatus("unsaved");
-    setDraft((value) => {
-      const nextDraft = { ...value, ...next };
+  const update = useCallback(
+    (next: Partial<T> | ((current: T) => Partial<T>)) => {
+      dirty.current = true;
+      version.current++;
+      setStatus("unsaved");
+      const nextDraft = {
+        ...latest.current,
+        ...(typeof next === "function" ? next(latest.current) : next),
+      };
       latest.current = nextDraft;
-      return nextDraft;
-    });
-  }, []);
+      setDraft(nextDraft);
+    },
+    [],
+  );
   useEffect(() => {
     const key = Symbol(path);
-    pendingSaves.set(key, save);
+    pendingSaves.set(key, { save, dirty: () => dirty.current });
     return () => {
       pendingSaves.delete(key);
       void save().catch(() => {});

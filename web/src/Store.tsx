@@ -212,11 +212,11 @@ export function AppDetail() {
   const { appId = "" } = useParams();
   const app = useResource<App>(`/apps/${appId}`);
   const [install, setInstall] = useState(false);
-  if (app.loading) return <Loading />;
+  if (app.loading && !app.data) return <Loading />;
   if (app.error) return <ErrorNotice error={app.error} retry={app.reload} />;
   if (!app.data) return null;
   const a = app.data;
-  const links = [
+  const links: { label: string; url?: string; logo?: string }[] = [
     { label: "Website", url: a.links?.website },
     { label: "Developer docs", url: a.links?.developer_docs },
     { label: "Android app", url: a.links?.android },
@@ -290,7 +290,9 @@ export function AppDetail() {
           <span>
             {a.latest_production
               ? `v${a.latest_production.version}`
-              : "Development"}
+              : a.latest_development
+                ? `v${a.latest_development.version} · Development`
+                : "No release"}
             <small>Latest release</small>
           </span>
         </div>
@@ -330,7 +332,7 @@ export function AppDetail() {
               </div>
             </Section>
           )}
-          <Reviews app={a} />
+          <Reviews app={a} refresh={app.reload} />
         </div>
         <aside>
           <Section title="Install with the CLI">
@@ -377,7 +379,16 @@ export function AppDetail() {
                     rel="noopener noreferrer"
                     className="row between external-link"
                   >
-                    {link.label}
+                    <span className="row">
+                      {safeUrl(link.logo) && (
+                        <img
+                          className="custom-link-logo"
+                          src={safeUrl(link.logo)}
+                          alt=""
+                        />
+                      )}
+                      {link.label}
+                    </span>
                     <ExternalLink size={14} />
                   </a>
                 ))}
@@ -404,6 +415,8 @@ function InstallModal({
   const release =
     channel === "production" ? app.latest_production : app.latest_development;
   const command = `apps install '${app.app_id}${channel === "development" ? ">dev" : ""}${version ? "@" + version : ""}'`;
+  const validVersion =
+    !version || /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version);
   return (
     <Modal
       open={open}
@@ -447,9 +460,18 @@ function InstallModal({
                 }
                 placeholder={release.version}
                 pattern="[0-9]+\.[0-9]+\.[0-9]+"
+                aria-invalid={!validVersion}
+                aria-describedby={
+                  !validVersion ? "install-version-error" : undefined
+                }
               />
             </label>
-            <Command value={command} />
+            {!validVersion && (
+              <p id="install-version-error" role="alert" className="danger">
+                Use an x.y.z version, such as 1.2.3.
+              </p>
+            )}
+            {validVersion && <Command value={command} />}
             {channel === "development" && (
               <p className="small muted">
                 Development releases are experimental. If you have the
@@ -457,6 +479,11 @@ function InstallModal({
                 channels.
               </p>
             )}
+            <p className="small muted">
+              The CLI asks before switching between production and development.
+              An exact version selects the initial release; automatic updates
+              still follow that channel.
+            </p>
             <p className="small muted">
               The CLI reports a completed installation. Copying this command
               does not count as an install.
@@ -470,14 +497,17 @@ function InstallModal({
     </Modal>
   );
 }
-function Reviews({ app }: { app: App }) {
+function Reviews({ app, refresh }: { app: App; refresh: () => void }) {
   const { account } = useSession();
   const reviews = useResource<{
     items: Review[];
     rating: number | null;
     count: number;
   }>(`/apps/${app.app_id}/reviews`);
-  const mutation = useMutation(reviews.reload);
+  const mutation = useMutation(() => {
+    reviews.reload();
+    refresh();
+  });
   const [editing, setEditing] = useState(false);
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");

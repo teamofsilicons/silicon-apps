@@ -113,6 +113,20 @@ pub fn safe_path(value: &Path) -> bool {
             .contains(['\\', ':', '\0', '<', '>', '"', '|', '?', '*'])
 }
 
+/// Filesystem paths use native separators; archive and manifest paths always use `/`.
+fn portable_filesystem_path(path: &Path) -> Result<String> {
+    path.components()
+        .map(|component| match component {
+            Component::Normal(part) => part
+                .to_str()
+                .map(str::to_owned)
+                .context("package filenames must be valid UTF-8"),
+            _ => bail!("package file path must contain only relative normal components"),
+        })
+        .collect::<Result<Vec<_>>>()
+        .map(|parts| parts.join("/"))
+}
+
 impl Manifest {
     pub fn errors(&self) -> Vec<String> {
         let mut errors = vec![];
@@ -162,6 +176,133 @@ impl Manifest {
     }
 }
 
+// Parse fields independently so a missing/incorrect field does not hide other errors.
+fn parse_manifest(bytes: &[u8]) -> (Option<Manifest>, Vec<String>) {
+    use serde_yaml::Value;
+    let value: Value = match serde_yaml::from_slice(bytes) {
+        Ok(value) => value,
+        Err(error) => return (None, vec![format!("apps.yaml: invalid YAML: {error}")]),
+    };
+    let Some(root) = value.as_mapping() else {
+        return (
+            None,
+            vec!["apps.yaml: expected a mapping of manifest fields".into()],
+        );
+    };
+    fn unknown(map: &serde_yaml::Mapping, fields: &[&str], prefix: &str, errors: &mut Vec<String>) {
+        for key in map.keys() {
+            if !key.as_str().is_some_and(|key| fields.contains(&key)) {
+                errors.push(format!(
+                    "{prefix}: unknown field {}",
+                    key.as_str().unwrap_or("<non-string key>")
+                ));
+            }
+        }
+    }
+    fn string(
+        map: &serde_yaml::Mapping,
+        key: &str,
+        prefix: &str,
+        errors: &mut Vec<String>,
+    ) -> String {
+        match map.get(Value::String(key.into())).and_then(Value::as_str) {
+            Some(value) => value.to_owned(),
+            None => {
+                errors.push(format!(
+                    "{prefix}{key}: required string is missing or has the wrong type"
+                ));
+                String::new()
+            }
+        }
+    }
+    let mut errors = Vec::new();
+    unknown(
+        root,
+        &["schema_version", "app_id", "version", "command", "targets"],
+        "apps.yaml",
+        &mut errors,
+    );
+    let schema_version = match root.get(Value::String("schema_version".into())) {
+        None => 1,
+        Some(value) => match value.as_u64().and_then(|n| u32::try_from(n).ok()) {
+            Some(value) => value,
+            None => {
+                errors.push("schema_version: expected a positive integer".into());
+                1
+            }
+        },
+    };
+    let app_id = string(root, "app_id", "", &mut errors);
+    let version = string(root, "version", "", &mut errors);
+    let command = string(root, "command", "", &mut errors);
+    let mut targets = BTreeMap::new();
+    match root
+        .get(Value::String("targets".into()))
+        .and_then(Value::as_mapping)
+    {
+        Some(map) => {
+            for (name, value) in map {
+                let Some(name) = name.as_str() else {
+                    errors.push("targets: every target name must be a string".into());
+                    continue;
+                };
+                let Some(fields) = value.as_mapping() else {
+                    errors.push(format!(
+                        "targets.{name}: expected binary and optional install_script fields"
+                    ));
+                    continue;
+                };
+                unknown(
+                    fields,
+                    &["binary", "install_script"],
+                    &format!("targets.{name}"),
+                    &mut errors,
+                );
+                let binary = string(fields, "binary", &format!("targets.{name}."), &mut errors);
+                let install_script = match fields.get(Value::String("install_script".into())) {
+                    None | Some(Value::Null) => None,
+                    Some(value) => match value.as_str() {
+                        Some(value) => Some(value.into()),
+                        None => {
+                            errors
+                                .push(format!("targets.{name}.install_script: expected a string"));
+                            None
+                        }
+                    },
+                };
+                targets.insert(
+                    name.into(),
+                    Target {
+                        binary,
+                        install_script,
+                    },
+                );
+            }
+        }
+        None => {
+            errors.push("targets: required target mapping is missing or has the wrong type".into())
+        }
+    }
+    let manifest = Manifest {
+        schema_version,
+        app_id,
+        version,
+        command,
+        targets,
+    };
+    // Do not repeat a semantic error for a field already rejected structurally.
+    for error in manifest.errors() {
+        let field = error.split(':').next().unwrap_or("");
+        if !errors
+            .iter()
+            .any(|existing| existing.starts_with(&format!("{field}:")))
+        {
+            errors.push(error);
+        }
+    }
+    (Some(manifest), errors)
+}
+
 pub fn validate_directory(root: &Path) -> ValidationReport {
     let mut report = ValidationReport::default();
     if !root.is_dir() {
@@ -170,30 +311,29 @@ pub fn validate_directory(root: &Path) -> ValidationReport {
             .push(format!("{}: not a directory", root.display()));
         return report;
     }
-    let manifest = match fs::read(root.join("apps.yaml"))
-        .context("apps.yaml: cannot read required manifest")
-        .and_then(|b| serde_yaml::from_slice::<Manifest>(&b).context("apps.yaml: invalid manifest"))
-    {
-        Ok(m) => m,
-        Err(e) => {
-            report.errors.push(format!("{e:#}"));
-            return report;
-        }
+    let (manifest, errors) = match fs::read(root.join("apps.yaml")) {
+        Ok(bytes) => parse_manifest(&bytes),
+        Err(error) => (
+            None,
+            vec![format!("apps.yaml: cannot read required manifest: {error}")],
+        ),
     };
-    report.errors.extend(manifest.errors());
-    for (name, target) in &manifest.targets {
-        for (field, path) in [
-            ("binary", Some(&target.binary)),
-            ("install_script", target.install_script.as_ref()),
-        ] {
-            if let Some(path) = path
-                && safe_path(Path::new(path))
-            {
-                match fs::symlink_metadata(root.join(path)) {
-                    Ok(meta) if meta.file_type().is_file() => {}
-                    _ => report.errors.push(format!(
-                        "targets.{name}.{field}: `{path}` must be an existing regular file"
-                    )),
+    report.errors.extend(errors);
+    if let Some(manifest) = &manifest {
+        for (name, target) in &manifest.targets {
+            for (field, path) in [
+                ("binary", Some(&target.binary)),
+                ("install_script", target.install_script.as_ref()),
+            ] {
+                if let Some(path) = path
+                    && safe_path(Path::new(path))
+                {
+                    match fs::symlink_metadata(root.join(path)) {
+                        Ok(meta) if meta.file_type().is_file() => {}
+                        _ => report.errors.push(format!(
+                            "targets.{name}.{field}: `{path}` must be an existing regular file"
+                        )),
+                    }
                 }
             }
         }
@@ -204,6 +344,17 @@ pub fn validate_directory(root: &Path) -> ValidationReport {
         match entry {
             Ok(e) => {
                 count += 1;
+                let portable =
+                    portable_filesystem_path(e.path().strip_prefix(root).unwrap_or(e.path()));
+                if !portable
+                    .as_ref()
+                    .is_ok_and(|path| safe_path(Path::new(path)))
+                {
+                    report.errors.push(format!(
+                        "{}: unsafe cross-platform package path",
+                        e.path().display()
+                    ));
+                }
                 if e.file_type().is_symlink()
                     || !(e.file_type().is_file() || e.file_type().is_dir())
                 {
@@ -230,7 +381,7 @@ pub fn validate_directory(root: &Path) -> ValidationReport {
         ));
     }
     report.valid = report.errors.is_empty();
-    report.manifest = Some(manifest);
+    report.manifest = manifest;
     report
 }
 
@@ -253,11 +404,11 @@ pub fn pack_directory(root: &Path) -> Result<Vec<u8>> {
         if !entry.file_type().is_file() {
             continue;
         }
-        let relative = entry.path().strip_prefix(root)?;
+        let relative = portable_filesystem_path(entry.path().strip_prefix(root)?)?;
         ensure!(
-            safe_path(relative),
+            safe_path(Path::new(&relative)),
             "unsafe archive path {}",
-            relative.display()
+            relative
         );
         let mut file = fs::File::open(entry.path())?;
         let metadata = file.metadata()?;
@@ -278,7 +429,7 @@ pub fn pack_directory(root: &Path) -> Result<Vec<u8>> {
         #[cfg(not(unix))]
         header.set_mode(0o644);
         header.set_cksum();
-        archive.append_data(&mut header, relative, &mut file)?;
+        archive.append_data(&mut header, &relative, &mut file)?;
     }
     let bytes = archive.into_inner()?.finish()?;
     ensure!(
@@ -423,7 +574,65 @@ mod tests {
         assert_eq!(m.errors().len(), 5);
     }
     #[test]
+    fn validates_every_target_and_reports_unreferenced_unsafe_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = Manifest {
+            schema_version: 1,
+            app_id: "portable".into(),
+            version: "1.2.3".into(),
+            command: "portable".into(),
+            targets: TARGETS
+                .iter()
+                .map(|target| {
+                    (
+                        target.to_string(),
+                        Target {
+                            binary: format!(
+                                "bin/{target}/portable{}",
+                                if target.starts_with("windows") {
+                                    ".exe"
+                                } else {
+                                    ""
+                                }
+                            ),
+                            install_script: None,
+                        },
+                    )
+                })
+                .collect(),
+        };
+        fs::write(
+            dir.path().join("apps.yaml"),
+            serde_yaml::to_string(&manifest).unwrap(),
+        )
+        .unwrap();
+        for target in manifest.targets.values() {
+            let binary = dir.path().join(&target.binary);
+            fs::create_dir_all(binary.parent().unwrap()).unwrap();
+            fs::write(binary, b"compiled target fixture").unwrap();
+        }
+        let archive = pack_directory(dir.path()).unwrap();
+        assert_eq!(inspect_archive(&archive).unwrap().targets.len(), 9);
+        #[cfg(unix)]
+        {
+            fs::write(dir.path().join("NUL.txt"), b"not portable").unwrap();
+            let report = validate_directory(dir.path());
+            assert!(!report.valid);
+            assert!(
+                report
+                    .errors
+                    .iter()
+                    .any(|error| error.contains("unsafe cross-platform package path"))
+            );
+        }
+    }
+
+    #[test]
     fn paths_are_cross_platform_safe() {
+        assert_eq!(
+            portable_filesystem_path(&Path::new("bin").join("native").join("apps")).unwrap(),
+            "bin/native/apps"
+        );
         for p in ["../evil", "/evil", "bin/../evil", "C:evil", "bin\\evil", ""] {
             assert!(!safe_path(Path::new(p)), "{p}");
         }

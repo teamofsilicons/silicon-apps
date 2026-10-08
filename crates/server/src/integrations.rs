@@ -474,6 +474,22 @@ pub fn refresh_identity(s: &Shared, who: &Identity) -> Result<()> {
                 changed = true;
             }
         }
+        for (uuid, id) in app.access_uuids.iter().zip(app.account_ids.iter_mut()) {
+            if uuid == &who.uuid && !who.id.is_empty() && id != &who.id {
+                *id = who.id.clone();
+                changed = true;
+            }
+        }
+    }
+    for invite in &mut c.invites {
+        if invite.account_uuid.as_deref() == Some(&who.uuid)
+            && (invite.to.starts_with("c:") || invite.to.starts_with("si:"))
+            && !who.id.is_empty()
+            && invite.to != who.id
+        {
+            invite.to = who.id.clone();
+            changed = true;
+        }
     }
     if changed {
         store.connection.execute(
@@ -486,6 +502,11 @@ pub fn refresh_identity(s: &Shared, who: &Identity) -> Result<()> {
 pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Value> {
     let mut ids = std::collections::BTreeSet::new();
     fn collect(v: &Value, ids: &mut std::collections::BTreeSet<String>) {
+        for key in ["uuid", "account_uuid"] {
+            if let Some(id) = v[key].as_str() {
+                ids.insert(id.into());
+            }
+        }
         if let Some(authors) = v["authors"].as_array() {
             for a in authors {
                 if let Some(id) = a["uuid"].as_str() {
@@ -560,6 +581,15 @@ pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Val
             if v.get("display_name").is_some() && !identity.display_name.trim().is_empty() {
                 v["display_name"] = json!(identity.display_name);
             }
+        }
+        if let Some(id) = v["account_uuid"].as_str()
+            && let Some((_, identity)) = cache.get(id)
+            && !identity.id.is_empty()
+            && v["to"]
+                .as_str()
+                .is_some_and(|to| to.starts_with("c:") || to.starts_with("si:"))
+        {
+            v["to"] = json!(identity.id);
         }
         if let Some(authors) = v.get_mut("authors").and_then(Value::as_array_mut) {
             for a in authors {

@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
@@ -71,7 +71,7 @@ export function ErrorNotice({
           </details>
         )}
         {retry && (
-          <Button variant="secondary" size="sm" onClick={retry}>
+          <Button type="button" variant="secondary" size="sm" onClick={retry}>
             Try again
           </Button>
         )}
@@ -151,6 +151,7 @@ export function AppLogo({
   large?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [app.logo]);
   return (
     <div className={`app-logo ${large ? "large" : ""}`}>
       {app.logo && !failed ? (

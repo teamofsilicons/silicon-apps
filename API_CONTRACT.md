@@ -5,11 +5,11 @@ Authorization: `Bearer <Silicon Accounts token for apps>`. Production verifies i
 Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys are scoped to account, method/path and request digest; conflicting reuse is HTTP 409. Replays have `Idempotent-Replayed: true`. JSON response always directly contains the object described. Errors: `{ "error": {"code":"…", "message":"…", "hint":"…", "details":null} }`.
 
 ## Accounts / discovery
-- `GET /health` → `{status:"ok",service:"silicon-apps",version:"0.1.0"}`.
+- `GET /health` → `{status:"ok",service:"silicon-apps",version:"0.1.2"}`.
 - `GET /me` → `{uuid,id,display_name,verified_emails:[]}`.
 - `GET /targets?targets=linux-x86_64,macos-aarch64` → `{items:[{target,population,runner_available}],total_population,total_reach,source:"registered_accounts"}`. Populations count observed authenticated accounts; total reach deduplicates accounts across selected targets.
 - `GET /apps/availability/{app_id}` → `{available:boolean}` (invalid IDs false).
-- `GET /apps?q=&visibility=public|private&mine=true&limit=50&offset=0` → `{items:[App],total:n}`. `mine` requires auth and includes drafts. Otherwise published accessible apps only. Search exact ID/name ranks ahead of prefixes, substrings, then typo matches; rating breaks equal scores.
+- `GET /apps?q=&visibility=public|private&mine=true&limit=50&offset=0` → `{items:[App],total:n}`. `mine` requires auth and includes drafts. Otherwise published accessible apps only. Search exact ID/name ranks ahead of prefixes, substrings, then typo matches across IDs, names, tags and description words; rating breaks equal scores.
 - `GET /apps/{app_id}` → App (drafts only visible to authors).
 - `POST /apps` body `{app_id,name,description?:"",logo?:""}` → `{app:App,app_secret:"…"}`.
 - `PATCH /apps/{app_id}` body any `{name,description,tags:[],logo,banner,carousel:[{url,kind:"image"|"video",alt}],links:{website,developer_docs,android,ios,custom:[{label,url,logo}]},setup_step:1..7}` → App.
@@ -43,7 +43,7 @@ Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys a
 ## Reviews and webhooks
 - `GET /apps/{app_id}/reviews` → `{items:[{uuid,id,rating,text,updated_at}],rating:number|null,count:n}`.
 - `PUT /apps/{app_id}/review` body `{rating:1..5,text?:""}` → Review; signed-in accessible app only, max 600 chars, one per UUID.
-- `DELETE /apps/{app_id}/review` body `{}` → `{status:"removed"}`.
+- `DELETE /apps/{app_id}/review` body `{}` → `{status:"removed"}`. The original reviewer may remove their own review after losing access to a private app; this does not grant access to app details or other reviews.
 - `GET /apps/{app_id}/webhook` → Accounts-owned configuration; author only.
 - `PUT /apps/{app_id}/webhook` body `{url,events:["id_change",...]}` → Accounts configuration (secret shown only when generated).
 - `POST /apps/{app_id}/webhook/rotate` body `{}` → `{webhook_secret:"whsec_…"}`.
@@ -63,3 +63,5 @@ Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys a
 - `POST /telemetry {step,progress,event?,path?,target?,status_code?,duration_ms?,item_count?,byte_count?,error_code?}` records a sanitized Space Station event. `X-Apps-Telemetry: off` opts out. Requests return `{accepted:false,reason:"not_configured"}` if no operator telemetry destination exists, without accumulating an undeliverable outbox. Arbitrary properties, credentials, raw app IDs and user identities are excluded.
 - `POST /apps/{app_id}/webhook/rotate` generates or replaces a secret even before a URL is configured. `PUT /webhook` preserves an existing secret; it returns `{url,secret?}` with `secret` only if none existed. `GET /webhook` returns `{url:string|null,secret_set:boolean,events:string[]|null}`.
 - Create/rotate/webhook secret responses can be replayed with the same key for 10 minutes. After that, plaintext is removed and retry returns `409 secret_replay_expired` without repeating the operation. Normal idempotency records remain durable. Every mutation history event includes its idempotency key; failed package validation is also durable and replayed without executing twice.
+- Current author, reviewer and known-account invite labels refresh through Accounts using immutable UUIDs; an ID-only lookup cannot erase a saved display name. A renamed account cannot receive a duplicate pending invitation under its new ID.
+- Unknown routes, extra path segments and unsupported mutation methods return 404 before any external webhook, package-runner or media side effect.

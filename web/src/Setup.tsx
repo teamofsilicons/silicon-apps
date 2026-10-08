@@ -104,10 +104,15 @@ function Details({ app, refresh }: Props) {
                     .map((t) => t.trim())
                     .filter(Boolean),
                 ),
-              ].slice(0, 20),
+              ],
             });
           }}
           description={`${save.draft.tags.length}/20 tags. Separate tags with commas.`}
+          error={
+            save.draft.tags.length > 20
+              ? "Keep up to 20 tags. Remove the extra tags to save."
+              : undefined
+          }
         />
         <SaveStatus {...save} />
       </div>
@@ -179,15 +184,15 @@ function Access({ app, refresh }: Props) {
               placeholder={"c:alice\nsi:assistant"}
               value={accounts}
               disabled={!app.is_admin}
-              onChange={(e) => setAccounts(e.target.value)}
-              onBlur={() =>
+              onChange={(e) => {
+                setAccounts(e.target.value);
                 save.update({
-                  account_ids: accounts
+                  account_ids: e.target.value
                     .split(/[\n,]/)
                     .map((x) => x.trim())
                     .filter(Boolean),
-                })
-              }
+                });
+              }}
               description="One c:id or si:id per line. Accounts are resolved to their permanent UUIDs."
               rows={4}
             />
@@ -196,15 +201,15 @@ function Access({ app, refresh }: Props) {
               placeholder={"teamofsilicons.com\nexample.com"}
               value={domains}
               disabled={!app.is_admin}
-              onChange={(e) => setDomains(e.target.value)}
-              onBlur={() =>
+              onChange={(e) => {
+                setDomains(e.target.value);
                 save.update({
-                  domains: domains
+                  domains: e.target.value
                     .split(/[\n,]/)
                     .map((x) => x.trim().replace(/^@/, ""))
                     .filter(Boolean),
-                })
-              }
+                });
+              }}
               description="One domain per line. Access requires a verified email on that domain."
               rows={3}
             />
@@ -408,11 +413,19 @@ function Packages({ app, refresh }: Props) {
                   <div key={i} className="validation-result">
                     <strong>{v.command}</strong>
                     <p>Expected: {v.expected}</p>
-                    <pre>
-                      {v.stdout ||
-                        v.stderr ||
-                        `Exited with code ${v.exit_code}`}
-                    </pre>
+                    <p>Exit code: {v.exit_code}</p>
+                    {v.stdout && (
+                      <>
+                        <span className="small muted">Standard output</span>
+                        <pre>{v.stdout}</pre>
+                      </>
+                    )}
+                    {v.stderr && (
+                      <>
+                        <span className="small muted">Standard error</span>
+                        <pre>{v.stderr}</pre>
+                      </>
+                    )}
                   </div>
                 ))}
               </details>
@@ -577,12 +590,12 @@ function AppMedia({ app, refresh }: Props) {
     });
     if (result) {
       if (destination === "carousel")
-        save.update({
+        save.update((current) => ({
           carousel: [
-            ...save.draft.carousel,
+            ...current.carousel,
             { url: result.url, kind: result.kind, alt: "" },
           ],
-        });
+        }));
       else save.update({ [destination]: result.url });
     }
     setUploading("");
@@ -728,9 +741,9 @@ function Webhooks({ app }: { app: App }) {
       <ErrorNotice error={resource.error} retry={resource.reload} />
       {resource.loading && !resource.data ? (
         <Loading label="Loading webhook configuration…" />
-      ) : (
-        <WebhookForm app={app} config={resource.data || {}} />
-      )}
+      ) : resource.data ? (
+        <WebhookForm app={app} config={resource.data} />
+      ) : null}
     </Section>
   );
 }
@@ -751,6 +764,14 @@ function WebhookForm({ app, config }: { app: App; config: WebhookConfig }) {
       }
     },
   );
+  let validEndpoint = false;
+  try {
+    validEndpoint = ["http:", "https:"].includes(
+      new URL(save.draft.url).protocol,
+    );
+  } catch {
+    /* Endpoint is still being entered. */
+  }
   return (
     <div className="form-stack">
       <div className="notice">
@@ -793,7 +814,13 @@ function WebhookForm({ app, config }: { app: App; config: WebhookConfig }) {
         description="Add an endpoint to save your update preferences. Changes save automatically."
         onChange={(e) => save.update({ url: e.target.value })}
       />
-      <fieldset className="event-options">
+      {!validEndpoint && (
+        <p className="small muted">
+          Enter a complete HTTP or HTTPS endpoint to change the selected
+          updates.
+        </p>
+      )}
+      <fieldset className="event-options" disabled={!validEndpoint}>
         <legend>Updates to receive</legend>
         {EVENTS.map((event) => (
           <label key={event}>
@@ -831,6 +858,7 @@ function Publish({
   go,
 }: Props & { go: (step: number) => Promise<void> }) {
   const readiness = useResource<Readiness>(`/apps/${app.app_id}/readiness`);
+  const webhook = useResource<WebhookConfig>(`/apps/${app.app_id}/webhook`);
   const mutation = useMutation(() => {
     refresh();
     readiness.reload();
@@ -862,6 +890,22 @@ function Publish({
             </dd>
           </div>
           <div>
+            <dt>Tags</dt>
+            <dd>{app.tags.join(", ") || "None added"}</dd>
+          </div>
+          {app.visibility === "private" && (
+            <>
+              <div>
+                <dt>Shared accounts</dt>
+                <dd>{app.account_ids?.join(", ") || "No accounts added"}</dd>
+              </div>
+              <div>
+                <dt>Verified email domains</dt>
+                <dd>{app.domains?.join(", ") || "No domains added"}</dd>
+              </div>
+            </>
+          )}
+          <div>
             <dt>Supported targets</dt>
             <dd>
               {app.targets.length
@@ -884,6 +928,106 @@ function Publish({
           <div>
             <dt>Authors</dt>
             <dd>{app.authors.map((x) => x.id).join(", ")}</dd>
+          </div>
+          <div>
+            <dt>Links</dt>
+            <dd>
+              {Object.entries(app.links || {})
+                .filter(
+                  ([key, value]) =>
+                    key !== "custom" && typeof value === "string" && value,
+                )
+                .map(([key, value]) => (
+                  <div key={key}>
+                    <a
+                      href={safeUrl(value as string)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {
+                        (
+                          {
+                            developer_docs: "Developer docs",
+                            website: "Website",
+                            android: "Android app",
+                            ios: "iOS app",
+                          } as Record<string, string>
+                        )[key]
+                      }
+                      : {value as string}
+                    </a>
+                  </div>
+                ))}
+              {app.links?.custom?.map((link, index) => (
+                <div key={index}>
+                  <a
+                    href={safeUrl(link.url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {link.label}: {link.url}
+                  </a>
+                </div>
+              ))}
+              {!Object.entries(app.links || {}).some(([key, value]) =>
+                key === "custom" ? (value as Links["custom"])?.length : value,
+              ) && "None added"}
+            </dd>
+          </div>
+          <div>
+            <dt>Media</dt>
+            <dd>
+              {app.logo ? "Logo added" : "No logo"} ·{" "}
+              {app.banner ? "Banner added" : "No banner"} ·{" "}
+              {app.carousel.length} carousel items
+              <div className="review-media">
+                {app.logo && (
+                  <img src={safeUrl(app.logo)} alt={app.logo_alt || ""} />
+                )}
+                {app.banner && (
+                  <img src={safeUrl(app.banner)} alt={app.banner_alt || ""} />
+                )}
+                {app.carousel.map((item, index) =>
+                  item.kind === "video" ? (
+                    <video
+                      key={index}
+                      controls
+                      src={safeUrl(item.url)}
+                      aria-label={item.alt || `App video ${index + 1}`}
+                    />
+                  ) : (
+                    <img
+                      key={index}
+                      src={safeUrl(item.url)}
+                      alt={item.alt || ""}
+                    />
+                  ),
+                )}
+              </div>
+            </dd>
+          </div>
+          <div>
+            <dt>Account updates</dt>
+            <dd>
+              {webhook.loading ? (
+                "Loading configuration…"
+              ) : webhook.data ? (
+                <>
+                  {webhook.data.url || "No endpoint configured"}
+                  <p className="small muted">
+                    {webhook.data.secret_set
+                      ? "Webhook secret configured"
+                      : "No webhook secret configured"}
+                  </p>
+                  {webhook.data.events?.length ? (
+                    <p>{webhook.data.events.join(", ")}</p>
+                  ) : null}
+                </>
+              ) : (
+                "Configuration unavailable"
+              )}
+              <ErrorNotice error={webhook.error} retry={webhook.reload} />
+            </dd>
           </div>
         </dl>
         {!app.latest_production && (
@@ -922,14 +1066,14 @@ function Publish({
               </button>
             ))}
           </div>
-        ) : (
+        ) : readiness.data?.ready ? (
           <div className="notice success">
             <Check size={18} />
             <p>
               The required steps are complete. Your app is ready to publish.
             </p>
           </div>
-        )}
+        ) : null}
         <ErrorNotice error={mutation.error} />
         {published ? (
           <p role="status" className="success">
@@ -940,13 +1084,13 @@ function Publish({
             loading={mutation.pending}
             disabled={!readiness.data?.ready}
             onClick={async () => {
-              await flushPendingSaves();
-              const result = await mutation.run(() =>
-                api(`/apps/${app.app_id}/publish`, {
+              const result = await mutation.run(async () => {
+                await flushPendingSaves();
+                return api(`/apps/${app.app_id}/publish`, {
                   method: "POST",
                   body: {},
-                }),
-              );
+                });
+              });
               if (result) setPublished(true);
             }}
           >

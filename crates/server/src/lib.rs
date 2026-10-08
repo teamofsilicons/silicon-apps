@@ -162,6 +162,9 @@ async fn dispatch(
     }
     if path.starts_with("apps/availability/") && method == Method::GET {
         let id = path.strip_prefix("apps/availability/").unwrap();
+        if id.contains('/') {
+            return Err(ApiError::missing());
+        }
         let local = s.store.lock().unwrap().catalog()?;
         let available = valid_app_id(id) && !reserved_app_id(id) && !local.apps.contains_key(id);
         let available = available && integrations::registry_available(&s, id).await?;
@@ -243,6 +246,9 @@ async fn dispatch(
         return Ok(Json(result).into_response());
     }
     if ![Method::POST, Method::PUT, Method::PATCH, Method::DELETE].contains(&method) {
+        return Err(ApiError::missing());
+    }
+    if !store::mutation_route_exists(method.as_str(), &p) {
         return Err(ApiError::missing());
     }
     auth::check_csrf(&s, &headers)?;

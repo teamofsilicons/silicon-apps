@@ -102,7 +102,6 @@ pub async fn run_with_overrides(
             }
         };
         state::atomic_json(&state.root.join("updater.json"), &value)?;
-        #[cfg(windows)]
         if !once
             && value["result"]["items"].as_array().is_some_and(|items| {
                 items
@@ -110,14 +109,26 @@ pub async fn run_with_overrides(
                     .any(|item| item["app_id"] == "apps" && item["status"] == "updated")
             })
         {
-            // Release the singleton lock before handing off to a fresh copy of the new CLI.
+            // A successful self-update must replace the updater's own running code too.
             drop(_lock);
-            return start_process_configured(
-                state,
-                &preferred_executable(state, &std::env::current_exe()?)?,
-                &config,
-            )
-            .await;
+            let executable = preferred_executable(state, &std::env::current_exe()?)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::process::CommandExt;
+                // Preserve the process ID and supervisor relationship on launchd/systemd.
+                let error = std::process::Command::new(executable)
+                    .arg("--home")
+                    .arg(&state.home)
+                    .arg("--server")
+                    .arg(&config.server)
+                    .arg("--accounts-url")
+                    .arg(&config.accounts_url)
+                    .args(["daemon", "run"])
+                    .exec();
+                return Err(error).context("Apps updated, but its updater could not reload the new executable; restart it with apps daemon start");
+            }
+            #[cfg(not(unix))]
+            return start_process_configured(state, &executable, &config).await;
         }
         if once {
             return Ok(value);
@@ -650,7 +661,9 @@ pub fn telemetry(
     if !config.telemetry {
         return;
     }
-    let Ok(key) = std::env::var("APPS_TELEMETRY_KEY") else {
+    let Ok(key) =
+        std::env::var("APPS_TELEMETRY_TABLE_KEY").or_else(|_| std::env::var("APPS_TELEMETRY_KEY"))
+    else {
         return;
     };
     if let Ok(client) = space_station::SpaceClient::builder(&key)

@@ -184,6 +184,12 @@ def unpack(data, destination, expected_manifest):
                     while chunk := source.read(1024 * 1024):
                         target.write(chunk)
                 path.chmod(0o755 if entry.mode & 0o111 else 0o644)
+    # The service runs with UMask=0077, while Linux guests run as uid 65534.
+    # Normalize explicit and implicit directories so that the read-only package
+    # mount remains traversable by that separate, unprivileged container user.
+    for path in destination.rglob("*"):
+        if path.is_dir():
+            path.chmod(0o755)
     manifest_path = destination / "apps.yaml"
     if not manifest_path.is_file() or manifest_path.stat().st_size > 1024 * 1024:
         raise ValueError("apps.yaml is missing or larger than 1 MiB.")

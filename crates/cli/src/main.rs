@@ -336,16 +336,24 @@ enum ConfigAction {
 
 #[tokio::main]
 async fn main() {
-    let cli = Cli::parse();
+    let arguments: Vec<_> = std::env::args_os().collect();
+    let cli = match Cli::try_parse_from(&arguments) {
+        Ok(cli) => cli,
+        Err(error) => {
+            if error.use_stderr() && arguments.iter().any(|arg| arg == "--json") {
+                eprintln!(
+                    "{}",
+                    json!({"error":{"code":"invalid_arguments","message":error.to_string()}})
+                );
+                std::process::exit(2);
+            }
+            error.exit();
+        }
+    };
     let json_output = cli.json;
     match execute(&cli).await {
         Ok(value) => {
-            let failed = value.get("valid") == Some(&Value::Bool(false))
-                || value.get("error").is_some()
-                || value
-                    .get("items")
-                    .and_then(Value::as_array)
-                    .is_some_and(|items| items.iter().any(|item| item["status"] == "failed"));
+            let failed = failed_result(&value);
             if !value.is_null() {
                 if !json_output && value.get("message").and_then(Value::as_str).is_some() {
                     println!("{}", value["message"].as_str().unwrap());
@@ -375,7 +383,11 @@ async fn main() {
 }
 async fn execute(cli: &Cli) -> Result<Value> {
     if let Command::Docs { topic } = &cli.command {
-        show_docs(topic)?;
+        let content = bundled_docs(topic);
+        if cli.json {
+            return Ok(json!({"topic":topic,"content":content}));
+        }
+        println!("{content}");
         return Ok(Value::Null);
     }
     if let Command::Accounts = &cli.command {
@@ -963,36 +975,35 @@ fn confirm(message: &str) -> Result<bool> {
         "y" | "yes"
     ))
 }
-fn show_docs(topic: &str) -> Result<()> {
+fn bundled_docs(topic: &str) -> String {
     if topic == "tree" {
-        fn walk(mut command: clap::Command, prefix: String) {
-            println!("\n=== {prefix} ===\n{}", command.render_long_help());
+        fn walk(mut command: clap::Command, prefix: String, output: &mut String) {
+            output.push_str(&format!(
+                "\n=== {prefix} ===\n{}\n",
+                command.render_long_help()
+            ));
             for child in command.get_subcommands().cloned().collect::<Vec<_>>() {
                 let name = child.get_name().to_owned();
-                walk(child, format!("{prefix} {name}"));
+                walk(child, format!("{prefix} {name}"), output);
             }
         }
-        walk(Cli::command(), "apps".into());
-        return Ok(());
+        let mut output = String::new();
+        walk(Cli::command(), "apps".into(), &mut output);
+        return output;
     }
-    println!(
-        "{}",
-        match topic {
-            "start" =>
-                "Install: apps search QUERY; apps show APP; apps install APP.\nSign in for private apps or authoring: apps login.\nPublish: apps create APP --name NAME; apps setup APP details --description-file description.txt; apps pack ./package -o package.tar.gz; apps upload APP --target TARGET package.tar.gz; apps release APP --version 0.1.0 --package PACKAGE_ID; apps promote APP RELEASE_ID --version 1.0.0; apps readiness APP; apps publish APP.\nEnable updates: apps daemon install. Run apps docs publish, manifest, install, auth or why for details.",
-            "publish" =>
-                "1. Create with an immutable 3–30-character app ID. Save the app_secret shown once.\n2. Save a 200–600-character description and up to 20 tags with setup details.\n3. Use setup access for public/private access. Only admin changes visibility.\n4. Prepare apps.yaml and at least one target binary. Every binary must support --help, accounts --json (app_id), login status --json (authenticated true/false and identity).\n5. Validate, pack, upload each supported target. Upload validation runs in isolated target runners; unavailable runners fail closed.\n6. Create a development release with accepted package IDs. Promote with an independent x.y.z production version.\n7. Optional: setup links, setup media, webhook set. Save secrets when displayed.\n8. Check readiness and publish. Drafts remain visible to authors under apps list --mine. No manual review delays publication.\nInvite co-authors through apps authors APP invite c:person; accept using apps invites accept INVITE_ID. History records every mutation. See apps docs why.",
-            "manifest" =>
-                "Example apps.yaml:\n\nschema_version: 1\napp_id: ring\nversion: 0.1.0\ncommand: ring\ntargets:\n  macos-aarch64:\n    binary: bin/ring\n    # install_script: scripts/install.sh\n\nPaths are relative to package root. No symlinks, hardlinks, parent paths or special files. Use apps targets for all nine targets; unknown market data is shown as null. Run apps validate DIR to see all errors. Pack output should be outside DIR. Install scripts run locally after installation only when explicitly allowed, with a timeout and rollback on failure. Scripts may have external side effects that package rollback cannot undo.",
-            "install" =>
-                "apps install APP installs latest production. Quote 'APP>dev' for development, 'APP@1.2.3' or 'APP>dev@1.2.3' for an exact version. Changing channel prompts for confirmation; --yes approves noninteractive switching. An exact version chooses the initial release; the updater still follows its channel.\nAll bytes are checksum verified before bounded safe extraction. Apps commands live in ~/.apps/bin (or SILICON_HOME/.apps/bin); add that directory to PATH.\nUse apps update [APP] now, or apps daemon install for updates at login, once a minute. apps is updated through the same mechanism when installed from the store. Other apps must not run their own updater.\nUninstall with apps uninstall APP; leave a review with apps review APP --rating 5 --text '…'.",
-            "auth" =>
-                "apps login starts the official Silicon Accounts device sign-in. Approve its code in your browser. Apps exchanges a single-use Apps SLT on its backend; no application secret ships in the CLI.\nSilicons: apps login --silicon si:NAME reads the STK from SILICON_STK (override with --stk-env). Or provide an Accounts-generated Apps token using apps login --slt TOKEN.\napps login status --json returns authenticated and the current Carbon/Silicon identity. apps logout revokes the session. Rotating tokens are stored atomically with owner-only permissions in the configured .apps directory. APPS_TOKEN optionally provides an externally managed bearer token.",
-            "why" =>
-                "Silicon Apps uses account UUIDs for ownership and authorization because public c:id and si:id can change. Accepted authors have equal authoring rights; the oldest member initially administers membership and visibility.\nPackages must implement three discovery commands so Silicons can navigate any CLI without bespoke knowledge. Package validation never runs on the API host.\nDevelopment and production versions are independent immutable histories. Retried mutations use Idempotency-Key to avoid duplication. Search relevance precedes ratings; private apps are filtered before search.\nTelemetry uses Space Station when APPS_TELEMETRY_KEY is configured, with source, step, progress and context. It defaults on; apps config telemetry off disables it. Secrets and argument payloads are never included.\nSee apps docs tree for the complete API-accessible command surface.",
-            _ =>
-                "Repository: https://github.com/teamofsilicons/silicon-apps\nOnline docs: https://apps.teamofsilicons.com/docs\nRust package: https://docs.rs/silicon-apps-client\nDeveloper platform: https://developer.teamofsilicons.com\nStore: https://apps.teamofsilicons.com",
-        }
-    );
-    Ok(())
+    apps::docs::guide(topic).into()
+}
+
+fn failed_result(value: &Value) -> bool {
+    value.get("valid") == Some(&Value::Bool(false))
+        || value.get("error").is_some_and(|error| !error.is_null())
+        || value
+            .get("items")
+            .and_then(Value::as_array)
+            .is_some_and(|items| {
+                items
+                    .iter()
+                    .any(|item| item["status"] == "failed" || failed_result(item))
+            })
+        || value.get("result").is_some_and(failed_result)
 }
