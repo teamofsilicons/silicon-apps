@@ -76,8 +76,6 @@ pub struct Installed {
     pub installed_at: String,
     #[serde(default)]
     pub server: String,
-    #[serde(default)]
-    pub allow_install_script: bool,
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct InstallOutcome {
@@ -119,7 +117,6 @@ pub async fn install(
     config: &Config,
     spec: &InstallSpec,
     allow_switch: bool,
-    allow_script: bool,
 ) -> Result<InstallOutcome> {
     install_source(
         PackageSource::Registry(client),
@@ -127,7 +124,6 @@ pub async fn install(
         config,
         spec,
         allow_switch,
-        allow_script,
     )
     .await
 }
@@ -149,7 +145,6 @@ pub async fn install_local(
     spec: &InstallSpec,
     archive: LocalArchive,
     allow_switch: bool,
-    allow_script: bool,
 ) -> Result<InstallOutcome> {
     install_source(
         PackageSource::Archive(archive),
@@ -157,7 +152,6 @@ pub async fn install_local(
         config,
         spec,
         allow_switch,
-        allow_script,
     )
     .await
 }
@@ -168,7 +162,6 @@ async fn install_source(
     config: &Config,
     spec: &InstallSpec,
     allow_switch: bool,
-    allow_script: bool,
 ) -> Result<InstallOutcome> {
     let _lock = state.lock("install")?;
     let source_server = crate::auth::service_scope(match &source {
@@ -270,13 +263,6 @@ async fn install_source(
         manifest.command == resolution.package.command,
         "manifest command differs from release metadata"
     );
-    if package_target.install_script.is_some() {
-        ensure!(
-            allow_script,
-            "{} contains an install script. Inspect its source and retry with --allow-install-script to run it intentionally.",
-            spec.app_id
-        );
-    }
     let destination = state.root.join("installed").join(&spec.app_id);
     let command_path = state
         .root
@@ -351,7 +337,6 @@ async fn install_source(
             sha256: resolution.package.sha256.clone(),
             installed_at: chrono::Utc::now().to_rfc3339(),
             server: source_server.clone(),
-            allow_install_script: allow_script,
         };
         installed.insert(spec.app_id.clone(), item.clone());
         if let Some(event) = &event {

@@ -125,11 +125,11 @@ Every release is a CLI. The author uploads a package for every target they suppo
 
 On this step the developer platform shows a `Total Addressable Market`: next to each target, the number of Carbons and Silicons on that platform, and the total the app reaches with the targets it has uploaded so far.
 
-The package is a `.tar.gz` with an `apps.yaml` in it that describes the targets, the command name, and the install script if there is one. `apps validate` checks it and shows every error at once, and `apps pack` builds the `.tar.gz`.
+The package is a `.tar.gz` with an `apps.yaml` in it that describes the targets, the command name, and the install script if there is one. `silicon-apps validate` checks it and shows every error at once, and `silicon-apps pack` builds the `.tar.gz`.
 
 ### Install script
 
-Along with the package an app can push an install script. It runs once the app has been installed on the user's system.
+Along with the package an app can push an install script. It runs automatically when the app is installed or updated on the user's system. This is part of installing the app and does not have a separate permission or configurable setting.
 
 ### The three commands
 
@@ -192,7 +192,7 @@ Every release is a development release by default. A development release can be 
 
 Versions are `x.y.z`, for example `2.4.1`. Development and production releases keep their own versions.
 
-Installing an app gets its latest production release. Its development releases are installed as `{app_id}>dev`, for example `briefcase>dev`. An exact version can be installed with `@`, for example `apps install 'briefcase@3.4.2'` or `apps install 'briefcase>dev@2.1.0'`.
+Installing an app gets its latest production release. Its development releases are installed as `{app_id}>dev`, for example `briefcase>dev`. An exact version can be installed with `@`, for example `silicon-apps install 'briefcase@3.4.2'` or `silicon-apps install 'briefcase>dev@2.1.0'`.
 
 If someone has the production release and installs the development one, ask if they'd like to switch to the experimental development releases. The same the other way around.
 
@@ -215,7 +215,7 @@ Apps can be searched by app_id, name, description and tags. Search should handle
 
 Every app opens its own page, showing everything its authors set up: the name, logo, banner, carousel, description, tags, links, authors, the targets it supports, its latest release, its rating and its installs.
 
-Each page shows the one simple command to install it, for example `apps install briefcase`.
+Each page shows the one simple command to install it, for example `silicon-apps install briefcase`.
 
 ### Reviews
 
@@ -239,20 +239,20 @@ Only above this line is what the Apps service would hold, below this would be th
 
 # Rust Package & CLI
 
-The Rust package is the primary interface and is stateless. The CLI, `apps`, is built on top of the Rust package only, is stateful, and has no feature that the package doesn't. Everything should work through the CLI first, and both the developer platform and the store are a subset of it.
+The Rust package is the primary interface and is stateless. The CLI, `silicon-apps`, is built on top of the Rust package only, is stateful, and has no feature that the package doesn't. Everything should work through the CLI first, and both the developer platform and the store are a subset of it.
 
-If you need a local store for auth or anything else, use `{home_dir}/.apps/`. The default home dir is `~`; if `SILICON_HOME` is set, use that instead. It can be configured via `apps config home {location}`, and if it's not a directory give an error, not a directory.
+If you need a local store for auth or anything else, use `{home_dir}/.apps/`. The default home dir is `~`; if `SILICON_HOME` is set, use that instead. It can be configured via `silicon-apps config home {location}`, and if it's not a directory give an error, not a directory.
 
 Everything an author does on the developer platform can be done with the CLI: create an app, go through each publishing step, invite and leave, validate, pack, upload, release and promote. Everything someone does on the store can be done too: search, view an app, install, uninstall, update and review.
 
 The CLI must have:
-- `apps --help` - the entire help docs.
-- `apps accounts --json` - returns the `app_id` alongside other information.
-- `apps login` - signs in through Silicon Accounts.
-- `apps login status --json` - reports `authenticated: true` and which Carbon or Silicon it's signed in as.
-- `apps install {app_id}` - installs the app for the current OS and architecture, then says it was installed and to run `{command} --help`.
-- `apps uninstall {app_id}` - removes it entirely, and mentions they can leave a review with `apps review`.
-- `apps report <report-message> --pr <pr-link>` - reports a bug, with an optional PR if it was also patched. Every report is mailed to [saketdev12@gmail.com, shubhastro2@gmail.com, bugs@teamofsilicons.com].
+- `silicon-apps --help` - the entire help docs.
+- `silicon-apps accounts --json` - returns the `app_id` alongside other information.
+- `silicon-apps login` - signs in through Silicon Accounts.
+- `silicon-apps login status --json` - reports `authenticated: true` and which Carbon or Silicon it's signed in as.
+- `silicon-apps install {app_id}` - installs the app for the current OS and architecture, then says it was installed and to run `{command} --help`.
+- `silicon-apps uninstall {app_id}` - removes it entirely, and mentions they can leave a review with `silicon-apps review`.
+- `silicon-apps report <report-message> --pr <pr-link>` - reports a bug, with an optional PR if it was also patched. Every report is mailed to [saketdev12@gmail.com, shubhastro2@gmail.com, bugs@teamofsilicons.com].
 
 The CLI and package only expose what an author or user does, never the service's internal actions.
 
@@ -264,7 +264,7 @@ Never just say something went wrong. Say exactly what and why, like a programmin
 
 # Updates
 
-Silicon Apps keeps every installed app up to date. A daemon checks every minute for a new release of each installed app, on the channel it was installed from (production or development), and updates it. This is the only updater; apps must not run one of their own. The `apps` CLI updates itself the same way.
+Silicon Apps keeps every installed app up to date. A daemon checks every minute for a new release of each installed app, on the channel it was installed from (production or development), and updates it. This is the only updater; apps must not run one of their own. The `silicon-apps` CLI updates itself the same way.
 
 # Docs
 

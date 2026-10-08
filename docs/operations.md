@@ -254,7 +254,7 @@ The generated service embeds the exact executable and `--home` paths. Keep that 
 
 The default interval is 60 seconds. `silicon-apps config set update_interval_seconds N` changes it, with a minimum of ten seconds. Each app follows its installed production or development channel, including `apps` itself when installed from the store. An exact-version install is not a permanent pin. `silicon-apps update [APP]` performs an immediate check; inspect per-app failures and `.apps/updater.json`/`updater.log` rather than treating a running daemon as proof every app updated.
 
-Channel changes prompt before switching; `--yes` explicitly allows a noninteractive switch. Install scripts require explicit consent with `--allow-install-script`; that consent is retained for that installed app’s updates. An install stages and verifies the archive, preserves a backup, checks command ownership and restores the previous installation on managed-file errors. A script’s external side effects cannot be undone by archive rollback.
+Channel changes prompt before switching; `--yes` explicitly allows a noninteractive switch. Bundled install scripts run automatically during installs and updates. An install stages and verifies the archive, preserves a backup, checks command ownership and restores the previous installation on managed-file errors. A script’s external side effects cannot be undone by archive rollback.
 
 On Windows, updater execution uses a separate copy so the installed executable can be replaced. Interactive self-install may return `scheduled`; inspect `silicon-apps installed` and `.apps/self-update.log` for completion. Native service activation and reboot persistence still need verification on the actual Windows host.
 

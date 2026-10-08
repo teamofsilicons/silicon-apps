@@ -13,7 +13,6 @@ pub async fn update(
     state: &LocalState,
     config: &Config,
     app: Option<&str>,
-    allow_script: bool,
 ) -> Result<Value> {
     install::flush_install_events(client, state).await?;
     let mut results = vec![];
@@ -35,8 +34,8 @@ pub async fn update(
             ensure!(item.server==auth::service_scope(client.base_url())?,"{} is installed from {}; selected registry {} cannot update it. Use --server {} update {} or explicitly reinstall from another registry with --yes.",item.app_id,item.server,client.base_url(),item.server,item.app_id);
             let latest=client.resolve(&spec,&item.target).await?;
             if latest.release.id==item.release_id {return Ok(json!({"app_id":item.app_id,"status":"current","version":item.version}));}
-            if let Some(receipt)=defer_self_install(state,config,&spec,false,allow_script||item.allow_install_script)?{return Ok(receipt);}
-            let outcome=install::install(client,state,config,&spec,false,allow_script||item.allow_install_script).await?;
+            if let Some(receipt)=defer_self_install(state,config,&spec,false)?{return Ok(receipt);}
+            let outcome=install::install(client,state,config,&spec,false).await?;
             Ok::<_,anyhow::Error>(json!({"app_id":item.app_id,"status":"updated","version":outcome.installed.version,"warning":outcome.warning}))
         }.await;
         results.push(match result {
@@ -92,7 +91,7 @@ pub async fn run_with_overrides(
         )
         .await
         {
-            Ok(client) => update(&client, state, &config, None, false).await,
+            Ok(client) => update(&client, state, &config, None).await,
             Err(error) => Err(error),
         };
         let value = match result {
@@ -579,16 +578,14 @@ pub fn defer_self_install(
     config: &Config,
     spec: &InstallSpec,
     allow_switch: bool,
-    allow_script: bool,
 ) -> Result<Option<Value>> {
-    defer_self_install_archive(state, config, spec, allow_switch, allow_script, None)
+    defer_self_install_archive(state, config, spec, allow_switch, None)
 }
 pub fn defer_self_install_archive(
     state: &LocalState,
     config: &Config,
     spec: &InstallSpec,
     allow_switch: bool,
-    allow_script: bool,
     archive: Option<(&Path, &str)>,
 ) -> Result<Option<Value>> {
     #[cfg(windows)]
@@ -616,9 +613,6 @@ pub fn defer_self_install_archive(
         if allow_switch {
             command.arg("--yes");
         }
-        if allow_script {
-            command.arg("--allow-install-script");
-        }
         if let Some((path, digest)) = archive {
             command
                 .arg("--archive")
@@ -638,7 +632,7 @@ pub fn defer_self_install_archive(
     }
     #[cfg(not(windows))]
     {
-        let _ = (state, config, spec, allow_switch, allow_script, archive);
+        let _ = (state, config, spec, allow_switch, archive);
         Ok(None)
     }
 }

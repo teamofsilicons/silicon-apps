@@ -32,8 +32,13 @@ async fn download(State(fixture): State<Arc<Mutex<Fixture>>>) -> impl IntoRespon
 }
 fn package_fixture(version: &str, script: Option<&str>) -> Fixture {
     let dir = tempfile::tempdir().unwrap();
+    let script_name = if cfg!(windows) {
+        "install.cmd"
+    } else {
+        "install.sh"
+    };
     let script_field = script
-        .map(|_| "\n    install_script: install.sh")
+        .map(|_| format!("\n    install_script: {script_name}"))
         .unwrap_or_default();
     fs::write(dir.path().join("apps.yaml"),format!("app_id: fixture\nversion: {version}\ncommand: fixture\ntargets:\n  {}:\n    binary: fixture{script_field}\n",package::current_target().unwrap())).unwrap();
     fs::write(
@@ -42,7 +47,7 @@ fn package_fixture(version: &str, script: Option<&str>) -> Fixture {
     )
     .unwrap();
     if let Some(script) = script {
-        fs::write(dir.path().join("install.sh"), script).unwrap();
+        fs::write(dir.path().join(script_name), script).unwrap();
     }
     let bytes = package::pack_directory(dir.path()).unwrap();
     Fixture {
@@ -78,7 +83,7 @@ async fn verified_install_then_uninstall_updates_registry_and_command() {
     let home = tempfile::tempdir().unwrap();
     let state = LocalState::new(home.path()).unwrap();
     let spec: InstallSpec = "fixture".parse().unwrap();
-    let outcome = install::install(&client, &state, &Config::default(), &spec, false, false)
+    let outcome = install::install(&client, &state, &Config::default(), &spec, false)
         .await
         .unwrap();
     assert_eq!(outcome.installed.version, "1.0.0");
@@ -107,7 +112,6 @@ async fn checksum_mismatch_does_not_install_untrusted_bytes() {
         &Config::default(),
         &"fixture".parse().unwrap(),
         false,
-        false,
     )
     .await
     .unwrap_err();
@@ -124,11 +128,11 @@ async fn failed_install_script_rolls_back_previous_files_registry_and_command() 
     let home = tempfile::tempdir().unwrap();
     let state = LocalState::new(home.path()).unwrap();
     let spec: InstallSpec = "fixture".parse().unwrap();
-    install::install(&client, &state, &Config::default(), &spec, false, false)
+    install::install(&client, &state, &Config::default(), &spec, false)
         .await
         .unwrap();
     *fixture.lock().unwrap() = package_fixture("2.0.0", Some("exit 27\n"));
-    let error = install::install(&client, &state, &Config::default(), &spec, false, true)
+    let error = install::install(&client, &state, &Config::default(), &spec, false)
         .await
         .unwrap_err();
     assert!(error.to_string().contains("previous version was restored"));
@@ -144,23 +148,42 @@ async fn failed_install_script_rolls_back_previous_files_registry_and_command() 
     server.abort();
 }
 #[tokio::test]
-async fn install_script_requires_intentional_consent() {
-    let fixture = Arc::new(Mutex::new(package_fixture("1.0.0", Some("exit 0\n"))));
-    let (client, server) = server(fixture).await;
+async fn bundled_scripts_run_on_install_and_update_despite_legacy_false_setting() {
+    let fixture = Arc::new(Mutex::new(package_fixture(
+        "1.0.0",
+        Some("echo first > script-ran.txt\n"),
+    )));
+    let (client, server) = server(fixture.clone()).await;
     let home = tempfile::tempdir().unwrap();
     let state = LocalState::new(home.path()).unwrap();
-    let error = install::install(
-        &client,
-        &state,
-        &Config::default(),
-        &"fixture".parse().unwrap(),
-        false,
-        false,
+    let spec: InstallSpec = "fixture".parse().unwrap();
+    install::install(&client, &state, &Config::default(), &spec, false)
+        .await
+        .unwrap();
+    let marker = state.root.join("installed/fixture/script-ran.txt");
+    assert_eq!(fs::read_to_string(&marker).unwrap().trim(), "first");
+    let mut legacy = serde_json::to_value(state.installed().unwrap()).unwrap();
+    assert!(legacy["fixture"].get("allow_install_script").is_none());
+    legacy["fixture"]["allow_install_script"] = json!(false);
+    fs::write(
+        state.root.join("installed.json"),
+        serde_json::to_vec(&legacy).unwrap(),
     )
-    .await
-    .unwrap_err();
-    assert!(error.to_string().contains("--allow-install-script"));
-    assert!(state.installed().unwrap().is_empty());
+    .unwrap();
+    assert!(
+        serde_json::to_value(state.installed().unwrap()).unwrap()["fixture"]
+            .get("allow_install_script")
+            .is_none()
+    );
+    *fixture.lock().unwrap() = package_fixture("2.0.0", Some("echo second > script-ran.txt\n"));
+    let result = silicon_apps_client::updater::update(&client, &state, &Config::default(), None)
+        .await
+        .unwrap();
+    assert_eq!(result["items"][0]["status"], "updated");
+    assert_eq!(fs::read_to_string(&marker).unwrap().trim(), "second");
+    let stored: Value =
+        serde_json::from_slice(&fs::read(state.root.join("installed.json")).unwrap()).unwrap();
+    assert!(stored["fixture"].get("allow_install_script").is_none());
     server.abort();
 }
 #[test]
@@ -228,7 +251,6 @@ async fn install_count_survives_transport_failure_and_retries_with_same_key() {
         &Config::default(),
         &"fixture".parse().unwrap(),
         false,
-        false,
     )
     .await
     .unwrap();
@@ -239,7 +261,7 @@ async fn install_count_survives_transport_failure_and_retries_with_same_key() {
             .count(),
         1
     );
-    silicon_apps_client::updater::update(&client, &state, &Config::default(), None, false)
+    silicon_apps_client::updater::update(&client, &state, &Config::default(), None)
         .await
         .unwrap();
     assert_eq!(
@@ -261,7 +283,7 @@ async fn script_timeout_terminates_process_and_keeps_previous_install() {
     let home = tempfile::tempdir().unwrap();
     let state = LocalState::new(home.path()).unwrap();
     let spec: InstallSpec = "fixture".parse().unwrap();
-    install::install(&client, &state, &Config::default(), &spec, false, false)
+    install::install(&client, &state, &Config::default(), &spec, false)
         .await
         .unwrap();
     *fixture.lock().unwrap() = package_fixture("2.0.0", Some("sleep 10\n"));
@@ -270,7 +292,7 @@ async fn script_timeout_terminates_process_and_keeps_previous_install() {
         ..Config::default()
     };
     let started = std::time::Instant::now();
-    let error = install::install(&client, &state, &config, &spec, false, true)
+    let error = install::install(&client, &state, &config, &spec, false)
         .await
         .unwrap_err();
     assert!(error.to_string().contains("exceeded 1 seconds"));
@@ -281,7 +303,7 @@ async fn script_timeout_terminates_process_and_keeps_previous_install() {
 
 #[tokio::test]
 async fn local_bootstrap_registers_for_updates_without_fabricating_registry_counts() {
-    let f = package_fixture("1.0.0", None);
+    let f = package_fixture("1.0.0", Some("echo bootstrap > script-ran.txt\n"));
     let bytes = f.bytes.clone();
     let checksum = f.checksum.clone();
     let fixture = Arc::new(Mutex::new(f));
@@ -302,20 +324,24 @@ async fn local_bootstrap_registers_for_updates_without_fabricating_registry_coun
             sha256: checksum,
         },
         false,
-        false,
     )
     .await
     .unwrap();
     assert!(!receipt.count_recorded);
+    assert_eq!(
+        fs::read_to_string(state.root.join("installed/fixture/script-ran.txt"))
+            .unwrap()
+            .trim(),
+        "bootstrap"
+    );
     assert!(
         state.installed().unwrap()["fixture"]
             .release_id
             .starts_with("bootstrap:")
     );
-    let result =
-        silicon_apps_client::updater::update(&client, &state, &Config::default(), None, false)
-            .await
-            .unwrap();
+    let result = silicon_apps_client::updater::update(&client, &state, &Config::default(), None)
+        .await
+        .unwrap();
     assert_eq!(result["items"][0]["status"], "updated");
     assert_eq!(
         state.installed().unwrap()["fixture"].release_id,
@@ -331,13 +357,12 @@ async fn changed_registry_never_silently_replaces_an_existing_app() {
     let home = tempfile::tempdir().unwrap();
     let state = LocalState::new(home.path()).unwrap();
     let spec: InstallSpec = "fixture".parse().unwrap();
-    install::install(&first, &state, &Config::default(), &spec, false, false)
+    install::install(&first, &state, &Config::default(), &spec, false)
         .await
         .unwrap();
-    let result =
-        silicon_apps_client::updater::update(&second, &state, &Config::default(), None, false)
-            .await
-            .unwrap();
+    let result = silicon_apps_client::updater::update(&second, &state, &Config::default(), None)
+        .await
+        .unwrap();
     assert_eq!(result["items"][0]["status"], "failed");
     assert!(
         result["items"][0]["error"]
@@ -347,13 +372,13 @@ async fn changed_registry_never_silently_replaces_an_existing_app() {
     );
     assert_eq!(state.installed().unwrap()["fixture"].version, "1.0.0");
     assert!(
-        install::install(&second, &state, &Config::default(), &spec, false, false)
+        install::install(&second, &state, &Config::default(), &spec, false)
             .await
             .unwrap_err()
             .to_string()
             .contains("explicit confirmation")
     );
-    install::install(&second, &state, &Config::default(), &spec, true, false)
+    install::install(&second, &state, &Config::default(), &spec, true)
         .await
         .unwrap();
     let installed = state.installed().unwrap();
@@ -372,16 +397,15 @@ async fn legacy_unscoped_install_does_not_guess_an_update_registry() {
     let home = tempfile::tempdir().unwrap();
     let state = LocalState::new(home.path()).unwrap();
     let spec: InstallSpec = "fixture".parse().unwrap();
-    install::install(&client, &state, &Config::default(), &spec, false, false)
+    install::install(&client, &state, &Config::default(), &spec, false)
         .await
         .unwrap();
     let mut records = state.installed().unwrap();
     records.get_mut("fixture").unwrap().server.clear();
     state.save_installed(&records).unwrap();
-    let result =
-        silicon_apps_client::updater::update(&client, &state, &Config::default(), None, false)
-            .await
-            .unwrap();
+    let result = silicon_apps_client::updater::update(&client, &state, &Config::default(), None)
+        .await
+        .unwrap();
     assert_eq!(result["items"][0]["status"], "failed");
     assert!(
         result["items"][0]["error"]

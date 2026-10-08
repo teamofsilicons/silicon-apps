@@ -24,11 +24,11 @@ let state = LocalState::new("/home/me")?; // must already be a directory
 let config = Config::default();
 let client = Client::new(&config.server, None)?;
 let spec = "briefcase>dev@1.2.3".parse()?;
-let result = install::install(&client, &state, &config, &spec, false, false).await?;
+let result = install::install(&client, &state, &config, &spec, false).await?;
 # Ok(()) }
 ```
 
-Install checks the selected app/channel/target and SHA-256 digest, extracts a bounded archive, checks command ownership, and uses staging plus backup directories to restore a prior installation on errors. Local scripts require explicit consent and have a timeout. Filesystem rollback cannot undo a script's unrelated external side effects. Successful installation counts use a durable idempotent outbox when the service is temporarily unavailable.
+Install checks the selected app/channel/target and SHA-256 digest, extracts a bounded archive, checks command ownership, and uses staging plus backup directories to restore a prior installation on errors. Bundled scripts run automatically during installs and updates and have a timeout. Filesystem rollback cannot undo a script's unrelated external side effects. Successful installation counts use a durable idempotent outbox when the service is temporarily unavailable.
 
 Every installed record also binds the app to its registry URL. Updating against another registry is refused; explicitly reinstalling with confirmation is required to change the source. Sessions saved by 0.1.0 require a new login, and installed records without a saved source require an explicit reinstall with `--yes` before automatic updates resume.
 

@@ -57,6 +57,7 @@ async fn docs_are_bundled_machine_readable_and_include_the_traversable_command_t
         assert_eq!(value["topic"], topic);
         let content = value["content"].as_str().unwrap();
         assert!(content.len() > 100);
+        assert!(!content.contains("--allow-install-script"));
         if topic == "tree" {
             assert!(content.contains("silicon-apps authors invite"));
             assert!(content.contains("silicon-apps config telemetry"));
@@ -91,7 +92,6 @@ async fn daemon_once_exits_unsuccessfully_when_an_app_cannot_be_updated() {
         sha256: "0".repeat(64),
         installed_at: "2026-01-01T00:00:00Z".into(),
         server: server.clone(),
-        allow_install_script: false,
     };
     state
         .save_installed(&BTreeMap::from([("fixture".into(), item)]))
@@ -216,7 +216,6 @@ async fn unix_daemon_self_update_executes_new_binary_with_same_supervised_pid() 
             sha256: package::sha256(&original),
             bytes: original,
         },
-        false,
         false,
     )
     .await

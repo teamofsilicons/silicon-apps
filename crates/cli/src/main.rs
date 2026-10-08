@@ -9,7 +9,7 @@ use std::{
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Only isolated server runners\nexecute upload validation. Local install scripts require --allow-install-script.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
+const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Only isolated server runners\nexecute upload validation. Bundled install scripts run automatically during installation and updates.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
 
 #[derive(Parser)]
 #[command(name="silicon-apps",version,about="Create, publish, discover and install Silicon Apps",long_about=HELP,subcommand_required=true,arg_required_else_help=true)]
@@ -158,8 +158,6 @@ enum Command {
         app: String,
         #[arg(short = 'y', long)]
         yes: bool,
-        #[arg(long)]
-        allow_install_script: bool,
         /// Install a local archive and register it for channel updates (bootstrap/offline).
         #[arg(long, requires = "sha256")]
         archive: Option<PathBuf>,
@@ -172,11 +170,7 @@ enum Command {
     /// List local installed app versions, channels and checksums.
     Installed,
     /// Check for newer releases on each installed app's channel, including apps itself.
-    Update {
-        app: Option<String>,
-        #[arg(long)]
-        allow_install_script: bool,
-    },
+    Update { app: Option<String> },
     /// Control the only updater. It checks every minute; install enables startup at login.
     Daemon {
         #[command(subcommand)]
@@ -718,7 +712,6 @@ async fn execute(cli: &Cli) -> Result<Value> {
         Command::Install {
             app,
             yes,
-            allow_install_script,
             archive,
             sha256,
         } => {
@@ -755,7 +748,6 @@ async fn execute(cli: &Cli) -> Result<Value> {
                 &config,
                 &spec,
                 switch,
-                *allow_install_script,
                 archive.as_deref().zip(sha256.as_deref()),
             )? {
                 receipt
@@ -770,19 +762,10 @@ async fn execute(cli: &Cli) -> Result<Value> {
                             sha256: sha256.clone().context("--archive requires --sha256")?,
                         },
                         switch,
-                        *allow_install_script,
                     )
                     .await?
                 } else {
-                    install::install(
-                        &client,
-                        &state,
-                        &config,
-                        &spec,
-                        switch,
-                        *allow_install_script,
-                    )
-                    .await?
+                    install::install(&client, &state, &config, &spec, switch).await?
                 };
                 let mut result = serde_json::to_value(outcome)?;
                 match updater::start_configured(&state, &std::env::current_exe()?, &config).await {
@@ -814,18 +797,8 @@ async fn execute(cli: &Cli) -> Result<Value> {
             json!({"message":install::uninstall(&state,app)?})
         }
         Command::Installed => json!({"items":state.installed()?.into_values().collect::<Vec<_>>()}),
-        Command::Update {
-            app,
-            allow_install_script,
-        } => {
-            updater::update(
-                &client,
-                &state,
-                &config,
-                app.as_deref(),
-                *allow_install_script,
-            )
-            .await?
+        Command::Update { app } => {
+            updater::update(&client, &state, &config, app.as_deref()).await?
         }
         Command::Daemon { action } => match action {
             Daemon::Run { once, detached } => {
