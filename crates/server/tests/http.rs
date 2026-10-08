@@ -150,6 +150,164 @@ async fn production_auth_verifies_signature_issuer_audience_expiry_and_active_ac
     task.abort();
 }
 #[tokio::test]
+async fn developer_portal_tokens_manage_owned_apps_but_not_store_actions_or_other_authors() {
+    use axum::response::IntoResponse;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let active = Arc::new(AtomicBool::new(true));
+    let current = active.clone();
+    let key = SigningKey::from_bytes(&[9u8; 32]);
+    let x = URL_SAFE_NO_PAD.encode(key.verifying_key().to_bytes());
+    let provider = Router::new()
+        .route("/.well-known/jwks.json", get(move || {let x=x.clone();async move {Json(json!({"keys":[{"kty":"OKP","crv":"Ed25519","alg":"EdDSA","kid":"test-key","x":x}]}))}}))
+        .route("/v1/userinfo", get(move || {let active=current.clone();async move {
+            if !active.load(Ordering::SeqCst) {
+                return (StatusCode::UNAUTHORIZED, Json(json!({"error":{"code":"invalid_token","message":"Token family revoked"}}))).into_response();
+            }
+            Json(json!({"uuid":"alice","kind":"carbon","id":"c:alice","display_name":"Alice"})).into_response()
+        }}))
+        .route("/v1/internal/apps", get(|| async {Json(json!({"apps":[]}))}))
+        .route("/v1/internal/apps/sync", axum::routing::post(|| async {Json(json!({"status":"ok"}))}));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let issuer = format!("http://{}", listener.local_addr().unwrap());
+    let task = tokio::spawn(async move { axum::serve(listener, provider).await.unwrap() });
+    let dir = tempfile::tempdir().unwrap();
+    let mut cfg = config(dir.path());
+    cfg.dev_auth = false;
+    cfg.accounts_url = issuer.clone();
+    cfg.accounts_service_token = Some("test-service-token".into());
+    let state = AppState::new(cfg).unwrap();
+    seed_private(&state);
+    let app = router(state.clone());
+    let now = chrono::Utc::now().timestamp();
+    let token = signed(&key, &issuer, "developer", now + 600);
+    for path in [
+        "/v1/me",
+        "/v1/session",
+        "/v1/apps?mine=true",
+        "/v1/apps/secret-app",
+        "/v1/apps/secret-app/history",
+    ] {
+        let (status, body) = call(&app, "GET", path, Some(&token), json!({}), None).await;
+        assert_eq!(status, 200, "{path}: {body}");
+    }
+    let (status, body) = call(
+        &app,
+        "PATCH",
+        "/v1/apps/secret-app",
+        Some(&token),
+        json!({"name":"Managed in common portal"}),
+        Some("developer-update"),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["name"], "Managed in common portal");
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/v1/apps",
+        Some(&token),
+        json!({"app_id":"portal-app","name":"Portal App"}),
+        Some("developer-create"),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["app"]["authors"][0]["uuid"], "alice");
+    for (method, path) in [
+        ("PUT", "/v1/apps/secret-app/review"),
+        ("DELETE", "/v1/apps/secret-app/review"),
+        ("POST", "/v1/apps/secret-app/installs"),
+        ("POST", "/v1/reports"),
+        ("POST", "/v1/platforms"),
+        ("GET", "/v1/apps/secret-app/resolve"),
+        ("POST", "/v1/apps/secret-app/publish/extra"),
+    ] {
+        let (status, body) = call(
+            &app,
+            method,
+            path,
+            Some(&token),
+            json!({}),
+            Some("forbidden-developer"),
+        )
+        .await;
+        assert_eq!(status, 401, "{method} {path}: {body}");
+    }
+    for bad in [
+        signed(&key, &issuer, "accounts", now + 600),
+        signed(&key, &issuer, "other", now + 600),
+        signed(&key, &issuer, "developer", now - 300),
+        signed(
+            &SigningKey::from_bytes(&[8; 32]),
+            &issuer,
+            "developer",
+            now + 600,
+        ),
+    ] {
+        let (status, body) = call(
+            &app,
+            "GET",
+            "/v1/apps?mine=true",
+            Some(&bad),
+            json!({}),
+            None,
+        )
+        .await;
+        assert_eq!(status, 401, "{body}");
+    }
+    // A correctly signed token still needs a live, active token family.
+    active.store(false, Ordering::SeqCst);
+    let (status, body) = call(
+        &app,
+        "PATCH",
+        "/v1/apps/secret-app",
+        Some(&token),
+        json!({"name":"Revoked"}),
+        Some("developer-revoked"),
+    )
+    .await;
+    assert_eq!(status, 401, "{body}");
+    active.store(true, Ordering::SeqCst);
+    // The audience bridge does not grant any author capability on another app.
+    {
+        let store = state.store.lock().unwrap();
+        let mut catalog = store.catalog().unwrap();
+        let other = catalog.apps.get_mut("secret-app").unwrap();
+        other.authors[0].uuid = "bob".into();
+        other.admin_uuid = "bob".into();
+        store
+            .connection
+            .execute(
+                "UPDATE catalog SET document=?1 WHERE id=1",
+                [serde_json::to_string(&catalog).unwrap()],
+            )
+            .unwrap();
+    }
+    let (status, body) = call(
+        &app,
+        "PATCH",
+        "/v1/apps/secret-app",
+        Some(&token),
+        json!({"name":"Not mine"}),
+        Some("developer-not-owner"),
+    )
+    .await;
+    assert_eq!(status, 403, "{body}");
+    let (status, body) = call(
+        &app,
+        "GET",
+        "/v1/apps/secret-app/history",
+        Some(&token),
+        json!({}),
+        None,
+    )
+    .await;
+    assert_eq!(status, 404, "{body}");
+    task.abort();
+}
+#[tokio::test]
 async fn author_refresh_uses_subscribed_profile_and_id_only_fallback_preserves_display_name() {
     use axum::response::IntoResponse;
     use std::sync::{

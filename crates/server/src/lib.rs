@@ -141,7 +141,7 @@ async fn dispatch(
         return Err(ApiError::bad("JSON requests are limited to 2 MiB."));
     }
     let token = auth::bearer(&s, &headers).await?;
-    let who = auth::identity(&s, token.as_deref()).await?;
+    let who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;
     if let Some(who) = &who {
         integrations::refresh_identity(&s, who)?;
     }

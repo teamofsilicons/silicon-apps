@@ -156,6 +156,69 @@ pub async fn bearer(s: &Shared, headers: &HeaderMap) -> Result<Option<String>> {
     Ok(Some(access))
 }
 pub async fn identity(s: &Shared, token: Option<&str>) -> Result<Option<Identity>> {
+    verified_identity(s, token, false).await
+}
+
+/// The first-party developer portal acts through its own sealed Accounts session.
+/// Its token is accepted only for the authoring API; it is never exchanged for an
+/// Apps membership or used to authorize store activity.
+pub async fn authoring_identity(
+    s: &Shared,
+    token: Option<&str>,
+    method: &Method,
+    path: &str,
+) -> Result<Option<Identity>> {
+    verified_identity(s, token, developer_route(method, path)).await
+}
+
+fn developer_route(method: &Method, path: &str) -> bool {
+    let p: Vec<_> = path.split('/').collect();
+    matches!(
+        (method.as_str(), p.as_slice()),
+        ("GET", ["me" | "session" | "targets" | "invites" | "apps"])
+            | ("GET", ["apps", "availability", _])
+            | ("GET", ["apps", _])
+            | (
+                "GET",
+                [
+                    "apps",
+                    _,
+                    "authors"
+                        | "invites"
+                        | "history"
+                        | "packages"
+                        | "releases"
+                        | "readiness"
+                        | "webhook"
+                ]
+            )
+            | ("GET", ["apps", _, "media", _])
+            | ("GET", ["apps", _, "packages", _, "download"])
+            | ("POST", ["apps" | "telemetry"])
+            | ("PATCH", ["apps", _])
+            | ("POST", ["invites", _, "accept" | "decline"])
+            | ("PUT", ["apps", _, "access" | "webhook"])
+            | (
+                "POST",
+                [
+                    "apps",
+                    _,
+                    "publish" | "admin" | "invites" | "releases" | "media"
+                ]
+            )
+            | ("POST", ["apps", _, "secret" | "webhook", "rotate"])
+            | ("POST", ["apps", _, "authors", "leave"])
+            | ("DELETE", ["apps", _, "authors" | "invites", _])
+            | ("POST", ["apps", _, "packages", _])
+            | ("POST", ["apps", _, "releases", _, "promote"])
+    )
+}
+
+async fn verified_identity(
+    s: &Shared,
+    token: Option<&str>,
+    allow_developer: bool,
+) -> Result<Option<Identity>> {
     let Some(token) = token else { return Ok(None) };
     if s.config.dev_auth && token.starts_with("dev:") {
         let parts: Vec<_> = token.splitn(3, ':').collect();
@@ -173,12 +236,12 @@ pub async fn identity(s: &Shared, token: Option<&str>) -> Result<Option<Identity
         }));
     }
     let jwks = s.accounts.jwks().await.map_err(accounts_error)?;
-    let claims = verify_access_token(
-        &jwks,
-        token,
-        &VerifyOptions::for_app("apps").with_issuer(s.config.accounts_url.trim_end_matches('/')),
-    )
-    .map_err(|e| {
+    let mut options =
+        VerifyOptions::for_app("apps").with_issuer(s.config.accounts_url.trim_end_matches('/'));
+    if allow_developer {
+        options.audiences.push("developer".into());
+    }
+    let claims = verify_access_token(&jwks, token, &options).map_err(|e| {
         ApiError::new(
             axum::http::StatusCode::UNAUTHORIZED,
             "invalid_token",
@@ -186,6 +249,11 @@ pub async fn identity(s: &Shared, token: Option<&str>) -> Result<Option<Identity
             "Sign in to Silicon Apps again.",
         )
     })?;
+    // First-party reuse is deliberately one exact audience, not a general
+    // multi-audience fallback. Existing Apps token validation stays unchanged.
+    if !claims.aud.iter().any(|aud| aud == "apps") && claims.aud != ["developer"] {
+        return Err(ApiError::auth());
+    }
     let secret = s.config.accounts_app_secret.as_deref().unwrap_or("");
     let info = s
         .accounts
