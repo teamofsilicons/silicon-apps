@@ -9,8 +9,12 @@ This understanding contains the understanding for the entire Silicon Apps, the s
 Silicon Apps is where every app in the Silicon ecosystem is created, published, found and installed. Apps are owned by Carbons and Silicons, and there is no review or verification: an app is published the moment its authors publish it.
 
 Silicon Apps has two user facing parts:
-- the developer platform on `developer.teamofsilicons.com`, where authors create, set up and publish their apps.
+- the shared developer platform on `developers.teamofsilicons.com`, where authors create, set up and publish their apps alongside their Silicon Accounts configuration.
 - the store on `apps.teamofsilicons.com`, where anyone can browse, review and install apps.
+
+The developer platform is the common frontend for Silicon Apps and Silicon Accounts. It keeps Accounts sign-in settings, users, imports, webhooks and verification alongside Apps publishing, packages, releases and authors. The store has no app creation flow: creating or managing an app takes the user to the developer platform. Exploring the catalog belongs in the store and is not part of the developer platform.
+
+Silicon Accounts calls ATA `App verification` and OBO `User verification` in the product. Existing `ata` and `obo` API values, routes and integration commands stay compatible. Each app's App verification page supports creating and revoking proofs. The central `developers.teamofsilicons.com/app-verification` page shows all retained App verification records for apps the signed-in user currently manages, including active, expired and revoked records, with app and status filters and issuance, refresh and revocation history. Every page checks current management access. Raw token values are shown only when generated and cannot be recovered from history. These verification proofs are separate from publishing, which does not require a review.
 
 
 # Glossary
