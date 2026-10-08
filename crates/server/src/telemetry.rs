@@ -4,6 +4,14 @@ use crate::{
 };
 use serde_json::{Value, json};
 use std::{sync::Arc, time::Duration};
+
+fn initialize_tls() {
+    // Accounts and Space Station enable different rustls provider features.
+    // The WebSocket shipper uses the process default and otherwise panics when
+    // both features are present. Preserve a provider already chosen by a host.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 pub fn build(config: &crate::config::Config) -> Result<Option<Arc<space_station::SpaceClient>>> {
     if !config.telemetry_enabled {
         return Ok(None);
@@ -11,6 +19,7 @@ pub fn build(config: &crate::config::Config) -> Result<Option<Arc<space_station:
     let Some(key) = config.telemetry_table_key.as_deref() else {
         return Ok(None);
     };
+    initialize_tls();
     let client = space_station::SpaceClient::builder(key)
         .home(config.data_dir.join("telemetry"))
         .url(
@@ -141,5 +150,22 @@ pub fn frontend_event(body: &Value) -> Result<Value> {
 pub fn record(s: &Shared, event: Value) {
     if let Some(client) = &s.telemetry {
         client.record(event);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn websocket_tls_configuration_works_with_both_dependency_crypto_providers() {
+        super::initialize_tls();
+        // This is the SDK WebSocket connector's builder path. Without selecting
+        // a provider it panics when Accounts' aws-lc and Space Station's ring
+        // features are unified into this executable.
+        let _ = rustls::ClientConfig::builder()
+            .with_root_certificates(rustls::RootCertStore::empty())
+            .with_no_client_auth();
+        // Initializing another application state must also remain safe.
+        super::initialize_tls();
+        assert!(rustls::crypto::CryptoProvider::get_default().is_some());
     }
 }
