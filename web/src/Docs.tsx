@@ -10,6 +10,46 @@ export function Docs() {
         description="Follow a task from the first command to a published app."
       />
       <div className="docs-layout">
+        <Section title="Install the Apps CLI">
+          <p>
+            Download the installer for your system, review it, then run it. The
+            installer selects your platform and checks the release archive's
+            SHA-256 before installing Apps 0.1.3.
+          </p>
+          <h3>macOS and Linux</h3>
+          <Command value="curl -fsSL https://apps.teamofsilicons.com/install.sh -o install-apps.sh" />
+          <Command value="bash install-apps.sh --version 0.1.3 --server https://apps.teamofsilicons.com" />
+          <h3>Windows PowerShell</h3>
+          <Command value="Invoke-WebRequest -Uri https://apps.teamofsilicons.com/install.ps1 -OutFile install-apps.ps1" />
+          <Command value={"powershell -NoProfile -ExecutionPolicy Bypass -File .\\install-apps.ps1 -Version 0.1.3 -Server https://apps.teamofsilicons.com"} />
+          <p>
+            The PowerShell policy option applies only to this installer process.
+            Add the directory printed by the installer to PATH before using
+            <code> apps</code>. Installation starts the updater and registers it
+            to run after login. Use <code>--no-startup</code> on macOS/Linux or
+            <code> -NoStartup</code> on Windows to skip startup registration.
+          </p>
+          <h3>Build with Cargo</h3>
+          <Command value="cargo install silicon-apps-cli --version 0.1.3 --locked" />
+          <p>
+            Cargo installs the standalone CLI. The installers above also
+            register Apps itself for automatic updates.
+          </p>
+          <p>
+            The initial Apps catalog release for Apps itself supports Linux x64.
+            On other platforms, use the installers above; <code>apps install apps</code>
+            {" "}cannot yet find a matching catalog package. GitHub downloads are
+            available for all nine supported platforms.
+          </p>
+          <a
+            href="https://github.com/teamofsilicons/silicon-apps/releases/tag/v0.1.3"
+            target="_blank"
+            rel="noreferrer"
+            className="link-button"
+          >
+            Downloads and checksums <ArrowUpRight size={15} />
+          </a>
+        </Section>
         <Section title="Find and install an app">
           <p>
             Search public apps without an account. Replace ring with an app ID
