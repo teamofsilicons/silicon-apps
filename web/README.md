@@ -23,7 +23,9 @@ Store authentication uses the backend `/v1/auth/login` redirect, `/v1/auth/callb
 ## Screens
 
 - Public/private discovery with backend fuzzy search, pagination, real empty and error states.
-- App details, links, media, authors, platforms, release commands, editable account reviews.
+- App details with linked co-authors beneath the title, media, platforms, release commands and editable account reviews.
+- Author profiles at `/authors/:uuid`, with current Accounts names and IDs, paginated published apps and the same private access rules as discovery.
+- The shared developer portal’s Arc theme switch in the header, with light, dark and system preferences synchronized with Settings and restored before first paint.
 - Theme, telemetry opt-out and bug reports. Documentation lives in the shared portal at `https://developers.teamofsilicons.com/docs/apps`; legacy store `/docs` routes redirect there.
 
 The shared portal owns creation, seven-step publishing setup, packages, releases, access, media, Accounts configuration, webhooks, authors, invitations and audit history. Developer management tests were moved to `silicon-accounts/developer/e2e`; this project's tests cover store behavior and the boundary between the two origins.
