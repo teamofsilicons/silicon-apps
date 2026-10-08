@@ -52,11 +52,11 @@
   "PackageCrateVersion": "0.1.2",
   "RestoredPackageObjects": 2,
   "StoreBrowserTests": 15,
-  "CommonPortalBrowserTests": 25,
+  "CommonPortalBrowserTests": 38,
   "CommonPortalUnitTests": 13,
-  "AccountsSourceRevision": "6e828d99d449369754bcc63ff32b5d2bbd19b79a",
-  "AccountsApiBinarySha256": "77c4bee655eff6c9e37ae90664b2771bd7ae0dfd880a884bb500160f82520f35",
-  "AccountsArchiveSha256": "4e2ffa0367b4693063ace2a2739f1aa86499e20055d02056741560da0d9b057b",
+  "AccountsSourceRevision": "d5f40ef37e229ddb471784738be7f0664674420e",
+  "AccountsApiBinarySha256": "be842f6d70b6017c757850abe180748fbe214b78a6cefcd96f853b10c51d476f",
+  "AccountsArchiveSha256": "529489b2b9c032f1a5f0482279429467478a0b204251b58777318684c7ec9b0b",
   "TelemetrySpoolSequence": 170,
   "TelemetrySpoolCursor": 170,
   "TelemetryPendingRecords": 0,
@@ -77,5 +77,6 @@
     "mobile_navigation_verified": true,
     "input_focus_verified": true,
     "public_assets_match_build": true
-  }
+  },
+  "AccountsMigrationVersion": 8
 }
