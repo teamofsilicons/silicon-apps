@@ -67,7 +67,8 @@ Point `apps.teamofsilicons.com` to the Apps API host and
 `developers.teamofsilicons.com` to the Accounts host serving the common developer
 frontend. Preserve all unrelated DNS records, including mail records. Update
 the developer application's registered callback to the plural origin before
-cutover, retaining old callbacks while existing flows finish. The singular
+cutover. Sign-in attempts started on the old host must restart; HttpOnly cookies
+are not transferred between hosts. The singular
 `developer.teamofsilicons.com` and old store `/developer` paths redirect to the
 shared portal. Caddy obtains and renews the certificates.
 

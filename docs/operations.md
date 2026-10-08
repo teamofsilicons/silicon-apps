@@ -10,7 +10,7 @@ The repository provides application code and local development tooling. A deploy
 4. Set `APPS_PUBLIC_URL=http://127.0.0.1:4311` and allow that same origin. The browser enters through Vite on 4311; the Rust API listens on 4310. For browser sign-in, register `http://127.0.0.1:4311/v1/auth/callback` in the local Accounts app.
 5. Configure an isolated runner and a random runner token if package uploads are needed. Set `APPS_RUNNER_TARGETS` only to targets this worker or gateway can execute. On an Apple Silicon Mac, the bundled native target is `macos-aarch64`; an Intel Mac has `macos-x86_64`.
 6. Run `bash scripts/dev.sh`. It builds the workspace, installs frontend dependencies if needed, starts the API and frontend, and starts the Python runner when a runner token exists. Logs go to `.dev/logs/`. It stops its child processes when interrupted.
-7. Open `/store` and `/developer` on port 4311. Sign in through Accounts, create a draft, upload a real package, create a development release, promote it, and publish. Empty catalog data is expected before authors publish.
+7. Open `/store` on port 4311. Run the common frontend in `silicon-accounts/developer` for authoring, setting its `APPS_API_URL` to this API and the store's `VITE_DEVELOPERS_URL` to that frontend. Sign in through Accounts, create a draft, upload a real package, create a development release, promote it, and publish. Empty catalog data is expected before authors publish.
 
 To run the processes separately, source your reviewed environment file in the appropriate shell and run:
 
@@ -44,14 +44,15 @@ The backend needs two distinct credentials:
 
 Neither credential belongs in frontend configuration, JavaScript, a CLI installation, a package runner, or an application package. The browser receives an opaque server-side session cookie. The CLI stores its own user session under its explicit `.apps` home and exchanges one-use Accounts tokens through the Apps backend.
 
-For the production website layout, register **both** callbacks on the `apps` Accounts application:
+For the production store, register this callback on the `apps` Accounts application:
 
 ```text
 https://apps.teamofsilicons.com/v1/auth/callback
-https://developer.teamofsilicons.com/v1/auth/callback
 ```
 
-Configure `APPS_ALLOWED_ORIGINS` to contain both origins, and have the reverse proxy overwrite `X-Forwarded-Host` with the actual incoming host. The backend selects only an explicitly allowed origin, records it in the browser-bound OAuth attempt, and exchanges the callback against that origin. Unlisted origins cannot perform cookie-authenticated mutations.
+The shared developer frontend retains the first-party `developer` application and uses `https://developers.teamofsilicons.com/auth/callback`. It keeps its session sealed on the server and forwards the verified developer bearer token through its Apps proxy. The Apps API accepts that exact audience only on authoring routes, checks live token-family/account state and still enforces app author/admin UUIDs. Store reviews, install accounting and reports require Apps-scoped authorization.
+
+Configure `APPS_ALLOWED_ORIGINS` with the store and plural developer origins, and have the store reverse proxy overwrite `X-Forwarded-Host` with the incoming host. Store OAuth attempts bind the selected allowed origin to their browser state. Unlisted origins cannot perform cookie-authenticated mutations.
 
 Cookies are HttpOnly, SameSite=Lax and Secure when `APPS_PUBLIC_URL` is HTTPS. They are host-specific: the two websites may each need their own Accounts sign-in redirect. Uploaded media uses relative `/v1/apps/.../media/...` URLs, so private and draft images use the session of the current website. Do not place a shared public CDN cache in front of authenticated API or private artifact responses.
 
@@ -207,7 +208,7 @@ Email and `c:id` author invitations use a durable outbox. The preferred transpor
 
 Accounts must have its real mail provider configured and its delivery worker running. An Apps outbox acknowledgement or Accounts `queued` response is not proof of inbox delivery. Check the destination delivery state for an invitation and a test bug report before declaring mail operational. Bug reports go to `saketdev12@gmail.com`, `shubhastro2@gmail.com`, and `bugs@teamofsilicons.com`.
 
-Set `ACCOUNTS_SILICON_APPS_URL` in the **Accounts service's** environment to the website users can reach: `http://127.0.0.1:4311` for a local stack, or `https://apps.teamofsilicons.com` for the deployed store. Accounts appends `/developer/invitations` for Apps invitation links. This setting is separate from `ACCOUNTS_DEVELOPER_URL`, which belongs to the Accounts developer interface and its own callbacks.
+Set `ACCOUNTS_SILICON_APPS_URL` in the **Accounts service's** environment to the store users can reach: `http://127.0.0.1:4311` locally or `https://apps.teamofsilicons.com` in production. Set `ACCOUNTS_DEVELOPER_URL` to the common developer frontend, `https://developers.teamofsilicons.com` in production. App invitation links use its `/invitations` page.
 
 An optional `APPS_MAIL_URL` adapter receives `{id,kind,data}` with `Idempotency-Key: <outbox-id>` and the optional mail bearer token. It must implement idempotent processing for `mail.invite` and `mail.report`, including private Carbon contact resolution where needed. The durable worker retries undelivered records every ten seconds. Inspect `outbox.attempts`, `last_error` and `delivered_at`; do not delete pending records to hide a delivery failure.
 
@@ -219,7 +220,7 @@ Browser settings persist telemetry opt-out locally and send `X-Apps-Telemetry: o
 
 Build the frontend with `npm --prefix web ci` and `npm --prefix web run build`. Install `web/dist` as static files, with history fallback to `index.html`. The root route chooses the developer workspace on a `developer.*` hostname and the store on other hosts. Explicit `/developer`, `/store`, `/docs` and `/settings` routes work on either host and locally.
 
-[deploy/Caddyfile](../deploy/Caddyfile) serves the same build at `apps.teamofsilicons.com` and `developer.teamofsilicons.com`, proxies `/v1/*` and `/health` to the API, and overwrites the forwarded host. Set both DNS records, configure TLS, register both Accounts callbacks, and use the exact allowed origins from [the API environment example](../deploy/api.env.example). Keep backend and runner listeners private. The API systemd unit is distinct from the per-user CLI updater service.
+[deploy/Caddyfile](../deploy/Caddyfile) serves the store at `apps.teamofsilicons.com`, proxies `/v1/*` and `/health` to the API, and overwrites the forwarded host. The common Apps and Accounts developer frontend runs with Accounts at `developers.teamofsilicons.com`; the singular hostname and old store management paths redirect there. Configure both services' TLS and their distinct Accounts callbacks, and use the allowed origins from [the API environment example](../deploy/api.env.example). Keep backend and runner listeners private. The API systemd unit is distinct from the per-user CLI updater service.
 
 Use one API instance per persistent SQLite data directory. The catalog and mutation gate are process-local around one SQLite store; these examples do not establish a multi-replica write architecture. A reverse proxy and restart supervisor are included as examples, not a claim of high availability.
 
