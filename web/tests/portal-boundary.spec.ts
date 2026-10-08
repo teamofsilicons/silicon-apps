@@ -52,3 +52,29 @@ for (const [legacy, destination] of [
     expect(mutations.filter((m) => m.path !== "/telemetry")).toEqual([]);
   });
 }
+
+for (const [legacy, destination] of [
+  ["/docs", "/docs/apps"],
+  ["/docs/", "/docs/apps"],
+  [
+    "/docs/reference/manifest?source=legacy#targets",
+    "/docs/apps/reference/manifest?source=legacy#targets",
+  ],
+]) {
+  test(`legacy docs route ${legacy} redirects to combined documentation`, async ({
+    page,
+  }) => {
+    await mock(page);
+    await page.route(portal + "/**", (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: "<h1>Silicon Apps docs</h1>",
+      }),
+    );
+    await page.goto(legacy);
+    await expect(page).toHaveURL(portal + destination);
+    await expect(
+      page.getByRole("heading", { name: "Silicon Apps docs" }),
+    ).toBeVisible();
+  });
+}

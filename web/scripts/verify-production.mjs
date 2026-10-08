@@ -11,7 +11,22 @@ const browser = await chromium.launch({ channel: "chrome", headless: true });
 try {
   for (const value of origins) {
     const origin = new URL(value).origin;
-    const document = await fetch(`${origin}/docs`);
+    const docs = await fetch(`${origin}/docs`, { redirect: "manual" });
+    assert.equal(docs.status, 308);
+    assert.equal(
+      docs.headers.get("location"),
+      "https://developers.teamofsilicons.com/docs/apps",
+    );
+    const docsPage = await fetch(
+      `${origin}/docs/reference/manifest?source=legacy`,
+      { redirect: "manual" },
+    );
+    assert.equal(docsPage.status, 308);
+    assert.equal(
+      docsPage.headers.get("location"),
+      "https://developers.teamofsilicons.com/docs/apps/reference/manifest?source=legacy",
+    );
+    const document = await fetch(`${origin}/store`);
     assert.equal(document.status, 200);
     assert.equal(document.headers.get("cache-control"), "no-cache");
     assert.ok(
@@ -64,7 +79,6 @@ try {
     });
     for (const [path, heading] of [
       ["/store", "Explore apps"],
-      ["/docs", "A good place to start"],
       ["/settings", "Settings"],
     ]) {
       await page.goto(origin + path);
@@ -81,14 +95,30 @@ try {
     }
     await page.goto(origin + "/");
     await page.waitForURL("**/store");
-    assert.equal(await page.getByRole("link", { name: "Developers", exact: true }).getAttribute("href"), "https://developers.teamofsilicons.com/");
-    const management = await fetch(origin + "/developer/apps/apps?step=3", { redirect: "manual" });
+    assert.equal(
+      await page
+        .getByRole("link", { name: "Developers", exact: true })
+        .getAttribute("href"),
+      "https://developers.teamofsilicons.com/",
+    );
+    assert.equal(
+      await page
+        .getByRole("link", { name: "Docs", exact: true })
+        .getAttribute("href"),
+      "https://developers.teamofsilicons.com/docs/apps",
+    );
+    const management = await fetch(origin + "/developer/apps/apps?step=3", {
+      redirect: "manual",
+    });
     assert.equal(management.status, 308);
-    assert.equal(management.headers.get("location"), "https://developers.teamofsilicons.com/apps/apps/publishing?step=3");
+    assert.equal(
+      management.headers.get("location"),
+      "https://developers.teamofsilicons.com/apps/apps/publishing?step=3",
+    );
     assert.deepEqual(errors, []);
     await page.close();
     console.log(
-      `${origin}: store routes, external management links, CSP, assets/cache, installer bytes and API proxy verified.`,
+      `${origin}: store routes, shared docs redirects, external management links, CSP, assets/cache, installer bytes and API proxy verified.`,
     );
   }
 } finally {

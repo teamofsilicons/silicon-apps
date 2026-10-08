@@ -15,8 +15,7 @@ import { ArrowUpRight, Menu, X } from "lucide-react";
 import { flushPendingSaves, hasPendingSaves, login, useResource } from "./api";
 import { SessionContext } from "./context";
 import type { Account } from "./types";
-import { Docs } from "./Docs";
-import { developerUrl, legacyDeveloperUrl } from "./portal";
+import { developerUrl, legacyDeveloperUrl, docsUrl } from "./portal";
 import { AppDetail, Store } from "./Store";
 import { Settings, telemetry } from "./Settings";
 import { Button, Empty, ErrorNotice, IconLogo } from "./ui";
@@ -29,6 +28,22 @@ function DeveloperRedirect() {
   return (
     <p>
       Opening the developer portal… <a href={destination}>Continue</a>
+    </p>
+  );
+}
+function DocsRedirect() {
+  const location = useLocation();
+  const destination = docsUrl(
+    location.pathname,
+    location.search,
+    location.hash,
+  );
+  useEffect(() => {
+    window.location.replace(destination);
+  }, [destination]);
+  return (
+    <p>
+      Opening the shared documentation… <a href={destination}>Continue</a>
     </p>
   );
 }
@@ -132,7 +147,7 @@ function Shell() {
               <nav className="desktop-nav" aria-label="Main navigation">
                 <NavLink to="/store">Discover</NavLink>
                 <a href={developerUrl()}>Developers</a>
-                <NavLink to="/docs">Docs</NavLink>
+                <a href={docsUrl()}>Docs</a>
               </nav>
             </div>
             <div className="header-account">
@@ -169,7 +184,7 @@ function Shell() {
             <nav className="mobile-nav" aria-label="Mobile navigation">
               <Link to="/store">Discover apps</Link>
               <a href={developerUrl()}>Developer portal</a>
-              <Link to="/docs">Docs</Link>
+              <a href={docsUrl()}>Docs</a>
               <Link to="/settings">Settings</Link>
             </nav>
           )}
@@ -187,7 +202,7 @@ function Shell() {
             <Route path="/store/:appId" element={<AppDetail />} />
             <Route path="/developer/*" element={<DeveloperRedirect />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/docs" element={<Docs />} />
+            <Route path="/docs/*" element={<DocsRedirect />} />
             <Route
               path="*"
               element={
@@ -211,7 +226,7 @@ function Shell() {
           </div>
           <nav aria-label="Footer">
             <a href={developerUrl()}>Build an app</a>
-            <Link to="/docs">Documentation</Link>
+            <a href={docsUrl()}>Documentation</a>
             <Link to="/settings">Settings</Link>
           </nav>
           <span>Silicon Apps</span>

@@ -57,7 +57,7 @@ for (const width of [390, 768, 1024, 1440])
     await mock(page, true);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    for (const path of ["/store", "/store/test-app", "/docs"]) {
+    for (const path of ["/store", "/store/test-app", "/settings"]) {
       await page.goto(path);
       await expect(page.locator("h1")).toBeVisible();
       await expect

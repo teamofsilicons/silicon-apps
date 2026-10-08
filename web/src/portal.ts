@@ -6,6 +6,13 @@ export function developerUrl(path = "/") {
   return `${DEVELOPERS_URL}/${path.replace(/^\/+/, "")}`;
 }
 
+export function docsUrl(pathname = "/docs", search = "", hash = "") {
+  const suffix = pathname.replace(/^\/docs(?:\/|$)/, "").replace(/^\/+/, "");
+  return developerUrl(
+    `/docs/apps${suffix ? `/${suffix}` : ""}${search}${hash}`,
+  );
+}
+
 export function legacyDeveloperUrl(pathname: string, search: string) {
   const path = pathname.replace(/^\/developer\/?/, "");
   const params = new URLSearchParams(search);

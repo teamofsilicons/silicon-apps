@@ -170,28 +170,21 @@ test("store preserves relevance order, private filter and development exact inst
   );
 });
 
-test("online docs include a concrete publishing path and explain state and update behavior", async ({
+test("store documentation links use the combined developer docs", async ({
   page,
 }) => {
   await mock(page);
-  await page.goto("/docs");
-  for (const command of [
-    "apps availability ring",
-    "apps create ring --name Ring",
-    "apps validate ./package",
-    "apps pack ./package --output ./ring.tar.gz",
-    "apps upload ring --target macos-aarch64 ./ring.tar.gz",
-    "apps release ring --version 0.1.0 --package PACKAGE_ID",
-    "apps promote ring DEVELOPMENT_RELEASE_ID --version 1.0.0",
-    "apps publish ring",
-  ])
-    await expect(
-      page.locator("code").filter({ hasText: command }).first(),
-    ).toBeVisible();
+  await page.goto("/store");
+  for (const name of ["Docs", "Documentation"])
+    await expect(page.getByRole("link", { name, exact: true })).toHaveAttribute(
+      "href",
+      "https://developers.teamofsilicons.com/docs/apps",
+    );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(
-    page.getByText(/An exact version selects the initial release/),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/Saving a home does not migrate files/),
-  ).toBeVisible();
+    page
+      .getByRole("navigation", { name: "Mobile navigation" })
+      .getByRole("link", { name: "Docs", exact: true }),
+  ).toHaveAttribute("href", "https://developers.teamofsilicons.com/docs/apps");
 });

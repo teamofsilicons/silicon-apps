@@ -38,6 +38,10 @@ apps.teamofsilicons.com {
 	redir @manageRoot https://developers.teamofsilicons.com/ 308
 	@manageInvites path /developer/invitations
 	redir @manageInvites https://developers.teamofsilicons.com/invitations 308
+	@docsRoot path /docs /docs/
+	redir @docsRoot https://developers.teamofsilicons.com/docs/apps 308
+	@docsPage path_regexp docsPage ^/docs/(.+)$
+	redir @docsPage https://developers.teamofsilicons.com/docs/apps/{re.docsPage.1}?{query} 308
 
 	@api path /v1 /v1/* /health
 	handle @api {
