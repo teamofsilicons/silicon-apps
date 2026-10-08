@@ -38,7 +38,7 @@
   "RestoredBackupSha256": "df7f06b9cca9ea8eb3aee617985bba0fb494b7d340007b4cb8d1e94173ca9e08",
   "CatalogInstallVerified": true,
   "CatalogInstallEvidenceSha256": "6e3cd05025ffb95d381b031f6d7d364082009a74b8e10131a1478d262057bb23",
-  "VerifiedAt": "2026-10-08T22:53:18.678867+00:00",
+  "VerifiedAt": "2026-10-08T22:58:37.499916+00:00",
   "DeveloperFrontendRepository": "silicon-accounts",
   "DeveloperFrontendPath": "developer",
   "DeveloperPublicIp": "3.138.98.112",
@@ -54,9 +54,9 @@
   "StoreBrowserTests": 18,
   "CommonPortalBrowserTests": 52,
   "CommonPortalUnitTests": 18,
-  "AccountsSourceRevision": "5e1e3aa44c0daf51f90dc861d6d3603d397f7722",
-  "AccountsApiBinarySha256": "f5781d2dd95338b3e64125df59a935fa3f84d10bd65cdfe9fb5f9c0ebece8e20",
-  "AccountsArchiveSha256": "10aba1c4fa689389f2e9a0696486ec8c18812fbb0b3e1d5255a9dd94bb947cf9",
+  "AccountsSourceRevision": "c6c8bbfaddc93a49d7ff4648fa3914adc50e82ce",
+  "AccountsApiBinarySha256": "adaf8d38bd48552cd051746ab1c90c74c5ca87b162e95251b3037fc571d89977",
+  "AccountsArchiveSha256": "835e6b325eb19fdd22bd1e3634ec092ed761e0fecb4e36886b5f0d8a9659fb23",
   "TelemetrySpoolSequence": 170,
   "TelemetrySpoolCursor": 170,
   "TelemetryPendingRecords": 0,
@@ -78,7 +78,7 @@
     "input_focus_verified": true,
     "public_assets_match_build": true
   },
-  "AccountsMigrationVersion": 10,
+  "AccountsMigrationVersion": 11,
   "ManualAccountVerificationRequests": true,
   "SharedDocsUrl": "https://developers.teamofsilicons.com/docs",
   "SharedDocsPages": 52,
@@ -101,5 +101,9 @@
   "CliDocsPublicBrowserVerified": true,
   "MacCatalogSelfUpdateAvailable": false,
   "AppId": "silicon-apps",
-  "AppIdMigrationPreservationVerified": true
+  "AppIdMigrationPreservationVerified": true,
+  "VerificationNames": [
+    "app_verification",
+    "user_verification"
+  ]
 }
