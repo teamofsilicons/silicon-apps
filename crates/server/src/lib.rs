@@ -3,6 +3,7 @@ pub mod config;
 pub mod error;
 mod integrations;
 pub mod model;
+mod objects;
 pub mod store;
 mod telemetry;
 
@@ -556,12 +557,20 @@ async fn upload_media(
     tokio::fs::create_dir_all(&base)
         .await
         .map_err(|_| ApiError::unavailable("Cannot create media storage."))?;
-    tokio::fs::write(base.join(&digest), &raw)
+    // Reserve the type first. Identical bytes can satisfy multiple media magic
+    // signatures; a retry must never change the type of an existing URL.
+    objects::publish(&base.join(format!("{digest}.mime")), mime.as_bytes())
+        .await
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::AlreadyExists {
+                ApiError::conflict("These media bytes already have a different Content-Type.")
+            } else {
+                ApiError::unavailable("Cannot save media metadata.")
+            }
+        })?;
+    objects::publish(&base.join(&digest), &raw)
         .await
         .map_err(|_| ApiError::unavailable("Cannot save media."))?;
-    tokio::fs::write(base.join(format!("{digest}.mime")), mime)
-        .await
-        .map_err(|_| ApiError::unavailable("Cannot save media metadata."))?;
     let result = json!({"url":format!("/v1/apps/{app_id}/media/{digest}"),"id":digest,"kind":if mime.starts_with("image/"){"image"}else{"video"},"size":raw.len(),"content_type":mime});
     let mut store = s.store.lock().unwrap();
     let mut c = store.catalog()?;

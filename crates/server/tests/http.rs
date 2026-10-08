@@ -544,6 +544,102 @@ async fn oauth_login_uses_only_configured_origins_and_binds_state_to_browser() {
     assert_eq!(status, 400);
 }
 #[tokio::test]
+async fn repeated_media_uploads_preserve_object_and_reject_conflicting_mime() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = AppState::new(config(dir.path())).unwrap();
+    seed_private(&state);
+    let app = router(state.clone());
+    // Both JPEG and MP4 signature checks accept this sequence. Once published,
+    // its URL must keep the first Content-Type and the same immutable object.
+    let bytes = b"\xff\xd8\xff\0ftypabcdefgh";
+    let digest = hash(bytes);
+    let path = dir.path().join("media/secret-app").join(&digest);
+    let upload = |mime: &str, key: &str| {
+        Request::builder()
+            .method("POST")
+            .uri("/v1/apps/secret-app/media")
+            .header("Authorization", "Bearer dev:alice:c:alice")
+            .header("Content-Type", mime)
+            .header("Idempotency-Key", key)
+            .body(Body::from(bytes.as_slice()))
+            .unwrap()
+    };
+    assert_eq!(
+        app.clone()
+            .oneshot(upload("image/jpeg", "media-first"))
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+    #[cfg(unix)]
+    let inode = {
+        use std::os::unix::fs::MetadataExt;
+        std::fs::metadata(&path).unwrap().ino()
+    };
+    assert_eq!(
+        app.clone()
+            .oneshot(upload("image/jpeg", "media-duplicate"))
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+    assert_eq!(
+        app.clone()
+            .oneshot(upload("video/mp4", "media-conflict"))
+            .await
+            .unwrap()
+            .status(),
+        409
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        assert_eq!(std::fs::metadata(&path).unwrap().ino(), inode);
+    }
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/v1/apps/secret-app/media/{digest}"))
+                .header("Authorization", "Bearer dev:alice:c:alice")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["Content-Type"], "image/jpeg");
+    assert_eq!(
+        response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .as_ref(),
+        bytes
+    );
+    assert_eq!(
+        state
+            .store
+            .lock()
+            .unwrap()
+            .app("secret-app")
+            .unwrap()
+            .history
+            .iter()
+            .filter(|event| event.kind == "media.uploaded")
+            .count(),
+        2
+    );
+    assert_eq!(
+        std::fs::read_dir(path.parent().unwrap()).unwrap().count(),
+        2
+    );
+}
+
+#[tokio::test]
 async fn failed_package_validation_is_durable_idempotent_and_conflicting_retries_are_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let state = AppState::new(config(dir.path())).unwrap();

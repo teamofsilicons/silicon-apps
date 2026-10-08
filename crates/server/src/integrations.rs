@@ -220,15 +220,9 @@ pub async fn validate_package(
         return Err(e);
     }
     let dest = s.config.data_dir.join("packages").join(&digest);
-    if !dest.exists() {
-        let tmp = dest.with_extension(format!("{}.tmp", new_id()));
-        tokio::fs::write(&tmp, bytes)
-            .await
-            .map_err(|_| ApiError::unavailable("Could not save the package artifact."))?;
-        tokio::fs::rename(&tmp, &dest)
-            .await
-            .map_err(|_| ApiError::unavailable("Could not commit the package artifact."))?;
-    }
+    crate::objects::publish(&dest, bytes)
+        .await
+        .map_err(|_| ApiError::unavailable("Could not commit the immutable package artifact."))?;
     Ok(Package {
         id: new_id(),
         target: target.into(),
