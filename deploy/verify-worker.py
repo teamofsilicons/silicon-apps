@@ -41,7 +41,7 @@ assert result.get('isolated') is True and result.get('target') == a.target, resu
 assert len(result.get('validation', [])) == 3, result
 assert all(check['passed'] is True for check in result['validation']), result
 try:
-    urllib.request.urlopen(urllib.request.Request(a.url, data=encoded), timeout=10)
+    urllib.request.urlopen(urllib.request.Request(a.url, data=b"{}"), timeout=10)
 except urllib.error.HTTPError as error:
     assert error.code == 401, error.code
 else:
