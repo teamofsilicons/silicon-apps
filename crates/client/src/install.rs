@@ -565,8 +565,16 @@ async fn run_script(root: &Path, script: &str, timeout: u64) -> Result<()> {
     };
     #[cfg(windows)]
     let mut command = {
+        // cmd.exe cannot execute the extended-length absolute paths produced by
+        // canonicalize. Run the manifest path relative to the install directory.
+        // Expand it once inside quotes, with delayed expansion disabled.
         let mut c = tokio::process::Command::new("cmd.exe");
-        c.arg("/D").arg("/C").arg(&path);
+        c.env(
+            "APPS_INSTALL_SCRIPT",
+            format!(".\\{}", script.replace('/', "\\")),
+        )
+        .args(["/D", "/V:OFF", "/S", "/C"])
+        .raw_arg(r#"""%APPS_INSTALL_SCRIPT%"""#);
         c
     };
     command

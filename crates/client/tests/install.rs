@@ -33,7 +33,7 @@ async fn download(State(fixture): State<Arc<Mutex<Fixture>>>) -> impl IntoRespon
 fn package_fixture(version: &str, script: Option<&str>) -> Fixture {
     let dir = tempfile::tempdir().unwrap();
     let script_name = if cfg!(windows) {
-        "install.cmd"
+        "scripts/setup script.cmd"
     } else {
         "install.sh"
     };
@@ -47,7 +47,9 @@ fn package_fixture(version: &str, script: Option<&str>) -> Fixture {
     )
     .unwrap();
     if let Some(script) = script {
-        fs::write(dir.path().join(script_name), script).unwrap();
+        let script_path = dir.path().join(script_name);
+        fs::create_dir_all(script_path.parent().unwrap()).unwrap();
+        fs::write(script_path, script).unwrap();
     }
     let bytes = package::pack_directory(dir.path()).unwrap();
     Fixture {
