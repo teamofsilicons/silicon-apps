@@ -1,6 +1,6 @@
 name: Build native CLI package artifacts
 
-# Builds reviewable archives only. Publication, promotion and deployment are separate.
+# Archives stay reviewable workflow artifacts until the release is explicitly published.
 on:
   workflow_dispatch:
 
@@ -17,14 +17,32 @@ jobs:
           - os: ubuntu-24.04
             target: linux-x86_64
             rust_target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04
+            target: linux-i686
+            rust_target: i686-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: linux-aarch64
+            rust_target: aarch64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: linux-armv7hf
+            rust_target: armv7-unknown-linux-gnueabihf
+          - os: macos-15-intel
+            target: macos-x86_64
+            rust_target: x86_64-apple-darwin
           - os: macos-15
             target: macos-aarch64
             rust_target: aarch64-apple-darwin
           - os: windows-2022
             target: windows-x86_64
             rust_target: x86_64-pc-windows-msvc
+          - os: windows-2022
+            target: windows-i686
+            rust_target: i686-pc-windows-msvc
+          - os: windows-11-arm
+            target: windows-aarch64
+            rust_target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 35
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash
@@ -39,6 +57,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install 32-bit Linux build support
+        if: matrix.target == 'linux-i686'
+        run: sudo apt-get update && sudo apt-get install -y gcc-multilib
+      - name: Install ARMv7 cross compiler and emulator
+        if: matrix.target == 'linux-armv7hf'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf qemu-user
+          echo 'CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc' >> "$GITHUB_ENV"
+          echo 'CC_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-gcc' >> "$GITHUB_ENV"
+          echo 'AR_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-ar' >> "$GITHUB_ENV"
+          echo 'APPS_VERIFY_RUNNER=["qemu-arm","-L","/usr/arm-linux-gnueabihf"]' >> "$GITHUB_ENV"
       - name: Make python3 available to the portable build helper on Windows
         if: runner.os == 'Windows'
         run: |
@@ -49,16 +79,19 @@ jobs:
           WRAPPER
           chmod +x "$RUNNER_TEMP/apps-python/python3"
           echo "$RUNNER_TEMP/apps-python" >> "$GITHUB_PATH"
-      - name: Build and structurally validate package
+      - name: Build package and verify its required discovery commands
         env:
           PACKAGE_TARGET: ${{ matrix.target }}
-        run: bash scripts/build-release.sh --target "$PACKAGE_TARGET" --output dist
-      - name: Retain archive and checksum
+        run: |
+          bash scripts/build-release.sh --target "$PACKAGE_TARGET" --output dist
+          python3 scripts/verify-release.py --target "$PACKAGE_TARGET" --directory dist
+      - name: Retain verified archive, checksum and verification evidence
         uses: actions/upload-artifact@v4
         with:
           name: apps-${{ matrix.target }}-${{ github.sha }}
           path: |
             dist/apps-*.tar.gz
             dist/apps-*.tar.gz.sha256
+            dist/apps-*.verification.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
