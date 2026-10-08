@@ -784,7 +784,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
             }
         }
         Command::Uninstall { app } => {
-            if app == "apps" {
+            if app == apps::APP_ID {
                 ensure!(
                     state.installed()?.contains_key(app),
                     "apps is not installed"
@@ -805,7 +805,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
                 let executable = std::env::current_exe()?;
                 let windows_needs_copy = cfg!(windows)
                     && !*once
-                    && executable.starts_with(state.root.join("installed/apps"));
+                    && executable.starts_with(state.root.join("installed").join(apps::APP_ID));
                 if *detached || windows_needs_copy {
                     return updater::start_process_configured(&state, &executable, &config).await;
                 }

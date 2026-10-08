@@ -58,7 +58,7 @@ cp "$BINARY" "$STAGING/bin/$NAME"
 chmod 755 "$STAGING/bin/$NAME"
 cat > "$STAGING/apps.yaml" <<EOF
 schema_version: 1
-app_id: apps
+app_id: silicon-apps
 version: $VERSION
 command: silicon-apps
 targets:

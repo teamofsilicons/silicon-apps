@@ -7,6 +7,8 @@ use silicon_accounts_client::{AccountsClient, DeviceAuthorization, TokenResponse
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedSession {
+    #[serde(default)]
+    pub app_id: String,
     pub tokens: TokenResponse,
     pub expires_at: i64,
     #[serde(default)]
@@ -83,6 +85,7 @@ pub async fn exchange(client: &Client, slt: &str) -> Result<TokenResponse> {
 pub fn save(state: &LocalState, config: &Config, tokens: TokenResponse) -> Result<()> {
     state.initialize()?;
     let saved = SavedSession {
+        app_id: crate::APP_ID.into(),
         expires_at: chrono::Utc::now().timestamp() + tokens.expires_in as i64,
         tokens,
         server: service_scope(&config.server)?,
@@ -137,7 +140,7 @@ pub async fn authenticated_client(
         return Ok(base);
     };
     check_scope(&session, config)?;
-    if session.expires_at > chrono::Utc::now().timestamp() + 30 {
+    if session.app_id == crate::APP_ID && session.expires_at > chrono::Utc::now().timestamp() + 30 {
         return Ok(base.authenticated(Some(session.tokens.access_token.expose().into())));
     }
     let Some(refresh) = session.tokens.refresh_token else {

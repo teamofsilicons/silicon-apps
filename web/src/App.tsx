@@ -199,6 +199,7 @@ function Shell() {
           <Routes>
             <Route path="/" element={<Navigate to="/store" replace />} />
             <Route path="/store" element={<Store />} />
+            <Route path="/store/apps" element={<Navigate to="/store/silicon-apps" replace />} />
             <Route path="/store/:appId" element={<AppDetail />} />
             <Route path="/developer/*" element={<DeveloperRedirect />} />
             <Route path="/settings" element={<Settings />} />

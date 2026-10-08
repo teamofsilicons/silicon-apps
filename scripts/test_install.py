@@ -31,7 +31,9 @@ while [ "$#" -gt 0 ]; do
 done
 state="$home/.apps"
 case "$1" in
+ accounts) printf '{"app_id":"COMMAND"}\\n';;
  install)
+ test "$2" = "COMMAND"
  mkdir -p "$state/bin"
  cp "$0" "$state/bin/COMMAND"
  chmod +x "$state/bin/COMMAND"

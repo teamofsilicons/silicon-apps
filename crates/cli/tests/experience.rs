@@ -167,7 +167,7 @@ async fn unix_daemon_self_update_executes_new_binary_with_same_supervised_pid() 
 
     fn archive(version: &str, script: &str) -> Vec<u8> {
         let dir = tempfile::tempdir().unwrap();
-        fs::write(dir.path().join("apps.yaml"), format!("app_id: apps\nversion: {version}\ncommand: apps\ntargets:\n  {}:\n    binary: apps\n", package::current_target().unwrap())).unwrap();
+        fs::write(dir.path().join("apps.yaml"), format!("app_id: silicon-apps\nversion: {version}\ncommand: apps\ntargets:\n  {}:\n    binary: apps\n", package::current_target().unwrap())).unwrap();
         fs::write(dir.path().join("apps"), script).unwrap();
         fs::set_permissions(dir.path().join("apps"), fs::Permissions::from_mode(0o755)).unwrap();
         package::pack_directory(dir.path()).unwrap()
@@ -177,14 +177,14 @@ async fn unix_daemon_self_update_executes_new_binary_with_same_supervised_pid() 
         "#!/bin/sh\nprintf '%s\\n%s\\n' \"$$\" \"$*\" > \"$APPS_HANDOFF_MARKER\"\n",
     );
     let resolution = json!({
-        "app_id":"apps",
-        "release":{"id":"release-2","app_id":"apps","channel":"production","version":"2.0.0","package_ids":["package-2"]},
+        "app_id":"silicon-apps",
+        "release":{"id":"release-2","app_id":"silicon-apps","channel":"production","version":"2.0.0","package_ids":["package-2"]},
         "package":{"id":"package-2","target":package::current_target().unwrap(),"sha256":package::sha256(&updated),"size":updated.len(),"command":"apps"},
         "download_path":"/package"
     });
     let router = Router::new()
         .route(
-            "/v1/apps/apps/resolve",
+            "/v1/apps/silicon-apps/resolve",
             get(move || {
                 let value = resolution.clone();
                 async move { Json(value) }
@@ -198,7 +198,7 @@ async fn unix_daemon_self_update_executes_new_binary_with_same_supervised_pid() 
             }),
         )
         .route(
-            "/v1/apps/apps/installs",
+            "/v1/apps/silicon-apps/installs",
             post(|| async { Json(json!({"installs":1})) }),
         );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -215,7 +215,7 @@ async fn unix_daemon_self_update_executes_new_binary_with_same_supervised_pid() 
     install::install_local(
         &state,
         &config,
-        &"apps".parse().unwrap(),
+        &"silicon-apps".parse().unwrap(),
         install::LocalArchive {
             sha256: package::sha256(&original),
             bytes: original,
@@ -243,7 +243,7 @@ async fn unix_daemon_self_update_executes_new_binary_with_same_supervised_pid() 
     let arguments = lines.next().unwrap();
     assert!(arguments.contains(&format!("--server {server_url}")));
     assert!(arguments.ends_with("daemon run"));
-    assert_eq!(state.installed().unwrap()["apps"].version, "2.0.0");
+    assert_eq!(state.installed().unwrap()["silicon-apps"].version, "2.0.0");
     assert_eq!(
         silicon_apps_client::updater::status(&state).unwrap()["running"],
         false

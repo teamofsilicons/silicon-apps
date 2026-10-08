@@ -49,7 +49,9 @@ try {
         if ($process.ExitCode -eq 0) { break }
     }
     if ($process.ExitCode -ne 0) { throw "Archive extraction failed: $errorText" }
-    & $binary --home $HomeDirectory --server $Server install apps --archive $Archive --sha256 $Sha256
+    $appId = (& $binary --json accounts | ConvertFrom-Json).app_id
+    if ($LASTEXITCODE -ne 0 -or $appId -notin @('apps', 'silicon-apps')) { throw 'Unexpected bootstrap app ID' }
+    & $binary --home $HomeDirectory --server $Server install $appId --archive $Archive --sha256 $Sha256
     if ($LASTEXITCODE -ne 0) { throw "Apps installation failed with exit code $LASTEXITCODE" }
     $binDirectory = Join-Path $HomeDirectory '.apps\bin'
     $command = Join-Path $binDirectory ($commandName + '.cmd')

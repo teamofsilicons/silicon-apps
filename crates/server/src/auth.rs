@@ -2,7 +2,7 @@ use crate::{
     Shared,
     error::{ApiError, Result},
     integrations::accounts_error,
-    model::Identity,
+    model::{APP_ID, Identity},
 };
 use axum::{
     Json,
@@ -139,7 +139,7 @@ pub async fn bearer(s: &Shared, headers: &HeaderMap) -> Result<Option<String>> {
     }
     let tokens = s
         .accounts
-        .as_app("apps", secret)
+        .as_app(APP_ID, secret)
         .refresh(&refresh)
         .await
         .map_err(accounts_error)?;
@@ -237,7 +237,7 @@ async fn verified_identity(
     }
     let jwks = s.accounts.jwks().await.map_err(accounts_error)?;
     let mut options =
-        VerifyOptions::for_app("apps").with_issuer(s.config.accounts_url.trim_end_matches('/'));
+        VerifyOptions::for_app(APP_ID).with_issuer(s.config.accounts_url.trim_end_matches('/'));
     if allow_developer {
         options.audiences.push("developer".into());
     }
@@ -251,13 +251,13 @@ async fn verified_identity(
     })?;
     // First-party reuse is deliberately one exact audience, not a general
     // multi-audience fallback. Existing Apps token validation stays unchanged.
-    if !claims.aud.iter().any(|aud| aud == "apps") && claims.aud != ["developer"] {
+    if !claims.aud.iter().any(|aud| aud == APP_ID) && claims.aud != ["developer"] {
         return Err(ApiError::auth());
     }
     let secret = s.config.accounts_app_secret.as_deref().unwrap_or("");
     let info = s
         .accounts
-        .as_app("apps", secret)
+        .as_app(APP_ID, secret)
         .userinfo(token)
         .await
         .map_err(accounts_error)?;
@@ -332,7 +332,7 @@ pub async fn handle_auth(
             )?;
             store.connection.execute("INSERT INTO oauth_pending(state,verifier,return_to,expires_at,origin) VALUES(?1,?2,?3,?4,?5)",params![state,pkce.verifier,return_to,chrono::Utc::now().timestamp()+600,origin])?;
         }
-        let params = AuthorizeParams::new("apps", format!("{origin}/v1/auth/callback"))
+        let params = AuthorizeParams::new(APP_ID, format!("{origin}/v1/auth/callback"))
             .state(&state)
             .pkce(&pkce)
             .scopes(["profile", "email"]);
@@ -365,7 +365,7 @@ pub async fn handle_auth(
         let tokens = s
             .accounts
             .as_app(
-                "apps",
+                APP_ID,
                 secret.ok_or_else(|| {
                     ApiError::unavailable("APPS_ACCOUNTS_APP_SECRET is required.")
                 })?,
@@ -425,7 +425,7 @@ pub async fn handle_auth(
         {
             s.accounts
                 .as_app(
-                    "apps",
+                    APP_ID,
                     secret.ok_or_else(|| {
                         ApiError::unavailable("APPS_ACCOUNTS_APP_SECRET is required.")
                     })?,
@@ -448,7 +448,7 @@ pub async fn handle_auth(
             .into_response());
     }
     let app = s.accounts.as_app(
-        "apps",
+        APP_ID,
         secret.ok_or_else(|| {
             ApiError::unavailable("APPS_ACCOUNTS_APP_SECRET is required for token exchange.")
         })?,

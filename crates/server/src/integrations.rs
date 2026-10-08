@@ -51,7 +51,7 @@ pub async fn resolve(s: &Shared, id: &str) -> Result<Identity> {
     })?;
     let account = s
         .accounts
-        .as_app("apps", secret)
+        .as_app(APP_ID, secret)
         .resolve(id)
         .await
         .map_err(accounts_error)?;
@@ -529,7 +529,7 @@ pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Val
             && !s.config.dev_auth
             && let Some(secret) = s.config.accounts_app_secret.as_deref()
         {
-            let app = s.accounts.as_app("apps", secret);
+            let app = s.accounts.as_app(APP_ID, secret);
             let profile = app.user(&id).await.ok().filter(|account| {
                 account.uuid == id
                     && account.status == "active"

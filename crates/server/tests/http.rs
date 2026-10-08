@@ -124,7 +124,7 @@ async fn production_auth_verifies_signature_issuer_audience_expiry_and_active_ac
     cfg.accounts_url = issuer.clone();
     let app = router(AppState::new(cfg).unwrap());
     let now = chrono::Utc::now().timestamp();
-    let token = signed(&key, &issuer, "apps", now + 600);
+    let token = signed(&key, &issuer, "silicon-apps", now + 600);
     let (status, body) = call(&app, "GET", "/v1/me", Some(&token), json!({}), None).await;
     assert_eq!(status, 200, "{body}");
     assert_eq!(body["id"], "c:renamed");
@@ -134,12 +134,12 @@ async fn production_auth_verifies_signature_issuer_audience_expiry_and_active_ac
     );
     for bad in [
         signed(&key, &issuer, "accounts", now + 600),
-        signed(&key, "https://forged.example", "apps", now + 600),
-        signed(&key, &issuer, "apps", now - 300),
+        signed(&key, "https://forged.example", "silicon-apps", now + 600),
+        signed(&key, &issuer, "silicon-apps", now - 300),
         signed(
             &SigningKey::from_bytes(&[8u8; 32]),
             &issuer,
-            "apps",
+            "silicon-apps",
             now + 600,
         ),
         "dev:alice:c:alice".into(),
@@ -359,7 +359,7 @@ async fn author_refresh_uses_subscribed_profile_and_id_only_fallback_preserves_d
     let lookups = Arc::new(AtomicUsize::new(0));
     let lookup_count = lookups.clone();
     let provider = Router::new()
-        .route("/v1/apps/apps/users/alice", get(move || {
+        .route("/v1/apps/silicon-apps/users/alice", get(move || {
             let mode = profile_mode.clone();
             async move {
                 let mode = mode.load(Ordering::SeqCst);

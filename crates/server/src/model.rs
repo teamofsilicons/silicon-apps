@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
+pub const APP_ID: &str = "silicon-apps";
+
 pub const TARGETS: [&str; 9] = [
     "linux-x86_64",
     "linux-i686",
@@ -229,7 +231,7 @@ pub fn valid_app_id(s: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
 }
 pub fn reserved_app_id(s: &str) -> bool {
-    matches!(s, "accounts" | "developer")
+    matches!(s, "accounts" | "developer" | "apps")
 }
 pub fn version_tuple(s: &str) -> Option<(u64, u64, u64)> {
     let p: Vec<_> = s.split('.').collect();

@@ -781,3 +781,65 @@ fn one_time_secret_replay_expires_and_plaintext_is_removed_from_storage() {
             .all(|h| !h.data.to_string().contains("secret"))
     );
 }
+
+#[test]
+fn platform_id_migration_keeps_release_history_and_refuses_collisions() {
+    let mut store = Store::memory().unwrap();
+    create(&mut store, &who("owner"), "fixture");
+    let mut catalog = store.catalog().unwrap();
+    let mut app = catalog.apps.remove("fixture").unwrap();
+    app.app_id = "apps".into();
+    app.name = "Silicon Apps".into();
+    app.installs = 42;
+    app.releases.push(Release {
+        id: "release".into(),
+        app_id: "apps".into(),
+        channel: "production".into(),
+        version: "0.1.8".into(),
+        package_ids: vec!["original-package".into()],
+        notes: "Original".into(),
+        created_at: now(),
+        promoted_from: None,
+    });
+    let before = app.clone();
+    catalog.apps.insert("apps".into(), app);
+    store.connection.execute_batch("CREATE TABLE sessions(id TEXT PRIMARY KEY,expires_at INTEGER); INSERT INTO sessions VALUES('browser',9999999999)").unwrap();
+    store
+        .connection
+        .execute(
+            "UPDATE catalog SET document=?1 WHERE id=1",
+            [serde_json::to_string(&catalog).unwrap()],
+        )
+        .unwrap();
+    assert!(store.migrate_silicon_apps_id().unwrap());
+    let after = store.app("silicon-apps").unwrap();
+    assert_eq!(after.secret_hash, before.secret_hash);
+    assert_eq!(after.admin_uuid, before.admin_uuid);
+    assert_eq!(after.installs, 42);
+    assert_eq!(after.releases[0].app_id, "silicon-apps");
+    assert_eq!(
+        after.releases[0].package_ids,
+        before.releases[0].package_ids
+    );
+    assert_eq!(after.history.len(), before.history.len() + 1);
+    assert!(store.app("apps").is_err());
+    assert!(!store.migrate_silicon_apps_id().unwrap());
+    let expires: i64 = store
+        .connection
+        .query_row("SELECT expires_at FROM sessions", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(expires, 0);
+    let mut conflict = store.catalog().unwrap();
+    conflict.apps.insert("apps".into(), before);
+    let raw = serde_json::to_string(&conflict).unwrap();
+    store
+        .connection
+        .execute("UPDATE catalog SET document=?1 WHERE id=1", [&raw])
+        .unwrap();
+    assert!(store.migrate_silicon_apps_id().is_err());
+    let unchanged: String = store
+        .connection
+        .query_row("SELECT document FROM catalog WHERE id=1", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(raw, unchanged);
+}

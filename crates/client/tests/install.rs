@@ -484,3 +484,96 @@ async fn telemetry_opt_out_survives_auth_and_covers_json_upload_and_download() {
     );
     task.abort();
 }
+
+#[tokio::test]
+async fn official_cli_id_upgrade_preserves_one_install_and_rolls_back_failure() {
+    fn cli_archive(id: &str, version: &str, fail: bool) -> install::LocalArchive {
+        let dir = tempfile::tempdir().unwrap();
+        let (script, body) = if cfg!(windows) {
+            ("setup.cmd", "@exit /b 7\r\n")
+        } else {
+            ("setup.sh", "exit 7\n")
+        };
+        let setup = if fail {
+            format!("\n    install_script: {script}")
+        } else {
+            String::new()
+        };
+        fs::write(dir.path().join("apps.yaml"),format!("app_id: {id}\nversion: {version}\ncommand: silicon-apps\ntargets:\n  {}:\n    binary: cli{setup}\n",package::current_target().unwrap())).unwrap();
+        fs::write(dir.path().join("cli"), b"test executable").unwrap();
+        if fail {
+            fs::write(dir.path().join(script), body).unwrap();
+        }
+        let bytes = package::pack_directory(dir.path()).unwrap();
+        install::LocalArchive {
+            sha256: package::sha256(&bytes),
+            bytes,
+        }
+    }
+    let home = tempfile::tempdir().unwrap();
+    let state = LocalState::new(home.path()).unwrap();
+    let config = Config::default();
+    install::install_local(
+        &state,
+        &config,
+        &"apps".parse().unwrap(),
+        cli_archive("apps", "0.1.8", false),
+        false,
+    )
+    .await
+    .unwrap();
+    let before = fs::read(state.root.join("installed.json")).unwrap();
+    let error = install::install_local(
+        &state,
+        &config,
+        &"silicon-apps".parse().unwrap(),
+        cli_archive("silicon-apps", "0.1.9", true),
+        false,
+    )
+    .await
+    .unwrap_err();
+    assert!(error.to_string().contains("restored"), "{error}");
+    assert_eq!(fs::read(state.root.join("installed.json")).unwrap(), before);
+    assert!(state.root.join("installed/apps/cli").is_file());
+    assert!(!state.root.join("installed/silicon-apps").exists());
+    install::install_local(
+        &state,
+        &config,
+        &"silicon-apps".parse().unwrap(),
+        cli_archive("silicon-apps", "0.1.9", false),
+        false,
+    )
+    .await
+    .unwrap();
+    let installed = state.installed().unwrap();
+    assert_eq!(installed.len(), 1);
+    assert_eq!(installed["silicon-apps"].app_id, "silicon-apps");
+    assert!(!state.root.join("installed/apps").exists());
+    assert!(state.root.join("installed/silicon-apps/cli").is_file());
+    // Immutable pre-rename releases can still be installed by their canonical ID.
+    install::install_local(
+        &state,
+        &config,
+        &"silicon-apps@0.1.8".parse().unwrap(),
+        cli_archive("apps", "0.1.8", false),
+        false,
+    )
+    .await
+    .unwrap();
+    assert_eq!(state.installed().unwrap()["silicon-apps"].version, "0.1.8");
+    let unrelated = Config {
+        server: "https://other.example".into(),
+        ..Config::default()
+    };
+    assert!(
+        install::install_local(
+            &state,
+            &unrelated,
+            &"silicon-apps".parse().unwrap(),
+            cli_archive("apps", "0.1.8", false),
+            true
+        )
+        .await
+        .is_err()
+    );
+}

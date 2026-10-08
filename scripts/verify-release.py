@@ -58,7 +58,7 @@ def main():
             docs = json.loads(run(['docs', topic, '--json']))
             if docs.get('topic') != topic or len(docs.get('content', '')) < 100:
                 raise SystemExit(f'Bundled documentation contract failed for {topic}')
-        if account.get('app_id') != 'apps' or status.get('authenticated') is not False or validation.get('valid') is not True:
+        if account.get('app_id') != 'silicon-apps' or status.get('authenticated') is not False or validation.get('valid') is not True:
             raise SystemExit('Release discovery/validation contract failed')
         evidence = {'archive': archive.name, 'sha256': digest, 'size': archive.stat().st_size,
                     'target': args.target, 'version': run(['--version']).strip(),

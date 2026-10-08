@@ -112,6 +112,59 @@ impl Store {
         serde_json::from_str(&raw)
             .map_err(|_| ApiError::unavailable("Catalog storage is invalid; restore from backup."))
     }
+    /// One-time correction of the platform's own ID, never a public rename API.
+    pub fn migrate_silicon_apps_id(&mut self) -> Result<bool> {
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let raw: String =
+            tx.query_row("SELECT document FROM catalog WHERE id=1", [], |r| r.get(0))?;
+        let mut catalog: Catalog = serde_json::from_str(&raw)
+            .map_err(|_| ApiError::unavailable("Catalog storage is invalid."))?;
+        let Some(old) = catalog.apps.get("apps") else {
+            return Ok(false);
+        };
+        if old.name != "Silicon Apps" {
+            return Err(ApiError::conflict(
+                "The legacy apps ID is not Silicon Apps; review the identity before migration.",
+            ));
+        }
+        if catalog.apps.contains_key(APP_ID) {
+            return Err(ApiError::conflict(
+                "Both Apps identities exist; refusing to merge different apps.",
+            ));
+        }
+        let mut app = catalog.apps.remove("apps").unwrap();
+        app.app_id = APP_ID.into();
+        for release in &mut app.releases {
+            release.app_id = APP_ID.into();
+        }
+        app.event(
+            "system",
+            "app.id_migrated",
+            json!({"previous_app_id":"apps","app_id":APP_ID}),
+        );
+        catalog.apps.insert(APP_ID.into(), app);
+        for invite in &mut catalog.invites {
+            if invite.app_id == "apps" {
+                invite.app_id = APP_ID.into();
+            }
+        }
+        tx.execute(
+            "UPDATE catalog SET document=?1 WHERE id=1",
+            [serde_json::to_string(&catalog).unwrap()],
+        )?;
+        tx.execute(
+            "UPDATE pending_secrets SET app_id=?1 WHERE app_id='apps'",
+            [APP_ID],
+        )?;
+        tx.execute("UPDATE outbox SET body=json_set(body,'$.app_id',?1) WHERE delivered_at IS NULL AND json_extract(body,'$.app_id')='apps'", [APP_ID])?;
+        // Reuse rotating refresh tokens to obtain the new audience before any
+        // browser access token from the old identity is presented again.
+        tx.execute("UPDATE sessions SET expires_at=0", [])?;
+        tx.commit()?;
+        Ok(true)
+    }
     pub fn app(&self, id: &str) -> Result<App> {
         self.catalog()?
             .apps

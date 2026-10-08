@@ -108,7 +108,7 @@ pub async fn run_with_overrides(
             && value["result"]["items"].as_array().is_some_and(|items| {
                 items
                     .iter()
-                    .any(|item| item["app_id"] == "apps" && item["status"] == "updated")
+                    .any(|item| item["app_id"] == crate::APP_ID && item["status"] == "updated")
             })
         {
             // A successful self-update must replace the updater's own running code too.
@@ -558,7 +558,7 @@ pub fn runtime_executable(state: &LocalState, executable: &Path) -> Result<std::
 }
 
 fn preferred_executable(state: &LocalState, fallback: &Path) -> Result<std::path::PathBuf> {
-    let root = state.root.join("installed/apps");
+    let root = state.root.join("installed").join(crate::APP_ID);
     if root.is_dir()
         && let Some(manifest) = crate::package::validate_directory(&root).manifest
         && let Some(target) = manifest.targets.get(crate::package::current_target()?)
@@ -591,7 +591,9 @@ pub fn defer_self_install_archive(
     #[cfg(windows)]
     {
         let executable = std::env::current_exe()?;
-        if spec.app_id != "apps" || !executable.starts_with(state.root.join("installed/apps")) {
+        if spec.app_id != crate::APP_ID
+            || !executable.starts_with(state.root.join("installed").join(crate::APP_ID))
+        {
             return Ok(None);
         }
         state.initialize()?;
@@ -655,7 +657,7 @@ pub fn defer_self_uninstall(state: &LocalState, config: &Config) -> Result<Optio
     #[cfg(windows)]
     {
         let executable = std::env::current_exe()?;
-        if !executable.starts_with(state.root.join("installed/apps")) {
+        if !executable.starts_with(state.root.join("installed").join(crate::APP_ID)) {
             return Ok(None);
         }
         let helper = runtime_executable(state, &executable)?;
@@ -671,7 +673,7 @@ pub fn defer_self_uninstall(state: &LocalState, config: &Config) -> Result<Optio
             .arg(&config.server)
             .arg("--accounts-url")
             .arg(&config.accounts_url)
-            .args(["uninstall", "apps"])
+            .args(["uninstall", crate::APP_ID])
             .stdin(Stdio::null())
             .stdout(log.try_clone()?)
             .stderr(log);

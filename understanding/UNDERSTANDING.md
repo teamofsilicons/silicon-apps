@@ -277,3 +277,7 @@ Use Space Station for telemetry. It's opted in by default and can be opted out o
 # Configurability
 
 Highly configurable with sensible defaults, very much like VS Code.
+
+### Silicon Apps identity
+
+Silicon Apps itself has the app ID `silicon-apps`. Use it in the developer portal, Accounts authentication, package manifests and installed-app records. Its CLI command is also `silicon-apps`. Migrate the original `apps` entry with its authors, settings, releases and users intact. Keep the old release archives unchanged and replace the old installed entry when the CLI is upgraded. This corrects our own app identity; other app IDs remain immutable.

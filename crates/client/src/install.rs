@@ -169,7 +169,18 @@ async fn install_source(
         PackageSource::Archive(_) => &config.server,
     })?;
     let mut installed = state.installed()?;
-    if let Some(old) = installed.get(&spec.app_id) {
+    // The official CLI used `apps` through 0.1.8. Adopt that installation only
+    // when its registry and command identify this same service. Other registries
+    // and unrelated commands retain the normal ownership checks.
+    let legacy = spec.app_id == crate::APP_ID
+        && source_server == crate::DEFAULT_URL
+        && !installed.contains_key(crate::APP_ID)
+        && installed.get("apps").is_some_and(|old| {
+            old.server == crate::DEFAULT_URL
+                && matches!(old.command.as_str(), "apps" | "silicon-apps")
+        });
+    let previous_id = if legacy { "apps" } else { &spec.app_id };
+    if let Some(old) = installed.get(previous_id) {
         ensure!(
             old.server == source_server || allow_switch,
             "{} was installed from {}; switching its registry to {} requires explicit confirmation (--yes)",
@@ -211,11 +222,16 @@ async fn install_source(
                 "SHA-256 checksum mismatch; local archive was not installed"
             );
             let manifest = package::inspect_archive(&archive.bytes)?;
+            let app_id = if legacy_manifest(&manifest, spec, &source_server) {
+                spec.app_id.clone()
+            } else {
+                manifest.app_id.clone()
+            };
             let resolution = Resolution {
-                app_id: manifest.app_id.clone(),
+                app_id: app_id.clone(),
                 release: Release {
                     id: format!("bootstrap:{digest}"),
-                    app_id: manifest.app_id,
+                    app_id,
                     channel: spec.channel.clone(),
                     version: manifest.version,
                     package_ids: vec![],
@@ -252,7 +268,7 @@ async fn install_source(
     }
     let manifest = package::inspect_archive(&bytes)?;
     ensure!(
-        manifest.app_id == spec.app_id,
+        manifest.app_id == spec.app_id || legacy_manifest(&manifest, spec, &source_server),
         "manifest belongs to another app"
     );
     let package_target = manifest
@@ -264,6 +280,11 @@ async fn install_source(
         "manifest command differs from release metadata"
     );
     let destination = state.root.join("installed").join(&spec.app_id);
+    let previous_destination = state.root.join("installed").join(previous_id);
+    ensure!(
+        !legacy || !destination.exists(),
+        "Both old and new Silicon Apps directories exist; preserve them and resolve the conflict before upgrading"
+    );
     let command_path = state
         .root
         .join("bin")
@@ -271,14 +292,14 @@ async fn install_source(
     ensure!(
         installed
             .values()
-            .all(|i| i.app_id == spec.app_id || i.command != manifest.command),
+            .all(|i| i.app_id == previous_id || i.command != manifest.command),
         "command `{}` belongs to another installed app",
         manifest.command
     );
     if command_path.exists() || fs::symlink_metadata(&command_path).is_ok() {
         ensure!(
             installed
-                .get(&spec.app_id)
+                .get(previous_id)
                 .is_some_and(|i| i.command == manifest.command),
             "{} already exists and is not owned by this app; refusing to overwrite it",
             command_path.display()
@@ -294,18 +315,18 @@ async fn install_source(
             fs::Permissions::from_mode(0o755),
         )?;
     }
-    let old = installed.get(&spec.app_id).cloned();
+    let old = installed.get(previous_id).cloned();
     let backup = state.root.join("installed").join(format!(
         ".{}-backup-{}",
         spec.app_id,
         uuid::Uuid::new_v4()
     ));
-    if destination.exists() {
-        rename_installed(&destination, &backup).await?;
+    if previous_destination.exists() {
+        rename_installed(&previous_destination, &backup).await?;
     }
     if let Err(e) = fs::rename(staging.path(), &destination) {
         if backup.exists() {
-            let _ = fs::rename(&backup, &destination);
+            let _ = fs::rename(&backup, &previous_destination);
         }
         return Err(e.into());
     }
@@ -338,6 +359,9 @@ async fn install_source(
             installed_at: chrono::Utc::now().to_rfc3339(),
             server: source_server.clone(),
         };
+        if legacy {
+            installed.remove("apps");
+        }
         installed.insert(spec.app_id.clone(), item.clone());
         if let Some(event) = &event {
             persistence::atomic_json(&event_path, event)?;
@@ -353,11 +377,11 @@ async fn install_source(
             let _ = remove_command(&command_path);
             let _ = fs::remove_dir_all(&destination);
             if backup.exists() {
-                fs::rename(&backup, &destination)
+                fs::rename(&backup, &previous_destination)
                     .context("rollback failed; previous files remain in backup")?;
             }
             if let Some(old) = &old {
-                let old_manifest = package::validate_directory(&destination)
+                let old_manifest = package::validate_directory(&previous_destination)
                     .manifest
                     .context("previous manifest missing during rollback")?;
                 let old_binary = &old_manifest
@@ -366,7 +390,7 @@ async fn install_source(
                     .context("previous target missing")?
                     .binary;
                 link_command(
-                    &destination.join(old_binary),
+                    &previous_destination.join(old_binary),
                     &state.root.join("bin").join(command_filename(&old.command)),
                 )?;
             }
@@ -407,6 +431,19 @@ async fn install_source(
         })
         },
     })
+}
+
+// Historical first-party archives are immutable. Their checksum still comes
+// from the trusted catalog or the explicit local --sha256 argument.
+fn legacy_manifest(manifest: &package::Manifest, spec: &InstallSpec, server: &str) -> bool {
+    spec.app_id == crate::APP_ID
+        && server == crate::DEFAULT_URL
+        && manifest.app_id == "apps"
+        && matches!(manifest.command.as_str(), "apps" | "silicon-apps")
+        && matches!(
+            manifest.version.as_str(),
+            "0.1.0" | "0.1.1" | "0.1.2" | "0.1.3" | "0.1.4" | "0.1.5" | "0.1.6" | "0.1.7" | "0.1.8"
+        )
 }
 #[derive(Serialize, Deserialize)]
 struct InstallEvent {

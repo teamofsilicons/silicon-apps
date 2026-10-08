@@ -41,7 +41,7 @@ impl AppState {
         config.validate_dev_boundary()?;
         std::fs::create_dir_all(config.data_dir.join("packages"))
             .map_err(|_| ApiError::unavailable("Cannot create Apps data directory."))?;
-        let store = Store::open(&config.data_dir.join("apps.sqlite"))?;
+        let mut store = Store::open(&config.data_dir.join("apps.sqlite"))?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -62,6 +62,7 @@ impl AppState {
                 )?;
             }
         }
+        store.migrate_silicon_apps_id()?;
         let accounts =
             AccountsClient::new(&config.accounts_url).map_err(|e| ApiError::bad(e.to_string()))?;
         let http = reqwest::Client::builder()
@@ -128,6 +129,22 @@ async fn dispatch(
         .path()
         .strip_prefix("/v1/")
         .ok_or_else(ApiError::missing)?;
+    if path == "apps/apps" || path.starts_with("apps/apps/") {
+        if method == Method::GET {
+            let target = format!(
+                "/v1/apps/{APP_ID}{}{}",
+                &path[9..],
+                uri.query().map(|q| format!("?{q}")).unwrap_or_default()
+            );
+            return Ok(axum::response::Redirect::permanent(&target).into_response());
+        }
+        return Err(ApiError::new(
+            axum::http::StatusCode::GONE,
+            "app_id_migrated",
+            "Silicon Apps now uses the app ID silicon-apps.",
+            "Upgrade the CLI using the public installer, then use silicon-apps as the app ID.",
+        ));
+    }
     let q: BTreeMap<String, String> =
         serde_urlencoded::from_str(uri.query().unwrap_or_default())
             .map_err(|_| ApiError::bad("Query parameters are invalid."))?;
@@ -210,7 +227,16 @@ async fn dispatch(
             if p[3].len() != 64 || !p[3].bytes().all(|b| b.is_ascii_hexdigit()) {
                 return Err(ApiError::missing());
             }
-            let base = s.config.data_dir.join("media").join(p[1]);
+            let mut base = s.config.data_dir.join("media").join(p[1]);
+            if p[1] == APP_ID
+                && !base.join(p[3]).is_file()
+                && app
+                    .history
+                    .iter()
+                    .any(|event| event.kind == "app.id_migrated")
+            {
+                base = s.config.data_dir.join("media/apps");
+            }
             let mime = tokio::fs::read_to_string(base.join(format!("{}.mime", p[3])))
                 .await
                 .map_err(|_| ApiError::missing())?;

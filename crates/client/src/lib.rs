@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 use std::time::Duration;
 use url::Url;
 
-pub const APP_ID: &str = "apps";
+pub const APP_ID: &str = "silicon-apps";
 pub const DEFAULT_URL: &str = "https://apps.teamofsilicons.com";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

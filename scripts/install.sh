@@ -57,7 +57,10 @@ if ! tar -xOzf "$ARCHIVE" bin/silicon-apps > "$TEMP/apps" 2>/dev/null; then
 fi
 [ -s "$TEMP/apps" ] || { echo "Release does not contain bin/apps" >&2; exit 1; }
 chmod 700 "$TEMP/apps"
-"$TEMP/apps" --home "$APPS_HOME" --server "$SERVER" install apps --archive "$ARCHIVE" --sha256 "$EXPECTED"
+# Query the verified binary so pinned releases keep their original manifest identity.
+APP_ID="$("$TEMP/apps" --json accounts | sed -n 's/.*"app_id"[[:space:]]*:[[:space:]]*"\([a-z-]*\)".*/\1/p')"
+case "$APP_ID" in apps|silicon-apps) ;; *) echo "Unexpected bootstrap app ID" >&2; exit 1 ;; esac
+"$TEMP/apps" --home "$APPS_HOME" --server "$SERVER" install "$APP_ID" --archive "$ARCHIVE" --sha256 "$EXPECTED"
 CLI="$APPS_HOME/.apps/bin/$COMMAND"
 BIN_DIR="$(cd "$APPS_HOME/.apps/bin" && pwd)"
 # Quote as shell data, including homes containing spaces or apostrophes.
