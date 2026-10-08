@@ -116,17 +116,25 @@ function Shell() {
       <div className="app-shell" onClickCapture={handleNavigation}>
         <header className="site-header">
           <div className="header-inner">
-            <Link to="/store" className="brand" aria-label="Silicon Apps home">
-              <IconLogo />
-              <span>
-                Silicon <span className="brand-light">Apps</span>
-              </span>
-            </Link>
-            <nav className="desktop-nav" aria-label="Main navigation">
-              <NavLink to="/store">Discover</NavLink>
-              <a href={developerUrl()}>Developers</a>
-              <NavLink to="/docs">Docs</NavLink>
-            </nav>
+            <div className="header-start">
+              <Link
+                to="/store"
+                className="brand"
+                aria-label="Silicon Apps home"
+              >
+                <span className="brand-mark">
+                  <IconLogo size={18} />
+                </span>
+                <span>
+                  Silicon <span className="brand-light">Apps</span>
+                </span>
+              </Link>
+              <nav className="desktop-nav" aria-label="Main navigation">
+                <NavLink to="/store">Discover</NavLink>
+                <a href={developerUrl()}>Developers</a>
+                <NavLink to="/docs">Docs</NavLink>
+              </nav>
+            </div>
             <div className="header-account">
               {account ? (
                 <Link
