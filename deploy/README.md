@@ -6,11 +6,13 @@ These files are installation templates. No infrastructure, domains, credentials,
 - `api.env.example`: API configuration for both public domains; replace all credential and endpoint placeholders.
 - `runner.env.example`: isolated Linux worker configuration. Replace image placeholders with pre-pulled immutable digests.
 - `runner-gateway.env.example`: the same Python process routing selected targets to authenticated HTTPS workers on separate hosts.
-- `Caddyfile`: same-origin `/v1` routing and SPA history fallback for the store and developer domains.
+- `Caddyfile`: same-origin `/v1` routing, installer downloads, immutable assets, SPA history fallback and security headers for the store and developer domains.
 - `silicon-apps-api.service`: one API process with its persistent data at `/var/lib/silicon-apps`.
 - `silicon-apps-runner.service`: a dedicated Linux Docker worker. Its scratch path must be visible to the local container engine; Docker access must be provisioned separately.
 
-Create the named service users, install the built binary at `/opt/silicon-apps/bin/apps-server`, place the frontend build at `/srv/silicon-apps/web`, and install reviewed environment files with restricted permissions. Do not run a development Vite server as the public web service. Linux units are examples for systemd; macOS validation hosts need their own supervised Python runner with `sandbox-exec` available. Windows hosts need compatible Hyper-V container infrastructure or a separate isolated protocol worker. These examples do not provision either. The user’s `apps daemon install` manages the client updater and is separate from these backend units.
+Create the named service users and install reviewed environment files with restricted permissions. The production Caddy configuration serves `/opt/silicon-apps/current/web`; install each complete frontend into `/opt/silicon-apps/releases/<revision>/web` and atomically select that release with the `current` symlink. Use the corresponding release's API executable in the supervised service. Do not run a development Vite server as the public web service. Linux units are examples for systemd; macOS validation hosts need their own supervised Python runner with `sandbox-exec` available. Windows hosts need compatible Hyper-V container infrastructure or a separate isolated protocol worker. These examples do not provision either. The user’s `apps daemon install` manages the client updater and is separate from these backend units.
+
+`npm --prefix web run build` stages the reviewed POSIX and PowerShell bootstrap scripts at `web/dist/install.sh` and `web/dist/install.ps1`. Caddy serves both as plain text with revalidation; their network mode requires published GitHub release artifacts. Hashed `/assets/*` files are immutable and missing assets return 404. All SPA entry paths revalidate, API responses are not cached, and the content security policy permits bundled/inlined fonts, authored HTTPS media and same-origin API calls. Build with `VITE_APPS_API_URL` unset for this layout.
 
 Both Accounts callbacks must be registered:
 

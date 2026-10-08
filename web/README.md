@@ -16,7 +16,7 @@ npm run build
 npm run test:e2e
 ```
 
-Serve `dist/` with history fallback to `index.html`, proxy `/v1` to the service, and configure Accounts redirects on the public origins. The root route resolves to `/developer` on `developer.*`, and `/store` on other hosts. Explicit `/developer` and `/store` paths work locally and on either host.
+Serve `dist/` with history fallback to `index.html`, proxy `/v1` to the service, and configure Accounts redirects on the public origins. The build also copies the reviewed `scripts/install.sh` and `scripts/install.ps1` into `dist/` for same-origin installer downloads; the scripts' network installation requires published release artifacts. The root route resolves to `/developer` on `developer.*`, and `/store` on other hosts. Explicit `/developer` and `/store` paths work locally and on either host.
 
 Browser authentication uses the backend `/v1/auth/login` redirect, `/v1/auth/callback`, `/v1/session`, and `/v1/auth/logout` endpoints. Tokens and app credentials are never stored in browser local storage. The only persisted preferences are theme and telemetry opt-out. One-time app and webhook secrets live in component memory until their dialog closes.
 
@@ -33,6 +33,14 @@ Browser authentication uses the backend `/v1/auth/login` redirect, `/v1/auth/cal
 - Theme, telemetry opt-out, bug reports, and task-oriented CLI documentation.
 
 No sample listings are included in production. Browser tests stub API responses strictly in the test runner. They verify behavior against the documented HTTP contract, not a deployed Accounts configuration or native package runner.
+
+After domain cutover, check the actual compiled site and same-origin API without fixtures:
+
+```sh
+node scripts/verify-production.mjs https://apps.teamofsilicons.com https://developer.teamofsilicons.com
+```
+
+This requires the development dependencies and Chrome used by Playwright. It verifies both hostname landing routes, the public store, anonymous private-view prompt, developer entry, docs, CSP, API responses, static cache headers, missing-asset behavior and the exact hosted installer bytes. It reads live data without publishing apps or installing software.
 
 ## Telemetry
 

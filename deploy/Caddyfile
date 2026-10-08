@@ -1,23 +1,52 @@
-# Install the same web/dist tree at this path for both domains.
-# Point both DNS names at this proxy and configure the two Accounts callbacks first.
+# The current symlink selects one immutable release containing web/ and bin/.
+# Move Accounts' developer portal before pointing its former domain at this host.
 apps.teamofsilicons.com, developer.teamofsilicons.com {
-	@api path /v1/* /health
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	@api path /v1 /v1/* /health
 	handle @api {
 		request_body {
 			max_size 180MB
 		}
 		reverse_proxy 127.0.0.1:4310 {
-			# Overwrite forwarded host; never trust a client-supplied value.
-			header_up X-Forwarded-Host {http.request.host}
+			# Caddy sets X-Forwarded-Host from the incoming Host by default.
+			# No trusted_proxies: client-provided forwarded headers are ignored.
+			transport http {
+				response_header_timeout 150s
+			}
 		}
 		header Cache-Control "no-store"
 	}
 
+	@installers path /install.sh /install.ps1
+	handle @installers {
+		root * /opt/silicon-apps/current/web
+		header Content-Type "text/plain; charset=utf-8"
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	# Hashed assets are immutable. A missing asset must return 404, not index.html.
+	@assets path /assets/*
+	handle @assets {
+		root * /opt/silicon-apps/current/web
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
 	handle {
-		root * /srv/silicon-apps/web
+		root * /opt/silicon-apps/current/web
+		header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' https: data:; media-src 'self' https:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		header Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
-		@html path / /index.html /store* /developer* /docs /settings
-		header @html Cache-Control "no-cache"
 	}
 }
