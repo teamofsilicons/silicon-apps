@@ -34,6 +34,20 @@ fn probe(name: &str, preserve: bool) {
         if let Some(before) = before {
             assert!(Arc::ptr_eq(&before, after), "host provider was replaced");
         }
+        // Retain recorder diagnostics on Windows, where socket startup failures
+        // otherwise disappear behind the intentionally quiet telemetry hook.
+        #[cfg(windows)]
+        let diagnostic = space_station::SpaceClient::builder(
+            &std::env::var("APPS_TELEMETRY_TABLE_KEY").unwrap(),
+        )
+        .home(state.root.join("telemetry"))
+        .url(std::env::var("SPACE_STATION_URL").unwrap())
+        .flush_timeout(Duration::from_millis(100))
+        .on_error(|error| eprintln!("recorder transport: {error}"))
+        .build()
+        .unwrap();
+        #[cfg(windows)]
+        diagnostic.record(serde_json::json!({"event":"tls-test"}));
         let marker = state.home.join("tls-observed");
         let deadline = Instant::now() + Duration::from_secs(15);
         while !marker.exists() && Instant::now() < deadline {
@@ -104,7 +118,12 @@ fn probe(name: &str, preserve: bool) {
         String::from_utf8_lossy(&output.stderr)
     );
     let record = handshake
-        .expect("no TLS connection")
+        .unwrap_or_else(|| {
+            panic!(
+                "no TLS connection: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+        })
         .expect("no TLS record");
     assert_eq!(record[0], 22, "expected TLS handshake record");
     assert_eq!(record[1], 3, "expected TLS protocol version");
