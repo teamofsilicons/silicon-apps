@@ -46,7 +46,13 @@ async fn docs_are_bundled_machine_readable_and_include_the_traversable_command_t
             .output()
             .await
             .unwrap();
-        assert!(output.status.success());
+        assert!(
+            output.status.success(),
+            "docs {topic} exited {}: stdout={} stderr={}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
         let value: Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(value["topic"], topic);
         let content = value["content"].as_str().unwrap();

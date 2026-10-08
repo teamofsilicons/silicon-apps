@@ -54,6 +54,10 @@ def main():
         account = json.loads(run(['accounts', '--json']))
         status = json.loads(run(['login', 'status', '--json']))
         validation = json.loads(run(['validate', str(archive), '--json']))
+        for topic in ('start', 'publish', 'manifest', 'install', 'auth', 'why', 'tree'):
+            docs = json.loads(run(['docs', topic, '--json']))
+            if docs.get('topic') != topic or len(docs.get('content', '')) < 100:
+                raise SystemExit(f'Bundled documentation contract failed for {topic}')
         if account.get('app_id') != 'apps' or status.get('authenticated') is not False or validation.get('valid') is not True:
             raise SystemExit('Release discovery/validation contract failed')
         evidence = {'archive': archive.name, 'sha256': digest, 'size': archive.stat().st_size,
