@@ -1,6 +1,6 @@
 # Deployment status — 8 October 2026
 
-The [Apps store and API](https://apps.teamofsilicons.com) and the [shared developer portal](https://developers.teamofsilicons.com) are deployed. A legitimate Silicon Accounts login, publication of Apps CLI 0.1.4, and a fresh native Linux installation from the production catalog have passed. A fresh authenticated browser session on the plural developer hostname remains pending because this Mac's local Unbound resolver retains an NXDOMAIN response. Authoritative DNS, Google and Cloudflare resolvers, and certificate-validated HTTPS checks already pass.
+The [Apps store and API](https://apps.teamofsilicons.com) and the [shared developer portal](https://developers.teamofsilicons.com) are deployed. A legitimate Silicon Accounts login, publication of Apps CLI 0.1.4, and a fresh native Linux installation from the production catalog have passed. After the user refreshed this Mac's local Unbound negative cache, a genuine Chrome session on the plural developer hostname showed the signed-in owner and Silicon Apps in Your apps. Authoritative/public DNS and certificate-validated HTTPS checks pass.
 
 The machine-readable deployment receipt is [deploy/production.json](../deploy/production.json); operating and recovery steps are in [the production deployment guide](../deploy/PRODUCTION.md). The [initial local verification report](verification.md) describes earlier checks and is not the current production status.
 
@@ -59,7 +59,7 @@ Space Station delivery to `tos.siliconapps` is verified. A read-only post-final-
 
 ## Remaining verification
 
-- Complete a fresh authenticated browser session on `developers.teamofsilicons.com` after clearing this Mac's local Unbound negative cache. Both authoritative nameservers and public resolvers already return the intended Accounts host; the remaining cache is local, not an authoritative DNS cutover failure. The targeted cache reload requires local administrator access and remains pending.
+- The genuine signed-in developer dashboard is verified. App-specific publishing and Accounts screens have automated browser coverage; every authenticated screen and mutation was not separately exercised against production during this rollout.
 - Exercise production private-app access with legitimate permitted and denied accounts. Local/API authorization tests do not establish that live multi-account flow.
 - Verify real-recipient mail delivery and any remaining identity-provider flows. Postmark is configured and real Google login passed; Apple login, SMS delivery and real-recipient mail remain unverified. No test email was sent during this deployment.
 - Verify startup-service behavior across an actual OS reboot, and execute the Windows bootstrap installer on a Windows host. Native command tests and isolated updater start/stop checks do not establish those results.
