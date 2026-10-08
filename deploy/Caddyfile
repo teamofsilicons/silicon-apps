@@ -1,8 +1,14 @@
 # The current symlink selects one immutable release containing web/ and bin/.
 # The shared developer frontend lives with Accounts at developers.teamofsilicons.com.
 developer.teamofsilicons.com {
+	map {query.tab} {authoring_section} {
+		authors authors
+		releases releases
+		history history
+		default publishing
+	}
 	@oldApp path_regexp oldApp ^/developer/apps/([a-z0-9_-]+)$
-	redir @oldApp https://developers.teamofsilicons.com/apps/{re.oldApp.1}/publishing?{query} 308
+	redir @oldApp https://developers.teamofsilicons.com/apps/{re.oldApp.1}/{authoring_section}?{query} 308
 	@oldRoot path /developer /developer/
 	redir @oldRoot https://developers.teamofsilicons.com/ 308
 	@oldInvites path /developer/invitations
@@ -12,6 +18,12 @@ developer.teamofsilicons.com {
 
 apps.teamofsilicons.com {
 	encode zstd gzip
+	map {query.tab} {authoring_section} {
+		authors authors
+		releases releases
+		history history
+		default publishing
+	}
 	header {
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
@@ -21,7 +33,7 @@ apps.teamofsilicons.com {
 		-Server
 	}
 	@manageApp path_regexp manageApp ^/developer/apps/([a-z0-9_-]+)$
-	redir @manageApp https://developers.teamofsilicons.com/apps/{re.manageApp.1}/publishing?{query} 308
+	redir @manageApp https://developers.teamofsilicons.com/apps/{re.manageApp.1}/{authoring_section}?{query} 308
 	@manageRoot path /developer /developer/
 	redir @manageRoot https://developers.teamofsilicons.com/ 308
 	@manageInvites path /developer/invitations
