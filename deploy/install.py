@@ -282,7 +282,10 @@ def main():
             except BaseException:
                 shutil.rmtree(venv, ignore_errors=True)
                 raise
-        image = 'ubuntu:24.04'
+        # The minimal Ubuntu image has no CA store; even an offline Rust TLS
+        # client constructor can need one. This official runtime includes CA
+        # certificates and a glibc compatible with Ubuntu 24.04 release builds.
+        image = 'python:3.14-slim-trixie'
         run(['docker', 'pull', image], stdout=subprocess.DEVNULL)
         digest = json.loads(capture(['docker', 'image', 'inspect', image]))[0]['RepoDigests'][0]
         env = {'APPS_RUNNER_TOKEN': token, 'APPS_RUNNER_HOST': '0.0.0.0', 'APPS_RUNNER_PORT': '4312',
