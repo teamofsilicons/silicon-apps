@@ -70,8 +70,8 @@ pub async fn run_with_overrides(
 ) -> Result<Value> {
     let _lock = state.lock("daemon")?;
     let stop = state.root.join("daemon-stop");
-    if stop.exists() {
-        fs::remove_file(&stop)?;
+    if !once && stop.exists() {
+        return Ok(json!({"status":"stopped"}));
     }
     state::atomic_json(
         &state.root.join("daemon.json"),
@@ -102,6 +102,9 @@ pub async fn run_with_overrides(
             }
         };
         state::atomic_json(&state.root.join("updater.json"), &value)?;
+        if !once && stop.exists() {
+            return Ok(json!({"status":"stopped"}));
+        }
         if !once
             && value["result"]["items"].as_array().is_some_and(|items| {
                 items
@@ -136,7 +139,7 @@ pub async fn run_with_overrides(
         let delay = tokio::time::sleep(Duration::from_secs(config.update_interval_seconds.max(10)));
         tokio::pin!(delay);
         loop {
-            tokio::select! { _=&mut delay=>break, _=tokio::time::sleep(Duration::from_secs(1))=>{if stop.exists(){fs::remove_file(&stop)?;return Ok(json!({"status":"stopped"}));}}, _=tokio::signal::ctrl_c()=>return Ok(json!({"status":"stopped"})) }
+            tokio::select! { _=&mut delay=>break, _=tokio::time::sleep(Duration::from_secs(1))=>{if stop.exists(){return Ok(json!({"status":"stopped"}));}}, _=tokio::signal::ctrl_c()=>return Ok(json!({"status":"stopped"})) }
         }
     }
 }
@@ -150,6 +153,7 @@ pub async fn start_configured(
 ) -> Result<Value> {
     state.initialize()?;
     state.save_config(config)?;
+    clear_stop_request(state)?;
     if status(state)?["running"] == true {
         return Ok(json!({"status":"already_running"}));
     }
@@ -171,6 +175,7 @@ pub async fn start_process_configured(
 ) -> Result<Value> {
     state.initialize()?;
     state.save_config(config)?;
+    clear_stop_request(state)?;
     if status(state)?["running"] == true {
         return Ok(json!({"status":"already_running"}));
     }
@@ -203,6 +208,7 @@ pub async fn start_process_configured(
     )
 }
 pub async fn stop(state: &LocalState) -> Result<Value> {
+    state::atomic_write(&state.root.join("daemon-stop"), b"stop")?;
     if status(state)?["running"] != true {
         return Ok(json!({"status":"not_running"}));
     }
@@ -217,8 +223,10 @@ pub async fn stop(state: &LocalState) -> Result<Value> {
             "could not pause automatic launchd restarts; updater has not been stopped"
         );
     }
-    state::atomic_write(&state.root.join("daemon-stop"), b"stop")?;
     for _ in 0..30 {
+        // Old updaters clear the marker on exit. Reassert it so a supervisor
+        // restarting the newly installed binary cannot undo the stop request.
+        state::atomic_write(&state.root.join("daemon-stop"), b"stop")?;
         tokio::time::sleep(Duration::from_millis(100)).await;
         if status(state)?["running"] != true {
             return Ok(json!({"status":"stopped"}));
@@ -245,7 +253,7 @@ pub fn service_definition(
             .context("home not found")?
             .join("Library/LaunchAgents/com.teamofsilicons.apps.plist");
         let body = format!(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict><key>Label</key><string>com.teamofsilicons.apps</string><key>ProgramArguments</key><array><string>{}</string><string>--home</string><string>{}</string><string>daemon</string><string>run</string></array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>StandardOutPath</key><string>{}</string><key>StandardErrorPath</key><string>{}</string></dict></plist>\n",
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict><key>Label</key><string>com.teamofsilicons.apps</string><key>ProgramArguments</key><array><string>{}</string><string>--home</string><string>{}</string><string>daemon</string><string>run</string></array><key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>StandardOutPath</key><string>{}</string><key>StandardErrorPath</key><string>{}</string></dict></plist>\n",
             escaped(&executable.to_string_lossy()),
             escaped(&state.home.to_string_lossy()),
             escaped(&state.root.join("updater.log").to_string_lossy()),
@@ -297,6 +305,7 @@ pub fn service_definition(
 }
 pub fn install_service(state: &LocalState, executable: &Path) -> Result<Value> {
     state.initialize()?;
+    clear_stop_request(state)?;
     let executable = preferred_executable(state, executable)?;
     let (path, body) = service_definition(state, &executable)?;
     #[cfg(not(windows))]
@@ -380,6 +389,7 @@ pub async fn reinstall_service(state: &LocalState, executable: &Path) -> Result<
 async fn wait_until_stopped(state: &LocalState, timeout: Duration) -> Result<()> {
     let deadline = tokio::time::Instant::now() + timeout;
     while status(state)?["running"] == true {
+        state::atomic_write(&state.root.join("daemon-stop"), b"stop")?;
         ensure!(
             tokio::time::Instant::now() < deadline,
             "updater is still finishing its current operation; retry silicon-apps daemon install after it finishes"
@@ -387,6 +397,14 @@ async fn wait_until_stopped(state: &LocalState, timeout: Duration) -> Result<()>
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
     Ok(())
+}
+
+fn clear_stop_request(state: &LocalState) -> Result<()> {
+    match fs::remove_file(state.root.join("daemon-stop")) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
 }
 
 #[cfg(any(windows, test))]
@@ -721,6 +739,35 @@ pub fn telemetry(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn supervisor_restart_cannot_clear_a_stop_request() {
+        let home = tempfile::tempdir().unwrap();
+        let state = LocalState::new(home.path()).unwrap();
+        state.initialize().unwrap();
+        state::atomic_write(&state.root.join("daemon-stop"), b"stop").unwrap();
+        for _ in 0..3 {
+            let result = tokio::time::timeout(Duration::from_secs(1), run(&state, false))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(result["status"], "stopped");
+            assert!(state.root.join("daemon-stop").exists());
+            assert_eq!(status(&state).unwrap()["running"], false);
+        }
+        clear_stop_request(&state).unwrap();
+        assert!(!state.root.join("daemon-stop").exists());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn launchd_restarts_failures_but_respects_a_successful_stop() {
+        let home = tempfile::tempdir().unwrap();
+        let state = LocalState::new(home.path()).unwrap();
+        let (_, body) = service_definition(&state, Path::new("/bin/silicon-apps")).unwrap();
+        assert!(body.contains("<key>SuccessfulExit</key><false/>"));
+        assert!(!body.contains("<key>KeepAlive</key><true/>"));
+    }
+
     #[tokio::test]
     async fn service_registration_waits_past_the_original_three_second_stop_window() {
         let home = tempfile::tempdir().unwrap();
