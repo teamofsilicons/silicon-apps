@@ -1,5 +1,7 @@
 # Local verification — 8 October 2026
 
+This is the initial local implementation phase. Later deployment work and its remaining gates are recorded in [deployment status](deployment-status.md); the observations below retain their original scope.
+
 This records observed implementation evidence. No public deployment, registry publication, or production data migration was performed.
 
 ## Automated checks
