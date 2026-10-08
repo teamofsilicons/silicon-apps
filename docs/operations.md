@@ -218,7 +218,7 @@ Browser settings persist telemetry opt-out locally and send `X-Apps-Telemetry: o
 
 ## Host both websites
 
-Build the frontend with `npm --prefix web ci` and `npm --prefix web run build`. Install `web/dist` as static files, with history fallback to `index.html`. The root route chooses the developer workspace on a `developer.*` hostname and the store on other hosts. Explicit `/developer`, `/store`, `/docs` and `/settings` routes work on either host and locally.
+Build the store with `npm --prefix web ci` and `npm --prefix web run build`. Install `web/dist` as static files, with history fallback to `index.html`. Its root opens `/store`; `/docs` and `/settings` remain store routes. Creation and management links go to the common developer frontend, and legacy `/developer` routes redirect there. Build and deploy the existing Next.js frontend in `silicon-accounts/developer` with the Accounts deployment tooling; it owns authoring and Accounts configuration in one workspace.
 
 [deploy/Caddyfile](../deploy/Caddyfile) serves the store at `apps.teamofsilicons.com`, proxies `/v1/*` and `/health` to the API, and overwrites the forwarded host. The common Apps and Accounts developer frontend runs with Accounts at `developers.teamofsilicons.com`; the singular hostname and old store management paths redirect there. Configure both services' TLS and their distinct Accounts callbacks, and use the allowed origins from [the API environment example](../deploy/api.env.example). Keep backend and runner listeners private. The API systemd unit is distinct from the per-user CLI updater service.
 
