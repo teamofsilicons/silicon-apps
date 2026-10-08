@@ -1,6 +1,6 @@
 [package]
 name = "silicon-apps-client"
-version.workspace = true
+version = "0.1.3"
 edition.workspace = true
 license.workspace = true
 description = "Stateless primary Silicon Apps API, authentication and local installation library"
@@ -12,6 +12,7 @@ chrono.workspace = true
 dirs.workspace = true
 fs2.workspace = true
 reqwest.workspace = true
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 serde.workspace = true
 serde_json.workspace = true
 silicon-accounts-client.workspace = true

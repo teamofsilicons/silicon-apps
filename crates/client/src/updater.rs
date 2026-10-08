@@ -666,6 +666,10 @@ pub fn telemetry(
     else {
         return;
     };
+    // Accounts enables aws-lc while Space Station enables ring. Its WebSocket
+    // transport requires a process provider when both are linked. Retain the
+    // provider already selected by an embedding application.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     if let Ok(client) = space_station::SpaceClient::builder(&key)
         .home(state.root.join("telemetry"))
         .url(
