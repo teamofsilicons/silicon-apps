@@ -264,20 +264,20 @@ Development and production releases each use independent strict `x.y.z` versions
 The CLI artifact helper builds a target-specific `apps.yaml` archive and a SHA-256 sidecar:
 
 ```sh
-bash scripts/build-release.sh --target macos-aarch64 --output dist --version 0.1.2
+bash scripts/build-release.sh --target macos-aarch64 --output dist --version 0.1.3
 ```
 
-Use the version declared by the workspace. A version argument does not rewrite Cargo package metadata. Cross compilation needs the matching Rust target, system linker/runtime and any native dependencies; a target name is not a provisioned toolchain.
+Use the version declared by the CLI package; its patch version may differ from the client and package libraries. A version argument does not rewrite Cargo package metadata. Cross compilation needs the matching Rust target, system linker/runtime and any native dependencies; a target name is not a provisioned toolchain.
 
-`.github/workflows/package-artifacts.yml` is manually triggered and builds native Linux x64, macOS ARM64 and Windows x64 artifacts using [GitHub's hosted runner labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). It does not claim all nine targets, upload to the store, promote releases, publish crates or create remote releases. The CI artifact retention period is not a permanent distribution channel.
+`.github/workflows/package-artifacts.yml` is manually triggered and builds all nine supported target archives using [GitHub's hosted runner labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Each archive is checked on a native or compatible host; Linux ARMv7 uses QEMU. Evidence records exact archive hashes, source revisions, arguments, exit codes and complete command output. The workflow can reverify existing bytes without rebuilding them. It does not upload to the store, promote releases, publish crates or create GitHub releases. CI artifact retention is not a permanent distribution channel; publish the reviewed archives and their evidence as immutable release assets.
 
-To release to users, first verify the package on its actual isolated target runner, then upload to the `apps` app, create a development release, test fresh install/update/uninstall and service behavior, promote it, and verify public resolution/download checksums. Only after artifacts are published at their real distribution URLs should bootstrap installers be advertised as a working network install. Their local-archive modes can be used before public artifact hosting exists.
+To publish in the Apps catalog, verify the package on its actual isolated target runner, then upload to the `apps` app, create a development release, test fresh install/update/uninstall and service behavior, promote it, and verify public resolution/download checksums. Only after artifacts are published at their real distribution URLs should bootstrap installers be advertised as a working network install. Their local-archive modes can be used before public artifact hosting exists.
 
 The bootstrap installers verify the archive checksum before starting the bundled executable, then delegate installation and store registration to the Rust CLI. To inspect a local artifact without installing a startup service for the real operating-system user:
 
 ```sh
 bash scripts/install.sh \
-  --archive ./dist/apps-0.1.2-macos-aarch64.tar.gz \
+  --archive ./dist/apps-0.1.3-macos-aarch64.tar.gz \
   --sha256 TRUSTED_64_HEX_SHA256_DIGEST \
   --home /existing/test-home \
   --server http://127.0.0.1:4310 \

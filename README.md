@@ -93,7 +93,7 @@ The developer website exposes the same operations through seven saved setup step
 
 ## Verify
 
-The [requirements audit](docs/requirements-coverage.md) maps each capability to its implementation and evidence. [Local verification](docs/verification.md) records actual service flows and separates them from public deployment and other target-host acceptance.
+The [requirements audit](docs/requirements-coverage.md) maps each capability to its implementation and evidence. [Local verification](docs/verification.md) records the initial service flows. [Deployment status](docs/deployment-status.md) records published artifacts, live infrastructure and the remaining public activation gates.
 
 ```sh
 cargo fmt --all -- --check
