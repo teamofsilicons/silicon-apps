@@ -1,0 +1,17 @@
+schema_version: 1
+app_id: hello-apps
+version: 0.1.0
+command: hello-apps
+targets:
+  macos-aarch64:
+    binary: bin/hello-apps
+  macos-x86_64:
+    binary: bin/hello-apps
+  linux-x86_64:
+    binary: bin/hello-apps
+  linux-aarch64:
+    binary: bin/hello-apps
+  linux-i686:
+    binary: bin/hello-apps
+  linux-armv7hf:
+    binary: bin/hello-apps

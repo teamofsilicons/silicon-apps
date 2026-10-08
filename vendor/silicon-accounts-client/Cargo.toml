@@ -1,0 +1,39 @@
+[package]
+name = "silicon-accounts-client"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "MIT"
+description = "Stateless Rust client for Silicon Accounts: sign Carbons and Silicons in, exchange tokens, verify proofs and webhooks."
+repository = "https://github.com/teamofsilicons/silicon-accounts"
+readme = "README.md"
+keywords = ["auth", "oauth", "oidc", "silicon", "accounts"]
+categories = ["authentication", "api-bindings"]
+
+[lib]
+name = "silicon_accounts_client"
+path = "src/lib.rs"
+
+[dependencies]
+base64 = "0.22.1"
+bytes = "1.11.0"
+hex = "0.4.3"
+hmac = "0.12.1"
+jsonwebtoken = { version = "11.1.0", features = ["rust_crypto"] }
+rand = "0.9.2"
+reqwest = { version = "0.13.4", default-features = false, features = ["http2", "form", "json", "rustls", "stream"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+sha2 = "0.10.9"
+thiserror = "2.0.17"
+time = { version = "0.3.55", features = ["formatting", "macros", "parsing", "serde", "serde-human-readable"] }
+tokio = { version = "1.53.1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time", "fs", "io-util", "process"] }
+url = { version = "2.5.7", features = ["serde"] }
+zeroize = "1.8.2"
+
+[dev-dependencies]
+axum = { version = "0.8.9", features = ["http2", "json", "matched-path", "macros", "query", "form"] }
+ed25519-dalek = { version = "2.2.0", features = ["pkcs8", "pem", "rand_core"] }
+
+[lints.rust]
+unsafe_code = "forbid"

@@ -1,0 +1,20 @@
+[package]
+name = "silicon-apps-package"
+version.workspace = true
+edition.workspace = true
+description = "Safe package manifest validation, packing and extraction for Silicon Apps"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+flate2.workspace = true
+tar.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+sha2.workspace = true
+hex.workspace = true
+semver.workspace = true
+walkdir.workspace = true
+tempfile.workspace = true

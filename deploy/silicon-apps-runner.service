@@ -1,0 +1,28 @@
+[Unit]
+Description=Silicon Apps isolated Linux package validator
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=silicon-apps-runner
+Group=silicon-apps-runner
+WorkingDirectory=/opt/silicon-apps-runner
+EnvironmentFile=/etc/silicon-apps/runner.env
+ExecStartPre=/usr/bin/mkdir -p /var/lib/silicon-apps-runner/jobs
+ExecStart=/opt/silicon-apps-runner/.venv/bin/python /opt/silicon-apps-runner/runner/server.py
+StateDirectory=silicon-apps-runner
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=45
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/silicon-apps-runner
+# Docker access is operator provisioned on this dedicated host. For a rootless engine,
+# configure DOCKER_HOST and its socket access. The API host must not have this access.
+
+[Install]
+WantedBy=multi-user.target

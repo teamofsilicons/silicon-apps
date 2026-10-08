@@ -1,0 +1,58 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+exclude = ["vendor/silicon-accounts-client"]
+
+[workspace.package]
+version = "0.1.1"
+edition = "2024"
+rust-version = "1.98"
+license = "MIT"
+repository = "https://github.com/teamofsilicons/silicon-apps"
+authors = ["Team of Silicons"]
+
+[workspace.dependencies]
+anyhow = "1"
+axum = { version = "0.8", features = ["multipart", "macros"] }
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive", "env", "wrap_help"] }
+dirs = "6"
+flate2 = "1"
+fs2 = "0.4"
+hex = "0.4"
+http-body-util = "0.1"
+rand = "0.9"
+reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "stream", "rustls", "form"] }
+rusqlite = { version = "0.38", features = ["bundled"] }
+semver = { version = "1", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sha2 = "0.10"
+silicon-accounts-client = { path = "vendor/silicon-accounts-client", version = "0.1.0" }
+silicon-apps-client = { path = "crates/client", version = "0.1.1" }
+silicon-apps-package = { path = "crates/package", version = "0.1.1" }
+space-station = "0.3"
+tar = "0.4"
+tempfile = "3"
+thiserror = "2"
+time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
+tokio = { version = "1", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.7", features = ["cors", "trace", "fs", "limit", "request-id"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+url = { version = "2", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+walkdir = "2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+lto = "thin"
+strip = "symbols"

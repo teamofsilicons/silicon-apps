@@ -1,0 +1,18 @@
+#!/bin/sh
+# A real, deliberately small portable Unix package implementing all three discovery commands.
+set -eu
+case "${1:-}" in
+  --help|-h)
+    printf 'hello-apps — Silicon Apps sample\nUsage: hello-apps [--help | accounts --json | login status --json]\n'
+    ;;
+  accounts)
+    [ "${2:-}" = --json ] || { printf 'Use accounts --json\n' >&2; exit 2; }
+    printf '{"app_id":"hello-apps","version":"0.1.0"}\n'
+    ;;
+  login)
+    [ "${2:-}" = status ] && [ "${3:-}" = --json ] || { printf 'This sample only supports login status --json.\n' >&2; exit 2; }
+    printf '{"authenticated":false}\n'
+    ;;
+  '') printf 'Hello from Silicon Apps. Run hello-apps --help.\n' ;;
+  *) printf 'Unknown command. Run hello-apps --help.\n' >&2; exit 2 ;;
+esac

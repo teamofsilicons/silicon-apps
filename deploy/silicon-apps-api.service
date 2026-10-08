@@ -1,0 +1,27 @@
+[Unit]
+Description=Silicon Apps API
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=silicon-apps
+Group=silicon-apps
+WorkingDirectory=/var/lib/silicon-apps
+EnvironmentFile=/etc/silicon-apps/api.env
+ExecStart=/opt/silicon-apps/bin/apps-server
+StateDirectory=silicon-apps
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=40
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/silicon-apps
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

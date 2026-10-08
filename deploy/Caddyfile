@@ -1,0 +1,23 @@
+# Install the same web/dist tree at this path for both domains.
+# Point both DNS names at this proxy and configure the two Accounts callbacks first.
+apps.teamofsilicons.com, developer.teamofsilicons.com {
+	@api path /v1/* /health
+	handle @api {
+		request_body {
+			max_size 180MB
+		}
+		reverse_proxy 127.0.0.1:4310 {
+			# Overwrite forwarded host; never trust a client-supplied value.
+			header_up X-Forwarded-Host {http.request.host}
+		}
+		header Cache-Control "no-store"
+	}
+
+	handle {
+		root * /srv/silicon-apps/web
+		try_files {path} /index.html
+		file_server
+		@html path / /index.html /store* /developer* /docs /settings
+		header @html Cache-Control "no-cache"
+	}
+}

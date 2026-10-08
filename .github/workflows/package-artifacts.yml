@@ -1,0 +1,64 @@
+name: Build native CLI package artifacts
+
+# Builds reviewable archives only. Publication, promotion and deployment are separate.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Package ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: linux-x86_64
+            rust_target: x86_64-unknown-linux-gnu
+          - os: macos-15
+            target: macos-aarch64
+            rust_target: aarch64-apple-darwin
+          - os: windows-2022
+            target: windows-x86_64
+            rust_target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
+          targets: ${{ matrix.rust_target }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Make python3 available to the portable build helper on Windows
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p "$RUNNER_TEMP/apps-python"
+          cat > "$RUNNER_TEMP/apps-python/python3" <<'WRAPPER'
+          #!/usr/bin/env bash
+          exec python "$@"
+          WRAPPER
+          chmod +x "$RUNNER_TEMP/apps-python/python3"
+          echo "$RUNNER_TEMP/apps-python" >> "$GITHUB_PATH"
+      - name: Build and structurally validate package
+        env:
+          PACKAGE_TARGET: ${{ matrix.target }}
+        run: bash scripts/build-release.sh --target "$PACKAGE_TARGET" --output dist
+      - name: Retain archive and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: apps-${{ matrix.target }}-${{ github.sha }}
+          path: |
+            dist/apps-*.tar.gz
+            dist/apps-*.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14

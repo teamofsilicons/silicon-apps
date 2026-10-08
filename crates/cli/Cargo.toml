@@ -1,0 +1,18 @@
+[package]
+name = "silicon-apps-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Create, publish, discover and install Silicon Apps"
+
+[[bin]]
+name = "apps"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+silicon-apps-client.workspace = true
+tokio.workspace = true

@@ -1,0 +1,469 @@
+//! Portable, deterministic Silicon Apps archives. No function executes package content.
+use anyhow::{Context, Result, bail, ensure};
+use flate2::{Compression, read::GzDecoder, write::GzEncoder};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    io::{Cursor, Read},
+    path::{Component, Path},
+};
+
+pub const TARGETS: [&str; 9] = [
+    "linux-x86_64",
+    "linux-i686",
+    "linux-aarch64",
+    "linux-armv7hf",
+    "windows-x86_64",
+    "windows-i686",
+    "windows-aarch64",
+    "macos-x86_64",
+    "macos-aarch64",
+];
+pub const MAX_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
+pub const MAX_EXTRACTED_BYTES: u64 = 1024 * 1024 * 1024;
+pub const MAX_ENTRIES: usize = 20_000;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Manifest {
+    #[serde(default = "schema_version")]
+    pub schema_version: u32,
+    pub app_id: String,
+    pub version: String,
+    pub command: String,
+    pub targets: BTreeMap<String, Target>,
+}
+fn schema_version() -> u32 {
+    1
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Target {
+    pub binary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub install_script: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ValidationReport {
+    pub valid: bool,
+    pub errors: Vec<String>,
+    pub manifest: Option<Manifest>,
+}
+
+pub fn valid_app_id(value: &str) -> bool {
+    value.len() >= 3 && valid_existing_app_id(value)
+}
+
+/// Historical Accounts apps (for example `dm`) retain their existing identifiers.
+/// New app creation still uses [`valid_app_id`]; manifests reference an existing app.
+pub fn valid_existing_app_id(value: &str) -> bool {
+    (1..=30).contains(&value.len())
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
+}
+
+pub fn strict_version(value: &str) -> bool {
+    semver::Version::parse(value)
+        .is_ok_and(|v| v.pre.is_empty() && v.build.is_empty() && v.to_string() == value)
+}
+
+pub fn safe_path(value: &Path) -> bool {
+    !value.as_os_str().is_empty()
+        && value.components().all(|c| match c {
+            Component::Normal(part) => {
+                let part = part.to_string_lossy();
+                let base = part.split('.').next().unwrap_or("").to_ascii_uppercase();
+                !part.ends_with(['.', ' '])
+                    && !part.chars().any(|c| c.is_control())
+                    && !matches!(
+                        base.as_str(),
+                        "CON"
+                            | "PRN"
+                            | "AUX"
+                            | "NUL"
+                            | "COM1"
+                            | "COM2"
+                            | "COM3"
+                            | "COM4"
+                            | "COM5"
+                            | "COM6"
+                            | "COM7"
+                            | "COM8"
+                            | "COM9"
+                            | "LPT1"
+                            | "LPT2"
+                            | "LPT3"
+                            | "LPT4"
+                            | "LPT5"
+                            | "LPT6"
+                            | "LPT7"
+                            | "LPT8"
+                            | "LPT9"
+                    )
+            }
+            _ => false,
+        })
+        && !value
+            .to_string_lossy()
+            .contains(['\\', ':', '\0', '<', '>', '"', '|', '?', '*'])
+}
+
+impl Manifest {
+    pub fn errors(&self) -> Vec<String> {
+        let mut errors = vec![];
+        if self.schema_version != 1 {
+            errors.push("schema_version: expected 1".into());
+        }
+        if !valid_existing_app_id(&self.app_id) {
+            errors.push(
+                "app_id: expected an existing 1–30 character lowercase app identifier; new IDs require at least 3 characters".into(),
+            );
+        }
+        if !strict_version(&self.version) {
+            errors.push("version: expected x.y.z without prerelease or build metadata".into());
+        }
+        if self.command.is_empty()
+            || self.command.len() > 80
+            || !safe_path(Path::new(&self.command))
+            || !self
+                .command
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        {
+            errors.push("command: expected 1–80 letters, digits, hyphens or underscores, without a path or extension".into());
+        }
+        if self.targets.is_empty() {
+            errors.push("targets: at least one supported target is required".into());
+        }
+        for (name, target) in &self.targets {
+            if !TARGETS.contains(&name.as_str()) {
+                errors.push(format!(
+                    "targets.{name}: unsupported target; choose from {}",
+                    TARGETS.join(", ")
+                ));
+            }
+            for (field, path) in [
+                ("binary", Some(&target.binary)),
+                ("install_script", target.install_script.as_ref()),
+            ] {
+                if let Some(path) = path
+                    && !safe_path(Path::new(path))
+                {
+                    errors.push(format!("targets.{name}.{field}: `{path}` must be a relative path without parent segments, drive prefixes or backslashes"));
+                }
+            }
+        }
+        errors
+    }
+}
+
+pub fn validate_directory(root: &Path) -> ValidationReport {
+    let mut report = ValidationReport::default();
+    if !root.is_dir() {
+        report
+            .errors
+            .push(format!("{}: not a directory", root.display()));
+        return report;
+    }
+    let manifest = match fs::read(root.join("apps.yaml"))
+        .context("apps.yaml: cannot read required manifest")
+        .and_then(|b| serde_yaml::from_slice::<Manifest>(&b).context("apps.yaml: invalid manifest"))
+    {
+        Ok(m) => m,
+        Err(e) => {
+            report.errors.push(format!("{e:#}"));
+            return report;
+        }
+    };
+    report.errors.extend(manifest.errors());
+    for (name, target) in &manifest.targets {
+        for (field, path) in [
+            ("binary", Some(&target.binary)),
+            ("install_script", target.install_script.as_ref()),
+        ] {
+            if let Some(path) = path
+                && safe_path(Path::new(path))
+            {
+                match fs::symlink_metadata(root.join(path)) {
+                    Ok(meta) if meta.file_type().is_file() => {}
+                    _ => report.errors.push(format!(
+                        "targets.{name}.{field}: `{path}` must be an existing regular file"
+                    )),
+                }
+            }
+        }
+    }
+    let mut size = 0;
+    let mut count = 0;
+    for entry in walkdir::WalkDir::new(root).follow_links(false).min_depth(1) {
+        match entry {
+            Ok(e) => {
+                count += 1;
+                if e.file_type().is_symlink()
+                    || !(e.file_type().is_file() || e.file_type().is_dir())
+                {
+                    report.errors.push(format!(
+                        "{}: links and special files are not allowed",
+                        e.path().display()
+                    ));
+                }
+                if let Ok(m) = e.metadata() {
+                    size += m.len();
+                }
+            }
+            Err(e) => report.errors.push(e.to_string()),
+        }
+    }
+    if count > MAX_ENTRIES {
+        report.errors.push(format!(
+            "archive has {count} entries; maximum is {MAX_ENTRIES}"
+        ));
+    }
+    if size > MAX_EXTRACTED_BYTES {
+        report.errors.push(format!(
+            "uncompressed package exceeds {MAX_EXTRACTED_BYTES} bytes"
+        ));
+    }
+    report.valid = report.errors.is_empty();
+    report.manifest = Some(manifest);
+    report
+}
+
+/// Build identical bytes for identical file content and executable modes, independent of timestamps.
+pub fn pack_directory(root: &Path) -> Result<Vec<u8>> {
+    let report = validate_directory(root);
+    ensure!(
+        report.valid,
+        "package validation failed:\n{}",
+        report.errors.join("\n")
+    );
+    let mut archive = tar::Builder::new(GzEncoder::new(Vec::new(), Compression::default()));
+    let mut paths = walkdir::WalkDir::new(root)
+        .follow_links(false)
+        .min_depth(1)
+        .into_iter()
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    paths.sort_by(|a, b| a.path().cmp(b.path()));
+    for entry in paths {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let relative = entry.path().strip_prefix(root)?;
+        ensure!(
+            safe_path(relative),
+            "unsafe archive path {}",
+            relative.display()
+        );
+        let mut file = fs::File::open(entry.path())?;
+        let metadata = file.metadata()?;
+        let mut header = tar::Header::new_gnu();
+        header.set_size(metadata.len());
+        header.set_uid(0);
+        header.set_gid(0);
+        header.set_mtime(0);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            header.set_mode(if metadata.permissions().mode() & 0o111 != 0 {
+                0o755
+            } else {
+                0o644
+            });
+        }
+        #[cfg(not(unix))]
+        header.set_mode(0o644);
+        header.set_cksum();
+        archive.append_data(&mut header, relative, &mut file)?;
+    }
+    let bytes = archive.into_inner()?.finish()?;
+    ensure!(
+        bytes.len() as u64 <= MAX_ARCHIVE_BYTES,
+        "compressed package exceeds {MAX_ARCHIVE_BYTES} bytes"
+    );
+    Ok(bytes)
+}
+
+pub fn sha256(bytes: &[u8]) -> String {
+    hex::encode(Sha256::digest(bytes))
+}
+
+/// Inspect without executing any content. Reject path traversal, duplicate entries, hard/symlinks,
+/// device files, bombs and missing target artifacts before returning the manifest.
+pub fn inspect_archive(bytes: &[u8]) -> Result<Manifest> {
+    let temp = tempfile::tempdir()?;
+    extract_archive(bytes, temp.path())
+}
+
+/// Extract into a new, empty directory owned by the caller. Never follows archive links.
+pub fn extract_archive(bytes: &[u8], destination: &Path) -> Result<Manifest> {
+    ensure!(
+        bytes.len() as u64 <= MAX_ARCHIVE_BYTES,
+        "compressed package exceeds {MAX_ARCHIVE_BYTES} bytes"
+    );
+    ensure!(
+        destination.is_dir(),
+        "{}: extraction destination is not a directory",
+        destination.display()
+    );
+    ensure!(
+        fs::read_dir(destination)?.next().is_none(),
+        "extraction destination must be empty"
+    );
+    ensure!(
+        !fs::symlink_metadata(destination)?.file_type().is_symlink(),
+        "extraction destination must not be a symlink"
+    );
+    let reader = GzDecoder::new(Cursor::new(bytes))
+        .take(MAX_EXTRACTED_BYTES + (MAX_ENTRIES as u64 * 1024) + 1);
+    let mut archive = tar::Archive::new(reader);
+    let mut seen = BTreeSet::new();
+    let mut total = 0u64;
+    for entry in archive
+        .entries()
+        .context("package must be a valid .tar.gz")?
+    {
+        let mut entry = entry.context("invalid tar entry")?;
+        let path = entry.path()?.into_owned();
+        ensure!(safe_path(&path), "unsafe archive path {}", path.display());
+        ensure!(
+            seen.insert(path.clone()),
+            "duplicate archive path {}",
+            path.display()
+        );
+        ensure!(
+            seen.len() <= MAX_ENTRIES,
+            "archive contains too many entries"
+        );
+        let kind = entry.header().entry_type();
+        ensure!(
+            kind.is_file() || kind.is_dir(),
+            "{}: links and special archive files are not allowed",
+            path.display()
+        );
+        total = total
+            .checked_add(entry.size())
+            .context("archive size overflow")?;
+        ensure!(
+            total <= MAX_EXTRACTED_BYTES,
+            "uncompressed archive is too large"
+        );
+        let output = destination.join(&path);
+        if kind.is_dir() {
+            fs::create_dir_all(&output)?;
+            continue;
+        }
+        fs::create_dir_all(output.parent().context("file has no parent")?)?;
+        let mut out = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&output)?;
+        std::io::copy(&mut entry, &mut out)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(
+                &output,
+                fs::Permissions::from_mode(if entry.header().mode()? & 0o111 != 0 {
+                    0o755
+                } else {
+                    0o644
+                }),
+            )?;
+        }
+    }
+    let report = validate_directory(destination);
+    ensure!(
+        report.valid,
+        "package validation failed:\n{}",
+        report.errors.join("\n")
+    );
+    match report.manifest {
+        Some(m) => Ok(m),
+        None => bail!("apps.yaml: missing manifest"),
+    }
+}
+
+pub fn current_target() -> Result<&'static str> {
+    let os = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+    match (os, arch) {
+        ("linux", "x86_64") => Ok("linux-x86_64"),
+        ("linux", "x86") => Ok("linux-i686"),
+        ("linux", "aarch64") => Ok("linux-aarch64"),
+        ("linux", "arm") => Ok("linux-armv7hf"),
+        ("windows", "x86_64") => Ok("windows-x86_64"),
+        ("windows", "x86") => Ok("windows-i686"),
+        ("windows", "aarch64") => Ok("windows-aarch64"),
+        ("macos", "x86_64") => Ok("macos-x86_64"),
+        ("macos", "aarch64") => Ok("macos-aarch64"),
+        _ => bail!(
+            "unsupported OS/architecture {os}-{arch}; supported targets: {}",
+            TARGETS.join(", ")
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn validation_reports_all_fields() {
+        let m = Manifest {
+            schema_version: 8,
+            app_id: "X".into(),
+            version: "1".into(),
+            command: "../../bad".into(),
+            targets: BTreeMap::new(),
+        };
+        assert_eq!(m.errors().len(), 5);
+    }
+    #[test]
+    fn paths_are_cross_platform_safe() {
+        for p in ["../evil", "/evil", "bin/../evil", "C:evil", "bin\\evil", ""] {
+            assert!(!safe_path(Path::new(p)), "{p}");
+        }
+        for p in [
+            "bin/NUL.exe",
+            "bin/COM1",
+            "bin/trailing.",
+            "bin/trailing ",
+            "bin/has?mark",
+        ] {
+            assert!(!safe_path(Path::new(p)), "{p}");
+        }
+        assert!(safe_path(Path::new("bin/cli")));
+    }
+    #[test]
+    fn deterministic_roundtrip_and_missing_binary() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("apps.yaml"), "schema_version: 1\napp_id: example\nversion: 1.2.3\ncommand: example\ntargets:\n  linux-x86_64:\n    binary: example\n").unwrap();
+        assert!(!validate_directory(dir.path()).valid);
+        fs::write(dir.path().join("example"), "hello").unwrap();
+        let first = pack_directory(dir.path()).unwrap();
+        assert_eq!(first, pack_directory(dir.path()).unwrap());
+        assert_eq!(inspect_archive(&first).unwrap().app_id, "example");
+    }
+    #[test]
+    fn rejects_symlink_archive() {
+        let mut a = tar::Builder::new(GzEncoder::new(Vec::new(), Compression::default()));
+        let mut h = tar::Header::new_gnu();
+        h.set_size(0);
+        h.set_mode(0o777);
+        h.set_entry_type(tar::EntryType::Symlink);
+        h.set_link_name("/tmp").unwrap();
+        h.set_cksum();
+        a.append_data(&mut h, "escape", Cursor::new([])).unwrap();
+        let bytes = a.into_inner().unwrap().finish().unwrap();
+        assert!(
+            inspect_archive(&bytes)
+                .unwrap_err()
+                .to_string()
+                .contains("links")
+        );
+    }
+}
