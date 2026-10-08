@@ -2,7 +2,7 @@
 //!
 //! The stateless Rust package for [Silicon Accounts](https://accounts.teamofsilicons.com):
 //! one personal account for every Carbon and Silicon, and the sign-in layer for apps.
-//! It never stores anything; you decide where tokens live. The `accounts` CLI is built
+//! It never stores anything; you decide where tokens live. The `silicon-accounts` CLI is built
 //! on this package only.
 //!
 //! Three ways to use it:

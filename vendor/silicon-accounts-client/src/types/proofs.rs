@@ -1,4 +1,4 @@
-//! Proofs: OBO (on behalf of an account) and ATA (app to app).
+//! Proofs: User verification (on behalf of an account) and App verification (app to app).
 
 use std::fmt;
 
@@ -16,17 +16,17 @@ use crate::types::account::{AccountKind, AccountSummary, AppSummary};
 #[serde(rename_all = "snake_case")]
 pub enum ProofKind {
     /// On behalf of: app A acts at app B for an account that consented at app A.
-    Obo,
+    UserVerification,
     /// App to app: app A proves its identity to one other app (one proof per app).
-    Ata,
+    AppVerification,
 }
 
 impl ProofKind {
-    /// `obo` or `ata`.
+    /// `user_verification` or `app_verification`.
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Obo => "obo",
-            Self::Ata => "ata",
+            Self::UserVerification => "user_verification",
+            Self::AppVerification => "app_verification",
         }
     }
 }
@@ -37,7 +37,7 @@ impl fmt::Display for ProofKind {
     }
 }
 
-/// The account an OBO proof speaks for.
+/// The account a user verification proof speaks for.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ProofUser {
@@ -66,7 +66,7 @@ pub struct IssuedProof {
     /// Proof family id (revoke with it).
     #[serde(default, deserialize_with = "lenient_string")]
     pub proof_id: String,
-    /// `obo` or `ata`.
+    /// `user_verification` or `app_verification`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<ProofKind>,
     /// `sap_…`: what the receiving app verifies.
@@ -95,14 +95,14 @@ pub struct IssuedProof {
         skip_serializing_if = "Option::is_none"
     )]
     pub issuing_app: Option<String>,
-    /// The one app that verifies the proof (OBO and ATA alike).
+    /// The one app that verifies the proof (User verification and App verification alike).
     #[serde(
         default,
         deserialize_with = "app_id_or_object",
         skip_serializing_if = "Option::is_none"
     )]
     pub receiving_app: Option<String>,
-    /// OBO: the account; ATA: `None` (serialized as `null`, like the service sends it).
+    /// User verification: the account; App verification: `None` (serialized as `null`, like the service sends it).
     #[serde(default)]
     pub user: Option<ProofUser>,
     /// App-defined scopes.
@@ -181,7 +181,7 @@ pub struct ValidProof {
     /// Proof family id.
     #[serde(default, deserialize_with = "lenient_string")]
     pub proof_id: String,
-    /// `obo` or `ata`.
+    /// `user_verification` or `app_verification`.
     pub kind: ProofKind,
     /// Valid until.
     #[serde(with = "crate::serde_util::rfc3339_ms")]
@@ -190,7 +190,7 @@ pub struct ValidProof {
     pub issuing_app: ProofApp,
     /// Who it is for (the verifying app).
     pub receiving_app: ProofApp,
-    /// OBO: the account it speaks for; ATA: `None` (serialized as `null`, like the service).
+    /// User verification: the account it speaks for; App verification: `None` (serialized as `null`, like the service).
     #[serde(default)]
     pub user: Option<ProofUser>,
     /// App-defined scopes.
@@ -227,12 +227,12 @@ pub struct AppProof {
     /// Proof id.
     #[serde(deserialize_with = "lenient_string")]
     pub proof_id: String,
-    /// `obo` or `ata`.
+    /// `user_verification` or `app_verification`.
     pub kind: ProofKind,
     /// The one app that verifies it.
     #[serde(default, deserialize_with = "lenient_string")]
     pub receiving_app: String,
-    /// OBO: the account; ATA: `None` (serialized as `null`, like the service sends it).
+    /// User verification: the account; App verification: `None` (serialized as `null`, like the service sends it).
     #[serde(default)]
     pub user: Option<AccountSummary>,
     /// Scopes.
@@ -289,7 +289,7 @@ pub struct AppProof {
     pub access_ttl_seconds: Option<u64>,
 }
 
-/// An OBO proof issued about the signed-in account (`GET /v1/me/proofs`).
+/// A user verification proof issued about the signed-in account (`GET /v1/me/proofs`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct MyProof {
@@ -353,7 +353,7 @@ pub struct MyProof {
 /// Filters for an app's proofs.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ProofsQuery {
-    /// `obo` or `ata`.
+    /// `user_verification` or `app_verification`.
     pub kind: Option<String>,
     /// `active` or `revoked`.
     pub status: Option<String>,
@@ -363,9 +363,9 @@ pub struct ProofsQuery {
     pub cursor: Option<String>,
 }
 
-/// `POST /v1/proofs/obo`.
+/// `POST /v1/proofs/user-verification`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-pub struct IssueObo {
+pub struct IssueUserVerification {
     /// The account's access token issued to the calling app (after the account consented
     /// at the calling app).
     pub subject_token: String,
@@ -379,10 +379,10 @@ pub struct IssueObo {
     pub access_ttl_seconds: Option<u32>,
 }
 
-/// `POST /v1/proofs/ata` (or the app's ATA page, `POST /v1/apps/{app_id}/proofs/ata`). An
-/// ATA proof is for exactly one app: to talk to several apps, issue one proof per app.
+/// `POST /v1/proofs/app-verification` (or the app's App verification page, `POST /v1/apps/{app_id}/proofs/app-verification`). An
+/// App verification proof is for exactly one app: to talk to several apps, issue one proof per app.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-pub struct IssueAta {
+pub struct IssueAppVerification {
     /// The one app that may verify the proof.
     pub receiving_app: String,
     /// App-defined scopes.

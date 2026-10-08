@@ -18,10 +18,10 @@ use crate::types::Page;
 /// The production Silicon Accounts URL.
 pub const DEFAULT_BASE_URL: &str = "https://accounts.teamofsilicons.com";
 /// The app id of Silicon Accounts itself (the account site and the CLI). First-party
-/// tokens (Carbon CLI sign-in, Silicon login) are issued with `aud = "accounts"`.
-pub const FIRST_PARTY_APP_ID: &str = "accounts";
+/// tokens (Carbon CLI sign-in, Silicon login) are issued with `aud = "silicon-accounts"`.
+pub const FIRST_PARTY_APP_ID: &str = "silicon-accounts";
 
-/// The developer platform's app id (developer.teamofsilicons.com): a public client (no
+/// The developer platform's app id (developers.teamofsilicons.com): a public client (no
 /// secret, PKCE S256 required). Its tokens (`aud = developer`) only read the signed-in Carbon
 /// and manage the apps they own; anything else answers 401 `token_wrong_audience`.
 pub const DEVELOPER_APP_ID: &str = "developer";
@@ -379,7 +379,7 @@ impl AccountsClient {
         } else if err.is_connect() {
             (
                 format!("Could not connect to Silicon Accounts at {base} ({what}): {cause}."),
-                "Check the URL (--url, ACCOUNTS_URL or `accounts config set url`) and that the service is running and reachable from this machine.".to_owned(),
+                "Check the URL (--url, ACCOUNTS_URL or `silicon-accounts config set url`) and that the service is running and reachable from this machine.".to_owned(),
             )
         } else {
             (
@@ -742,7 +742,7 @@ pub(crate) fn error_from_response(
 fn default_hint(status: StatusCode) -> Option<&'static str> {
     Some(match status.as_u16() {
         401 => {
-            "Sign in again (`accounts login`), or check the token or app credentials you passed."
+            "Sign in again (`silicon-accounts login`), or check the token or app credentials you passed."
         }
         403 => "This account or app is not allowed to do this.",
         404 => "Check the identifier; it may be mistyped, deleted, or not visible to you.",
@@ -751,7 +751,7 @@ fn default_hint(status: StatusCode) -> Option<&'static str> {
         413 => "The request body is too large.",
         423 | 429 => "Wait for the time in Retry-After, then retry.",
         500..=599 => {
-            "This is a problem on the Silicon Accounts side; retry shortly and report it with the request id if it persists (`accounts report`)."
+            "This is a problem on the Silicon Accounts side; retry shortly and report it with the request id if it persists (`silicon-accounts report`)."
         }
         _ => return None,
     })

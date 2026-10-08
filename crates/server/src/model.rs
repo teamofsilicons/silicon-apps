@@ -231,7 +231,7 @@ pub fn valid_app_id(s: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
 }
 pub fn reserved_app_id(s: &str) -> bool {
-    matches!(s, "accounts" | "developer" | "apps")
+    matches!(s, "accounts" | "silicon-accounts" | "developer" | "apps")
 }
 pub fn version_tuple(s: &str) -> Option<(u64, u64, u64)> {
     let p: Vec<_> = s.split('.').collect();

@@ -22,7 +22,7 @@ use crate::types::{
 };
 
 /// A signed-in Carbon or Silicon, authenticated with a first-party access token
-/// (`aud = accounts`). Created with [`AccountsClient::with_token`]. Holds no state
+/// (`aud = silicon-accounts`). Created with [`AccountsClient::with_token`]. Holds no state
 /// besides the token: refreshing it is up to the caller
 /// ([`AccountsClient::refresh_first_party`]).
 pub struct AccountSession<'a> {
@@ -329,7 +329,7 @@ impl<'a> AccountSession<'a> {
         self.all(&["v1", "me", "apps"]).await
     }
 
-    /// `DELETE /v1/me/apps/{app_id}`: removes the app's access (its tokens and the OBO
+    /// `DELETE /v1/me/apps/{app_id}`: removes the app's access (its tokens and the User verification
     /// proofs it issued about you are revoked; it gets `membership.access_removed`).
     pub async fn remove_app_access(&self, app_id: &str) -> Result<()> {
         self.send(Method::DELETE, &["v1", "me", "apps", app_id], None)
@@ -391,7 +391,7 @@ impl<'a> AccountSession<'a> {
         .json()
     }
 
-    /// `GET /v1/me/proofs`: OBO proofs apps issued on your behalf.
+    /// `GET /v1/me/proofs`: User verification proofs apps issued on your behalf.
     pub async fn proofs(&self) -> Result<Vec<MyProof>> {
         self.all(&["v1", "me", "proofs"]).await
     }

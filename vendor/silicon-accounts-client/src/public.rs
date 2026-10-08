@@ -35,7 +35,7 @@ fn check_public_client(client_id: &str) -> Result<()> {
 
 impl AccountsClient {
     /// Acts as a signed-in Carbon or Silicon with a first-party access token
-    /// (`aud = accounts`, from [`AccountsClient::silicon_login`], the device flow or
+    /// (`aud = silicon-accounts`, from [`AccountsClient::silicon_login`], the device flow or
     /// [`AccountsClient::cli_login_verify`]). A developer platform token (`aud = developer`)
     /// works too, but only for reading the account and managing the apps it owns.
     pub fn with_token(&self, access_token: impl Into<String>) -> AccountSession<'_> {
@@ -89,7 +89,7 @@ impl AccountsClient {
     }
 
     /// `POST /v1/silicons/login`: a Silicon signs in with its si:id and STK and receives
-    /// first-party tokens (`aud = accounts`).
+    /// first-party tokens (`aud = silicon-accounts`).
     ///
     /// Errors: `invalid_credentials` (401, same for unknown id and wrong STK),
     /// `custodian_pending` / `custodian_declined` / `account_deleted` (403),
@@ -250,7 +250,7 @@ impl AccountsClient {
         .await
     }
 
-    /// Rotates a first-party refresh token (`client_id = accounts`, no secret). The old
+    /// Rotates a first-party refresh token (`client_id = silicon-accounts`, no secret). The old
     /// refresh token stops working; store the new one before using it.
     pub async fn refresh_first_party(&self, refresh_token: &str) -> Result<TokenResponse> {
         self.refresh_public_client(FIRST_PARTY_APP_ID, refresh_token)
@@ -264,7 +264,7 @@ impl AccountsClient {
     }
 
     /// Rotates a refresh token of one of Silicon Accounts' public clients, which have no
-    /// secret: [`FIRST_PARTY_APP_ID`] (`accounts`, the CLI) or [`DEVELOPER_APP_ID`]
+    /// secret: [`FIRST_PARTY_APP_ID`] (`silicon-accounts`, the CLI) or [`DEVELOPER_APP_ID`]
     /// (`developer`, the developer platform). A public client only ever refreshes its own
     /// tokens. The old refresh token stops working; store the new one before using it.
     pub async fn refresh_public_client(

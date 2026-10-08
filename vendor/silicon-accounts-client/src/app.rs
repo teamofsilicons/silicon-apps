@@ -18,9 +18,9 @@ use crate::serde_util::unwrap_key;
 use crate::types::{
     AccountKind, AccountSummary, AppDetails, AppProof, AppUser, AppWebhook, ConfigHistoryEntry,
     DeliveriesQuery, DeliveryDetail, ImportInput, ImportJob, ImportOptions, ImportRowResult,
-    ImportRowsQuery, Introspection, IssueAta, IssueObo, IssuedProof, Jwks, Page, PageRequest,
-    ProofRef, ProofVerification, ProofsQuery, ReplayRequest, ReplayResult, TokenResponse, UserInfo,
-    UsersQuery, WebhookDelivery, WebhookSecret, WebhookTestResult,
+    ImportRowsQuery, Introspection, IssueAppVerification, IssueUserVerification, IssuedProof, Jwks,
+    Page, PageRequest, ProofRef, ProofVerification, ProofsQuery, ReplayRequest, ReplayResult,
+    TokenResponse, UserInfo, UsersQuery, WebhookDelivery, WebhookSecret, WebhookTestResult,
 };
 use crate::wait::{WaitEvent, WaitOptions};
 
@@ -117,7 +117,7 @@ impl<'a> AppClient<'a> {
                     "{what} needs app {}'s own credentials (app_id + app secret); the owner's session can't do it on the app's behalf.",
                     self.app_id
                 ),
-                "Pass the app secret (accounts: --app-secret, ACCOUNTS_APP_SECRET, or `accounts app use <app_id> --secret-stdin`). App secrets come from Silicon Apps.",
+                "Pass the app secret (silicon-accounts: --app-secret, ACCOUNTS_APP_SECRET, or `silicon-accounts app use <app_id> --secret-stdin`). App secrets come from Silicon Apps.",
             )),
         }
     }
@@ -485,7 +485,7 @@ impl<'a> AppClient<'a> {
                         started.elapsed().as_secs()
                     ),
                     hint: format!(
-                        "It keeps running on the service; check it with `accounts app import status {job_id}`."
+                        "It keeps running on the service; check it with `silicon-accounts app import status {job_id}`."
                     ),
                 });
             }
@@ -629,18 +629,18 @@ impl<'a> AppClient<'a> {
 
     // ---- proofs ---------------------------------------------------------------------------
 
-    /// `POST /v1/proofs/obo`: get a proof that this app may act at `receiving_app` on
+    /// `POST /v1/proofs/user-verification`: get a proof that this app may act at `receiving_app` on
     /// behalf of the account behind `subject_token` (an access token issued to this app,
     /// after the account consented in your own UI).
-    pub async fn issue_obo(
+    pub async fn issue_user_verification(
         &self,
-        request: &IssueObo,
+        request: &IssueUserVerification,
         idempotency_key: Option<&str>,
     ) -> Result<IssuedProof> {
-        let auth = self.credentials("Issuing an OBO proof")?;
+        let auth = self.credentials("Issuing a User verification proof")?;
         let request = Request::new(
             Method::POST,
-            self.client.endpoint(&["v1", "proofs", "obo"]),
+            self.client.endpoint(&["v1", "proofs", "user-verification"]),
             auth,
         )
         .json(request)?
@@ -648,36 +648,36 @@ impl<'a> AppClient<'a> {
         self.client.execute(request).await?.json()
     }
 
-    /// Issues an ATA proof for exactly one app (`request.receiving_app`). With app
-    /// credentials this calls `POST /v1/proofs/ata`; through the owner's session it calls
-    /// `POST /v1/apps/{app_id}/proofs/ata` (the app's ATA page). To talk to several apps,
+    /// Issues an app verification proof for exactly one app (`request.receiving_app`). With app
+    /// credentials this calls `POST /v1/proofs/app-verification`; through the owner's session it calls
+    /// `POST /v1/apps/{app_id}/proofs/app-verification` (the app's App verification page). To talk to several apps,
     /// issue one proof per app: each app verifies its own.
-    pub async fn issue_ata(
+    pub async fn issue_app_verification(
         &self,
-        request: &IssueAta,
+        request: &IssueAppVerification,
         idempotency_key: Option<&str>,
     ) -> Result<IssuedProof> {
         let receiving_app = request.receiving_app.trim();
         if receiving_app.is_empty() {
             return Err(Error::invalid_input(
-                "An ATA proof needs the one app that will verify it (receiving_app).",
+                "An app verification proof needs the one app that will verify it (receiving_app).",
                 "Pass that app's id, e.g. remind; to talk to several apps, issue one proof per app.",
             ));
         }
         if receiving_app.contains(',') || receiving_app.chars().any(char::is_whitespace) {
             return Err(Error::invalid_input(
                 format!(
-                    "An ATA proof is for exactly one app, but receiving_app '{receiving_app}' names several."
+                    "An app verification proof is for exactly one app, but receiving_app '{receiving_app}' names several."
                 ),
-                "Issue one proof per app: call issue_ata once for every app that should verify a proof from you.",
+                "Issue one proof per app: call issue_app_verification once for every app that should verify a proof from you.",
             ));
         }
         let mut request = request.clone();
         request.receiving_app = receiving_app.to_owned();
         let url = if self.is_owner_session() {
-            self.app_url(&["proofs", "ata"])
+            self.app_url(&["proofs", "app-verification"])
         } else {
-            self.client.endpoint(&["v1", "proofs", "ata"])
+            self.client.endpoint(&["v1", "proofs", "app-verification"])
         };
         let request = Request::new(Method::POST, url, self.auth())
             .json(&request)?

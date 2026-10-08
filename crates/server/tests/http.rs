@@ -79,7 +79,7 @@ async fn built_in_account_service_ids_are_unavailable_and_cannot_be_created() {
     let dir = tempfile::tempdir().unwrap();
     let state = AppState::new(config(dir.path())).unwrap();
     let app = router(state.clone());
-    for id in ["accounts", "developer"] {
+    for id in ["accounts", "silicon-accounts", "developer"] {
         let (status, body) = call(
             &app,
             "GET",
@@ -133,7 +133,7 @@ async fn production_auth_verifies_signature_issuer_audience_expiry_and_active_ac
         json!(["alice@example.com", "alice@secondary.example"])
     );
     for bad in [
-        signed(&key, &issuer, "accounts", now + 600),
+        signed(&key, &issuer, "silicon-accounts", now + 600),
         signed(&key, "https://forged.example", "silicon-apps", now + 600),
         signed(&key, &issuer, "silicon-apps", now - 300),
         signed(
@@ -276,7 +276,7 @@ async fn developer_portal_tokens_manage_owned_apps_but_not_store_actions_or_othe
         assert_eq!(status, 401, "{method} {path}: {body}");
     }
     for bad in [
-        signed(&key, &issuer, "accounts", now + 600),
+        signed(&key, &issuer, "silicon-accounts", now + 600),
         signed(&key, &issuer, "other", now + 600),
         signed(&key, &issuer, "developer", now - 300),
         signed(

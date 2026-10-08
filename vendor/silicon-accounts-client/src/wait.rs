@@ -175,7 +175,7 @@ impl AccountsClient {
                         started.elapsed().as_secs()
                     ),
                     hint: format!(
-                        "The request stays open until it expires; check again with `accounts silicon request status {request_id}` (add --wait to keep waiting)."
+                        "The request stays open until it expires; check again with `silicon-accounts silicon request status {request_id}` (add --wait to keep waiting)."
                     ),
                 });
             }

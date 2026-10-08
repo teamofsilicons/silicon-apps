@@ -520,7 +520,7 @@ pub struct SessionInfo {
         skip_serializing_if = "Option::is_none"
     )]
     pub origin: Option<String>,
-    /// Client label, e.g. `accounts CLI on build-box (linux)`.
+    /// Client label, e.g. `silicon-accounts CLI on build-box (linux)`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     /// IP address seen at creation.
@@ -607,7 +607,7 @@ pub struct HistoryQuery {
 pub struct DeviceRequest {
     /// The code shown by the CLI, e.g. `WDJB-MJHT`.
     pub user_code: String,
-    /// The label the CLI sent, e.g. `accounts CLI on build-box (linux)`.
+    /// The label the CLI sent, e.g. `silicon-accounts CLI on build-box (linux)`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_label: Option<String>,
     /// When the sign-in was started.

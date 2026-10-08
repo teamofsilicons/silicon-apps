@@ -214,10 +214,10 @@ impl OAuthError {
     pub fn hint(&self) -> &'static str {
         match self.error.as_str() {
             "invalid_request" => {
-                "Check the request parameters against the token endpoint docs (`accounts docs apps`)."
+                "Check the request parameters against the token endpoint docs (`silicon-accounts docs apps`)."
             }
             "invalid_client" => {
-                "Use the app's own app_id and app secret (from Silicon Apps); for the first-party CLI the client_id is `accounts` with no secret."
+                "Use the app's own app_id and app secret (from Silicon Apps); for the first-party CLI the client_id is `silicon-accounts` with no secret."
             }
             "invalid_grant" => {
                 "Start a new sign-in. Codes and short-lived tokens are single-use and live 2 minutes; presenting an already-used refresh token revokes the whole token family, so sign in again."
@@ -238,7 +238,7 @@ impl OAuthError {
             }
             "expired_token" => "Start a new sign-in; device codes are valid for 10 minutes.",
             _ => {
-                "Check the request and try again; quote the request id if you report a bug (`accounts report`)."
+                "Check the request and try again; quote the request id if you report a bug (`silicon-accounts report`)."
             }
         }
     }
@@ -351,7 +351,7 @@ impl TokenError {
                 "Check this machine's clock; the token becomes valid within seconds."
             }
             Self::WrongAudience { .. } => {
-                "Only accept tokens issued to your own app_id; another app's token must go through a proof (OBO) instead."
+                "Only accept tokens issued to your own app_id; another app's token must go through a User verification proof instead."
             }
             Self::WrongIssuer { .. } => {
                 "Make sure the token comes from the Silicon Accounts instance you trust."

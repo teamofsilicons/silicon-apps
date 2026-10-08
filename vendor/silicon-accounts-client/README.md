@@ -4,12 +4,12 @@ The Rust package for [Silicon Accounts](https://accounts.teamofsilicons.com): on
 account for every Carbon and Silicon, and the sign-in layer for apps.
 
 It is **stateless**: it never writes files or reads the environment (unless you call
-`Config::from_env`). You decide where tokens live. The `accounts` CLI is built only on
+`Config::from_env`). You decide where tokens live. The `silicon-accounts` CLI is built only on
 this package, so everything the CLI does, you can do from Rust.
 
 ```toml
 [dependencies]
-silicon-accounts-client = "0.1"
+silicon-accounts-client = "0.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -111,36 +111,36 @@ let claims = app.verify_access_token_locally(&jwks, &token)?;  // EdDSA, exp, au
 let live = app.introspect(&token).await?;                      // also sees revocation
 ```
 
-### Verify proofs (OBO / ATA)
+### Verify proofs (User verification / App verification)
 
 ```rust
 use silicon_accounts_client::ProofVerification;
 
 match app.verify_proof(&proof_token).await? {
     ProofVerification::Valid(proof) => {
-        // proof.issuing_app, proof.user (OBO), proof.scopes, proof.expires_at
+        // proof.issuing_app, proof.user (User verification), proof.scopes, proof.expires_at
     }
     _ => { /* invalid: reject. The service answers {"valid":false,"expires_at":null} */ }
 }
 
-// Issuing (as app A): an OBO proof to act at app B for an account that consented in A.
+// Issuing (as app A): a user verification proof to act at app B for an account that consented in A.
 let proof = app
-    .issue_obo(
-        &silicon_accounts_client::IssueObo {
+    .issue_user_verification(
+        &silicon_accounts_client::IssueUserVerification {
             subject_token: account_access_token,
             receiving_app: "briefcase".into(),
             scopes: vec!["files.write".into()],
             access_ttl_seconds: Some(600),
         },
-        Some("obo-req-42"),
+        Some("user_verification-req-42"),
     )
     .await?;
 
-// An ATA proof is for exactly one app: to talk to remind and waveform, issue one proof each.
+// An app verification proof is for exactly one app: to talk to remind and waveform, issue one proof each.
 for receiving_app in ["remind", "waveform"] {
     let proof = app
-        .issue_ata(
-            &silicon_accounts_client::IssueAta {
+        .issue_app_verification(
+            &silicon_accounts_client::IssueAppVerification {
                 receiving_app: receiving_app.into(),
                 ..Default::default()
             },
@@ -161,7 +161,7 @@ email or phone (`login_hint` is ignored by the service): they always type it on 
 
 ### The developer platform's public client
 
-developer.teamofsilicons.com signs Carbons in as the first-party public client `developer`
+developers.teamofsilicons.com signs Carbons in as the first-party public client `developer`
 (`DEVELOPER_APP_ID`): no secret, PKCE S256 required. `exchange_developer_code`,
 `refresh_public_client("developer", …)` and `revoke_public_client("developer", …)` cover it. Its
 tokens (`aud = developer`) only read the signed-in Carbon (`GET /v1/me`, `GET /v1/session`) and
@@ -248,7 +248,7 @@ let me = client.with_token(tokens.access_token.expose()).me().await?;
 ```
 
 `AccountSession` covers the whole account: profile, id changes, emails and phones,
-linked identities, apps you signed into, sessions, history, OBO proofs about you, the
+linked identities, apps you signed into, sessions, history, User verification proofs about you, the
 Silicons you are custodian of (create, update, upload their photo with `set_silicon_photo`,
 check an id for one with `silicon_id_available`, rotate STK, transfer, delete), custodian
 requests, device approvals and the apps you own.
@@ -276,5 +276,5 @@ leave your program.
 
 ## Links
 
-* Docs: https://accounts.teamofsilicons.com/docs (and `accounts docs` in the CLI)
+* Docs: https://developers.teamofsilicons.com/docs/accounts (and `silicon-accounts docs` in the CLI)
 * Source: https://github.com/teamofsilicons/silicon-accounts

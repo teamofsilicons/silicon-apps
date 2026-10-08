@@ -2420,7 +2420,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-accounts-client"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2441,7 +2441,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-apps-cli"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "anyhow",
  "axum",
@@ -2454,7 +2454,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-apps-client"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "axum",
