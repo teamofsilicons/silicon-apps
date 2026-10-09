@@ -24,8 +24,7 @@ https://developers.teamofsilicons.com/docs/accounts. There is no app authoring h
 
 Every page has its own title, description, canonical link, Open Graph and Twitter tags, and JSON-LD: `Organization` and
 `WebSite` (with a `SearchAction`) everywhere, `SoftwareApplication` and `BreadcrumbList` on app pages, `ProfilePage` on
-author pages, `CollectionPage` or `SearchResultsPage` on search, `FAQPage` on the home page. Every page also registers
-the WebMCP tools `search_apps` and `get_app` when the browser offers `navigator.modelContext`.
+author pages, `CollectionPage` or `SearchResultsPage` on search, `FAQPage` on the home page.
 
 Reviews are 1 to 5 stars and up to 600 characters, one per account per app. The form is a server action behind a plain
 form, so it works without script. Apps and authors the visitor cannot see answer a real 404 page rendered on the server
@@ -128,8 +127,8 @@ node scripts/screens.mjs    # with both running: home, search and an app page, l
 The Playwright suite (`e2e/`) checks browsing, search and filters, the app page, signatures and withdrawn releases, the
 sign-in redirect through the API to Silicon Accounts, sign-out, writing, editing and removing a review with JavaScript
 off, the 600-character limit, private apps signed in and out, 404s, old addresses, no sideways scrolling at 320 pixels,
-the agent files, the API paths, WebMCP and the MCP server (tools, errors, SSE answers, bearer tokens and the rate
-limit). It reuses servers already listening on those ports outside CI. `E2E_STORE_PORT` and `E2E_API_PORT` change the
+the agent files, the API paths, that pages register no browser tools, and the MCP server (tools, errors, SSE answers,
+bearer tokens and the rate limit). It reuses servers already listening on those ports outside CI. `E2E_STORE_PORT` and `E2E_API_PORT` change the
 ports, and `E2E_DEV=1` tests `next dev` instead of the build.
 
 Copy on these pages follows the Carbon's voice in `llms/llms.md`: plain words, Carbons and Silicons, and no em or en

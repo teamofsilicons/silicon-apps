@@ -1,4 +1,7 @@
-/** The agent files (robots.txt, sitemap.xml, llms.txt, llms-full.txt, security.txt, manifest), the API paths and WebMCP. */
+/**
+ * The agent files (robots.txt, sitemap.xml, llms.txt, llms-full.txt, security.txt, manifest), the API paths, and that
+ * pages register no tools in the browser (agents call the MCP server at /mcp, e2e/mcp.spec.ts).
+ */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -64,31 +67,24 @@ test("the API's own paths reach the Apps API (Caddy's job in production)", async
   expect(list.items[0].app_id).toBe("briefcase");
 });
 
-test("every page registers WebMCP tools behind a feature check, and they answer", async ({ page, request }) => {
-  const source = await (await request.get("/")).text();
-  expect(source).toContain('"modelContext" in navigator');
-  expect(source).toContain("navigator.modelContext.registerTool");
+test("pages register no tools in the browser: no modelContext script, and nothing registers when it is offered", async ({ page, request }) => {
+  for (const path of ["/", "/search", "/apps/briefcase"]) {
+    const source = await (await request.get(path)).text();
+    expect(source, path).not.toContain("modelContext");
+    expect(source, path).not.toContain("registerTool");
+    expect(source, path).not.toContain("WebMCP");
+  }
 
   await page.addInitScript(() => {
-    const tools: Array<{ name: string; execute: (input: unknown) => Promise<unknown> }> = [];
-    Object.defineProperty(window, "__tools", { value: tools });
-    Object.defineProperty(navigator, "modelContext", { value: { registerTool: (tool: (typeof tools)[number]) => tools.push(tool) }, configurable: true });
+    const calls: string[] = [];
+    Object.defineProperty(window, "__calls", { value: calls });
+    Object.defineProperty(navigator, "modelContext", {
+      value: { registerTool: () => calls.push("registerTool"), provideContext: () => calls.push("provideContext") },
+      configurable: true,
+    });
   });
   await page.goto("/search");
-  const names = await page.evaluate(() => (window as unknown as { __tools: Array<{ name: string }> }).__tools.map(tool => tool.name));
-  expect(names).toEqual(["search_apps", "get_app"]);
-  const found = await page.evaluate(async () => {
-    const tool = (window as unknown as { __tools: Array<{ name: string; execute: (input: unknown) => Promise<{ structuredContent: { apps: Array<{ app_id: string; install: string }> } }> }> }).__tools[0];
-    return (await tool.execute({ query: "brifcase", limit: 5 })).structuredContent.apps[0];
-  });
-  expect(found.app_id).toBe("briefcase");
-  expect(found.install).toBe("silicon-apps install briefcase");
-  const app = await page.evaluate(async () => {
-    const tool = (window as unknown as { __tools: Array<{ execute: (input: unknown) => Promise<{ structuredContent: Record<string, unknown> }> }> }).__tools[1];
-    return (await tool.execute({ app_id: "briefcase" })).structuredContent;
-  });
-  expect(app.name).toBe("Briefcase");
-  expect(app.signed).toBe(true);
-  expect(app.signed_by).toEqual(["c:shubham"]);
-  expect((app.withdrawn_releases as Array<{ version: string }>)[0].version).toBe("3.4.3");
+  await page.waitForLoadState("networkidle");
+  const calls = await page.evaluate(() => (window as unknown as { __calls: string[] }).__calls);
+  expect(calls).toEqual([]);
 });

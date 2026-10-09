@@ -1,8 +1,7 @@
 /**
  * The root layout of apps.teamofsilicons.com: <html> and <body>, the shared faces and tokens over Arc's foundation (the
- * same files as the developer site), the no-flash theme boot script and the WebMCP tools (both inline, with the
- * request's CSP nonce), the header and footer, the one behaviour island, and the Organization and WebSite JSON-LD
- * every page carries. Every page renders per request: the nonce and the visitor's session change each time.
+ * same files as the developer site), the no-flash theme boot script (inline, with the request's CSP nonce), the
+ * header and footer, the one behaviour island, and the Organization and WebSite JSON-LD every page carries. Every page renders per request: the nonce and the visitor's session change each time.
  */
 import "@/components/arc/foundation.css";
 import "@/styles/fonts.css";
@@ -19,7 +18,6 @@ import { JsonLd, organizationLd, websiteLd } from "@/lib/seo";
 import { getAccount } from "@/lib/session";
 import { CANONICAL_ORIGIN, OG_IMAGE, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
-import { WEBMCP_SCRIPT } from "@/lib/webmcp";
 
 export const metadata: Metadata = {
   metadataBase: new URL(CANONICAL_ORIGIN),
@@ -71,7 +69,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <SiteFooter />
         <Enhancer />
         <JsonLd nonce={nonce} graph={[organizationLd(), websiteLd()]} />
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: WEBMCP_SCRIPT }} />
       </body>
     </html>
   );

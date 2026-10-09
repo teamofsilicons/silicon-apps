@@ -4,7 +4,7 @@
  * and the questions people ask. Server-rendered; the theme switch and the copy buttons are the only script.
  */
 import type { Metadata } from "next";
-import { ArrowUpRight, Bot, Braces, FileText, Globe, KeyRound, Package, PackageSearch, Plug, Plus, RefreshCw, ShieldCheck, Terminal } from "lucide-react";
+import { ArrowUpRight, Bot, Braces, FileText, Globe, KeyRound, ListTree, Package, Plug, Plus, RefreshCw, ShieldCheck, Terminal } from "lucide-react";
 import { AppGrid, FeaturedCard } from "@/components/store/app-card";
 import styles from "@/components/store/home.module.css";
 import { EmptyState, Notice, SectionHead, StructuredData, styles as store } from "@/components/store/parts";
@@ -230,9 +230,9 @@ export default async function Home() {
               <p className={styles.featureText}>Every app page is server-rendered with its install command and SoftwareApplication data, at <code data-sq-native="">/apps/{"{app_id}"}</code>.</p>
             </li>
             <li className={styles.feature}>
-              <span className={styles.featureIcon} data-sq="surface" aria-hidden="true"><PackageSearch {...ICON} /></span>
-              <h3 className={styles.featureTitle}>WebMCP</h3>
-              <p className={styles.featureText}>In a browser with <code data-sq-native="">navigator.modelContext</code>, every page offers <code data-sq-native="">search_apps</code> and <code data-sq-native="">get_app</code>.</p>
+              <span className={styles.featureIcon} data-sq="surface" aria-hidden="true"><ListTree {...ICON} /></span>
+              <h3 className={styles.featureTitle}>Robots and sitemap</h3>
+              <p className={styles.featureText}>Crawlers and agents are named and welcome in <a href="/robots.txt">/robots.txt</a>, and <a href="/sitemap.xml">/sitemap.xml</a> lists every public app and author.</p>
             </li>
           </ul>
 

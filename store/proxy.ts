@@ -5,7 +5,7 @@
  *   /apps/apps to /apps/silicon-apps, /developer/* and /docs/* to the shared developer portal (Caddy answers those
  *   first in production; these are the same redirects for any other front).
  * - A fresh CSP nonce per request, as on the developer site: script-src 'self' 'nonce-…' 'strict-dynamic'. Next puts
- *   the nonce on its own scripts; the root layout puts it on the theme boot script, the WebMCP tools and the JSON-LD.
+ *   the nonce on its own scripts; the root layout puts it on the theme boot script and the JSON-LD.
  *   No other inline script runs.
  * - x-store-path tells the layout which page it is rendering (the header marks it, and sign-in comes back to it).
  * - An app or author page the visitor cannot see is answered by the root not-found page (a 404 rendered in full on the
