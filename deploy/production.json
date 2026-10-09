@@ -23,7 +23,7 @@
   ],
   "OwnerPublicId": "c:saket",
   "OwnerAccountsUuid": "zQo",
-  "CliCatalogVersion": "0.1.10",
+  "CliCatalogVersion": "0.2.0",
   "CliCatalogTargets": [
     "linux-aarch64",
     "linux-armv7hf",
@@ -36,7 +36,7 @@
     "windows-x86_64"
   ],
   "CliGithubTargets": 9,
-  "CliCatalogProductionReleaseId": "a401472f-4942-51ad-ae89-95fc4e43ba9a",
+  "CliCatalogProductionReleaseId": "e199fcca-acb4-53b3-a282-cbc66e66baae",
   "CliLoginVerified": true,
   "BrowserLoginVerified": true,
   "BackupRestoreVerified": true,
@@ -92,7 +92,7 @@
   "SharedDocsPublicBrowserVerified": true,
   "InstallCommandId": "922cd178-f493-45a1-8135-73758deed13c",
   "VerificationCommandId": "9ce54adb-3346-47f1-b0ef-2428531be994",
-  "LatestBackupKey": "backups/20261009T073312Z.tar.gz",
+  "LatestBackupKey": "backups/20261009T100202Z.tar.gz",
   "CliCommand": "silicon-apps",
   "CliGithubVersion": "0.2.0",
   "CatalogInstallVerificationCommandId": "c41ad415-9b82-41dc-b40c-ac6d14c79d0c",
@@ -112,8 +112,9 @@
     "app_verification",
     "user_verification"
   ],
-  "FirstPartyPublicationCommandId": "b7fd7148-24cc-449e-a6b0-7d032a60807a",
-  "AccountsCliCatalogVersion": "0.3.1",
+  "FirstPartyPublicationCommandId": "fadb6b81-854c-4589-aff8-a1fa07964f9d",
+  "FirstPartyPrePublicationBackupKey": "backups/20261009T100153Z.tar.gz",
+  "AccountsCliCatalogVersion": "0.4.0",
   "AccountsCliCatalogTargets": [
     "linux-aarch64",
     "linux-armv7hf",
@@ -125,100 +126,100 @@
     "windows-i686",
     "windows-x86_64"
   ],
-  "AccountsCliCatalogProductionReleaseId": "0910d78a-772b-52c2-b3ff-dfacb48aa9b8",
-  "AccountsCliNativeBuildRun": 37858774166,
+  "AccountsCliCatalogProductionReleaseId": "8a3489a1-e8fd-571c-9625-d4003d10749e",
+  "AccountsCliNativeBuildRun": 37899202356,
   "CliCatalogPackages": [
     {
-      "id": "40c70708-d74b-5ba8-b72c-e81e774f7352",
+      "id": "20110eb6-2d6e-58e1-81eb-d686f908a0ac",
       "target": "linux-aarch64",
-      "sha256": "186b9c7ede8b0fda85220d6cfc53ad1122bea1889aa8682836167a6abad08016"
+      "sha256": "c7d6e1a719fe24efa5e9be6db3136e078ae78c8e12e8995c142805fd0aebc701"
     },
     {
-      "id": "81e14df8-0de4-5b30-a6d8-ef73f396d65e",
+      "id": "633f54f1-fb8c-580b-9efd-52d1f969a790",
       "target": "linux-armv7hf",
-      "sha256": "ab32fac1245af886ef9de7eb1da08ffb37c7e82f1841b5790117809829de2dcc"
+      "sha256": "bdd74ecf0924d261bd2b809eb952ef42cfba3b4cfbe625f5c930e69d56fc8a1d"
     },
     {
-      "id": "f943555f-6931-50e7-8030-04098727e8bc",
+      "id": "b9afa94e-7980-5f41-b50e-ba081175e49c",
       "target": "linux-i686",
-      "sha256": "a796407b36b3ed68e93a7ce63a85d9c310323d7a430c6e60b2c9a6f0858b33d2"
+      "sha256": "ff1cfb576f082d5a80a76aedb7c936226702c1c571d8a148354f4699b53848e2"
     },
     {
-      "id": "d7bb3273-f88a-5ca5-9094-c3e732ed0eee",
+      "id": "f11a9b88-1578-5d83-a11c-ca930bf18f3d",
       "target": "linux-x86_64",
-      "sha256": "2babc87c93f95f07d50267fb9e41ae3481e3b67183d116abcd848567e3b01e92"
+      "sha256": "8abb71f163b849be3aba3f4bb4b6249fc10edcf652caaf9e6aa7aa139876984a"
     },
     {
-      "id": "25280ce6-cfe4-5e56-8623-dd4132580eb0",
+      "id": "ebe0eba6-015d-5ab8-8e60-ba12ed00a561",
       "target": "macos-aarch64",
-      "sha256": "e01d2923f8ae0573db4fad111258c3ee54d97d9e8db7f8bef59f75176d40ccb9"
+      "sha256": "b857d06d2f957aec7d7a81dccd6ccd922c1a659d6602591f168fa694eb1e44aa"
     },
     {
-      "id": "d06f2104-f000-587f-ada0-e14ae12ca1c9",
+      "id": "493ec7a6-4899-5a35-bf00-c5737f5bba10",
       "target": "macos-x86_64",
-      "sha256": "7e8083c9512480d7210006f5618bcec8f617e1573b3859e592c7babcc81245e6"
+      "sha256": "815a737258489a3daa748f32003aa232817eacc2dd9acb8d30369a4560df3bfa"
     },
     {
-      "id": "91b27cff-e408-5484-b244-fbe82d094664",
+      "id": "2ff8fa77-b950-5299-a1df-042b58fd6a60",
       "target": "windows-aarch64",
-      "sha256": "97398c13b98257a67ada0d2beea2f4b5467f2f27785c3f57139816e7b3970a31"
+      "sha256": "535539608825aca2326a746e2ea1089a4a1a5620af5586a86b15aa5b90c5a34a"
     },
     {
-      "id": "b414514b-7b1f-535d-8174-02cdd7edd2a2",
+      "id": "98ce3954-3c30-559d-8100-4c9fbf46803f",
       "target": "windows-i686",
-      "sha256": "4d69504890f5031db46b710c2ba22764f486ebcef575e9f8d3ddd207ca4dae37"
+      "sha256": "2c5a92e72fb9139c82777ab5088f91b39312ed7c1b9019d1c8b35ef6a653b771"
     },
     {
-      "id": "bca14c30-651b-5abf-9530-e16663429b3d",
+      "id": "78865836-8abd-513f-8b1e-79a8167a91ce",
       "target": "windows-x86_64",
-      "sha256": "3dd7eaf2597f10fb86c1a5cdbe218a78ec8938b2f367457fb850217760b96dc5"
+      "sha256": "cb551b6b4361f0393a17ad56553249c307bbd6d7473101311195bdc5c0decc67"
     }
   ],
   "AccountsCliCatalogPackages": [
     {
-      "id": "d3d463cd-e736-51c5-85e0-6927e5330b2d",
+      "id": "961d175f-d160-5dd9-ba8d-f277e9bc3aef",
       "target": "linux-aarch64",
-      "sha256": "623000a38fe431ef5ef6b0ba97873a746e07da11592bea51441ef79a7f0a9e77"
+      "sha256": "13bb444662e66ae1b1a704fc8c6c8d9d6377ea74437f90cc89cf1fad4d609083"
     },
     {
-      "id": "ae2f5307-e82f-50ab-af65-72191fce1ca7",
+      "id": "9007823d-b48f-5a5b-a23a-94090fec7e29",
       "target": "linux-armv7hf",
-      "sha256": "fcb89d241e455556c2436b449eebf87561eaa39bf1839ef73ac264b53e7b8673"
+      "sha256": "949cc07b755103755cdd7cc10abcfa583be60df130cf7a2eba4f6fdd9406da1d"
     },
     {
-      "id": "aba8a6cf-2eed-5ec2-969c-e5f631a302bb",
+      "id": "5b68190f-118f-5e03-a8d7-1ff04559a7c1",
       "target": "linux-i686",
-      "sha256": "55e7c4f7d631b192889a410940cc8e56ad8bda8a1db3701ec49a017e59d0594f"
+      "sha256": "0c3c5d087af78d6253ecbfdfff818d2dc04d1c063b45c8b134df1e91d0f6a0dd"
     },
     {
-      "id": "db8bf4ab-d002-5f6d-9258-b24fd516f39e",
+      "id": "80b12860-03d5-5968-97b0-09dcb3c617ec",
       "target": "linux-x86_64",
-      "sha256": "c678b999f2e16b0136fd3fa3d299f9fd5beaba41ba557be475d2da7d27b03eb5"
+      "sha256": "fc5e625a281b71e52a0594491d565bf1ab6d0940b08cce64c3697467c186f605"
     },
     {
-      "id": "2bdd864b-8b02-5405-97e2-d2a46721e605",
+      "id": "21bc9aa8-07c9-5da6-b04f-02413664ec3e",
       "target": "macos-aarch64",
-      "sha256": "269f56fce8c39aeeef68fc1e364af241e3404a9833872f84ed82d05d1ffc49d3"
+      "sha256": "bbdfe2bc378c377463cd8fb823ea5eb3b3b10e0945980b1d4a06ac4fe2fcb7c4"
     },
     {
-      "id": "5944a8ce-61d3-5e88-9d3d-14cc913aad1f",
+      "id": "d31155b9-a272-5ee3-a51f-edc082ea8e27",
       "target": "macos-x86_64",
-      "sha256": "4694ca1a55c062451b08151b00835540547adf6c4ae84ab3abb637b0a523389d"
+      "sha256": "7c7222c78cccc8bde5285776dd570300c8618708ca5007d7fb78af6489ec367b"
     },
     {
-      "id": "e996719d-c228-58e0-a246-4ed92e2ee866",
+      "id": "0a66eb53-4aa2-546e-9afa-f5641fd4d53f",
       "target": "windows-aarch64",
-      "sha256": "8a9f0e9ce437d9afe84478ad3fbc449eee239ef706e551fc6d768d423382d0f6"
+      "sha256": "0faca90bb28fb0ffba15053b4d34f74f659db3e3f49bfa726cfb7c08f4047a74"
     },
     {
-      "id": "3a71caf0-eefb-5568-8835-c3664b4a8520",
+      "id": "dc01b333-baa9-58ed-97f7-2d8428de340a",
       "target": "windows-i686",
-      "sha256": "2ff644f1be669002599a8f44423dd84a7ba5890ddb0ab5132a7a342326748485"
+      "sha256": "626718063bbe4144a1ed01cb33356bc4b334a637272bee42e5a9869328184aea"
     },
     {
-      "id": "1067d841-ed0f-5207-aca2-163b3a4ef34f",
+      "id": "a4cbd9cd-2530-5b86-b259-d9a9cafadae3",
       "target": "windows-x86_64",
-      "sha256": "d47866e00a5b645c076d1d7be140c47feb5b927187281bde0be4f7932d020dba"
+      "sha256": "d3e2401813946883f45added855323597bcf98aaeec1fd845b64d74d1f14429a"
     }
   ],
   "StoreAuthorProfiles": true,

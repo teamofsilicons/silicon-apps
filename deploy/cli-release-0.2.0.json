@@ -23,6 +23,71 @@
     "installed_version": "silicon-apps 0.2.0",
     "updater_running": false
   },
+  "catalog_channel": "production",
+  "catalog_release_id": "e199fcca-acb4-53b3-a282-cbc66e66baae",
+  "catalog_targets": 9,
+  "catalog_packages": [
+    {
+      "id": "20110eb6-2d6e-58e1-81eb-d686f908a0ac",
+      "target": "linux-aarch64",
+      "sha256": "c7d6e1a719fe24efa5e9be6db3136e078ae78c8e12e8995c142805fd0aebc701"
+    },
+    {
+      "id": "633f54f1-fb8c-580b-9efd-52d1f969a790",
+      "target": "linux-armv7hf",
+      "sha256": "bdd74ecf0924d261bd2b809eb952ef42cfba3b4cfbe625f5c930e69d56fc8a1d"
+    },
+    {
+      "id": "b9afa94e-7980-5f41-b50e-ba081175e49c",
+      "target": "linux-i686",
+      "sha256": "ff1cfb576f082d5a80a76aedb7c936226702c1c571d8a148354f4699b53848e2"
+    },
+    {
+      "id": "f11a9b88-1578-5d83-a11c-ca930bf18f3d",
+      "target": "linux-x86_64",
+      "sha256": "8abb71f163b849be3aba3f4bb4b6249fc10edcf652caaf9e6aa7aa139876984a"
+    },
+    {
+      "id": "ebe0eba6-015d-5ab8-8e60-ba12ed00a561",
+      "target": "macos-aarch64",
+      "sha256": "b857d06d2f957aec7d7a81dccd6ccd922c1a659d6602591f168fa694eb1e44aa"
+    },
+    {
+      "id": "493ec7a6-4899-5a35-bf00-c5737f5bba10",
+      "target": "macos-x86_64",
+      "sha256": "815a737258489a3daa748f32003aa232817eacc2dd9acb8d30369a4560df3bfa"
+    },
+    {
+      "id": "2ff8fa77-b950-5299-a1df-042b58fd6a60",
+      "target": "windows-aarch64",
+      "sha256": "535539608825aca2326a746e2ea1089a4a1a5620af5586a86b15aa5b90c5a34a"
+    },
+    {
+      "id": "98ce3954-3c30-559d-8100-4c9fbf46803f",
+      "target": "windows-i686",
+      "sha256": "2c5a92e72fb9139c82777ab5088f91b39312ed7c1b9019d1c8b35ef6a653b771"
+    },
+    {
+      "id": "78865836-8abd-513f-8b1e-79a8167a91ce",
+      "target": "windows-x86_64",
+      "sha256": "cb551b6b4361f0393a17ad56553249c307bbd6d7473101311195bdc5c0decc67"
+    }
+  ],
+  "catalog_release_manifest_sha256": "59c90c0c3f137c06d0c58e08df46be72553304a25f426dc43bf38c7f8d41ce84",
+  "catalog_publication_ssm": "fadb6b81-854c-4589-aff8-a1fa07964f9d",
+  "catalog_pre_publication_backup": "backups/20261009T100153Z.tar.gz",
+  "catalog_backup": "backups/20261009T100202Z.tar.gz",
+  "catalog_signing_key_id": "apps-2026-10",
+  "catalog_published_at": "2026-10-09T10:01:59.778966+00:00",
+  "catalog_checks": [
+    "release.json and every bundle file matched the GitHub release asset digests",
+    "host checked the bundle tarball, release.json and helper checksums before stopping the API",
+    "backup before and after publication",
+    "API restart signed 36 release packages with apps-2026-10",
+    "public resolve returns 0.2.0 with a valid Ed25519 signature on all nine targets",
+    "linux-x86_64, macos-aarch64 and windows-x86_64 downloads match the signed sha256 and size"
+  ],
+  "catalog_verified_at": "2026-10-09T10:05:33+00:00",
   "checks": [
     "two independent artifact checkers",
     "nine executable archive checks",
