@@ -29,6 +29,9 @@ export const LINKS = {
   accounts: "https://accounts.teamofsilicons.com",
   accountsLlms: "https://accounts.teamofsilicons.com/llms.txt",
   developersLlms: "https://developers.teamofsilicons.com/llms.txt",
+  /** Whether Silicon Apps and Silicon Accounts are up, on the developer site. */
+  status: "https://developers.teamofsilicons.com/status",
+  /** Silicon Apps and Silicon Accounts are both open source under the MIT license. */
   appsGithub: "https://github.com/teamofsilicons/silicon-apps",
   accountsGithub: "https://github.com/teamofsilicons/silicon-accounts",
 } as const;

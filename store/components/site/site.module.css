@@ -211,6 +211,8 @@
 .externalIcon { color: var(--text-muted); }
 .footerBottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4) var(--space-6); margin-top: var(--space-10); border-top: 1px solid var(--border-subtle); padding-top: var(--space-5); }
 .copyright { margin: 0; color: var(--text-muted); font-size: var(--text-sm); }
+.copyright a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: .22em; }
+.copyright a:hover, .copyright a:focus-visible { color: var(--foreground); }
 
 /* The theme choice: Arc's segmented control, three pressed buttons on one track. */
 .picker { --sq-r: 12px; --sq-fill: var(--surface-muted); display: inline-flex; gap: 2px; padding: 3px; background: var(--sq-fill); }
@@ -232,6 +234,9 @@
   transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 .pickerOption:hover, .pickerOption:focus-visible { color: var(--foreground); }
+/* The colour change alone is too faint for keyboard focus: the label also takes the accent underline the store's
+   segmented controls use. */
+.pickerOption:focus-visible { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
 .pickerOption[aria-pressed="true"] { --sq-fill: var(--surface); color: var(--foreground); box-shadow: var(--shadow-resting); }
 
 @media (max-width: 1023px) {

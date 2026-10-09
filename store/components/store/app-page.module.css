@@ -76,6 +76,8 @@
 .summary { --sq-r: var(--radius-panel); --sq-fill: var(--surface); --sq-stroke: var(--border); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-8); border: 1px solid var(--sq-stroke); padding: var(--space-5) var(--space-6); background: var(--sq-fill); }
 .score { display: grid; justify-items: start; gap: var(--space-1); }
 .average { color: var(--foreground); font-family: var(--font-display); font-size: 3rem; font-weight: 600; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+/* No ratings yet: a quiet word, not a headline number (the same as the stats strip's "None yet"). */
+.averageQuiet { color: var(--text-secondary); font-size: 1.5rem; letter-spacing: -.02em; line-height: 1.2; white-space: nowrap; }
 .bars { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .bars li { display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: center; gap: var(--space-3); }
 .barLabel { color: var(--text-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; text-align: right; }
@@ -114,8 +116,11 @@
 }
 .ratingStar:has(input:focus-visible) { background: var(--surface-muted); color: var(--star); }
 
-.remove summary { width: fit-content; color: var(--text-secondary); font-size: var(--text-sm); cursor: pointer; }
+.remove summary { width: fit-content; padding-block: var(--space-2); color: var(--text-secondary); font-size: var(--text-sm); cursor: pointer; }
 .remove summary:hover { color: var(--foreground); }
+/* No rings anywhere, so a focused disclosure underlines its label in the accent, like the questions on the home page. */
+.remove summary:focus-visible { color: var(--foreground); }
+.remove summary:focus-visible, .more summary:focus-visible { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
 .removeForm { display: grid; justify-items: start; gap: var(--space-3); margin-top: var(--space-3); }
 .removeForm p { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.55; }
 
@@ -163,10 +168,12 @@
 .signatures dd[data-state="no"] { color: var(--text-secondary); font-weight: 400; }
 .signatures dd[data-state="no"]::before { background: var(--border-strong); }
 
-.more { border-top: 1px solid var(--border-subtle); padding-top: var(--space-3); }
-.more summary { color: var(--accent-ink); font-size: var(--text-sm); font-weight: 500; cursor: pointer; }
+/* The summary's own padding makes it a comfortable target; while closed, the card's bottom padding gives that back. */
+.more { border-top: 1px solid var(--border-subtle); padding-top: var(--space-1); }
+.more:not([open]) { margin-bottom: calc(var(--space-2) * -1); }
+.more summary { padding-block: var(--space-2); color: var(--accent-ink); font-size: var(--text-sm); font-weight: 500; cursor: pointer; }
 .more summary:hover { text-decoration: underline; text-underline-offset: .22em; }
-.moreBody { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
+.moreBody { display: grid; gap: var(--space-4); margin-top: var(--space-2); }
 .moreItem { display: grid; gap: var(--space-2); }
 .moreItem p { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); }
 

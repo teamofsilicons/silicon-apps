@@ -104,7 +104,7 @@ export default async function SearchPage({ searchParams }: Props) {
         <h2 id="results-title" className="sr-only">Results</h2>
         {needsSignIn ? (
           <EmptyState icon={<Lock size={20} strokeWidth={1.75} />} title="Log in to see private apps" actions={<Action href={signInHref(path)} rel="nofollow">Sign in with Silicon Accounts</Action>}>
-            <p>Private apps show only to the Carbons and Silicons they are shared with. Sign in with your Silicon Accounts account to see the ones shared with you.</p>
+            <p>Sign in with your Silicon Accounts account, and the private apps shared with you show up here.</p>
           </EmptyState>
         ) : failed ? (
           <Notice tone="danger" title="Search is not answering right now">

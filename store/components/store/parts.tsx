@@ -58,9 +58,10 @@ export function Stars({ rating, size = 14, label }: { rating: number; size?: num
 }
 
 /** One command on one line with a copy button (shown only with script; the text is always selectable). */
-export function Command({ value, label, large = false, id }: { value: string; label?: string; large?: boolean; id?: string }) {
+/** `wrap` lets the command break onto more lines instead of scrolling, for narrow columns like the app page's side cards. */
+export function Command({ value, label, large = false, wrap = false, id }: { value: string; label?: string; large?: boolean; wrap?: boolean; id?: string }) {
   return (
-    <div className={`${styles.command} ${large ? styles.commandLarge : ""}`} data-sq="surface" id={id}>
+    <div className={[styles.command, large ? styles.commandLarge : "", wrap ? styles.commandWrap : ""].filter(Boolean).join(" ")} data-sq="surface" id={id}>
       <code className={styles.commandText} tabIndex={0}>
         <span className={styles.prompt} aria-hidden="true">$ </span>
         {value}

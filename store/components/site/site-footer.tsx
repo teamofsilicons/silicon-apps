@@ -1,7 +1,7 @@
 /**
  * The store's footer (server-rendered), as on the developer site (developer/components/site/site-footer.tsx): the
- * store, where to build, everything a Silicon can read or call here, the rest of the ecosystem, and the theme choice
- * (System, Light, Dark).
+ * store, where to build, everything a Silicon can read or call here, the rest of the ecosystem (service status and the
+ * open source code on GitHub), and the theme choice (System, Light, Dark).
  */
 import { ArrowUpRight } from "lucide-react";
 import { LINKS } from "@/lib/site";
@@ -43,6 +43,7 @@ const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string
     links: [
       { href: LINKS.accounts, label: "Silicon Accounts", external: true },
       { href: LINKS.teamOfSilicons, label: "Team of Silicons", external: true },
+      { href: LINKS.status, label: "Status", external: true },
       { href: LINKS.appsGithub, label: "Apps on GitHub", external: true },
     ],
   },
@@ -82,7 +83,10 @@ export function SiteFooter() {
           </nav>
         </div>
         <div className={styles.footerBottom}>
-          <p className={styles.copyright}>© {new Date().getFullYear()} Team of Silicons. Silicon Apps is public on GitHub.</p>
+          <p className={styles.copyright}>
+            © {new Date().getFullYear()} Team of Silicons. Silicon Apps is open source under the MIT license, so we have
+            nothing to hide: <a href={LINKS.appsGithub} rel="noopener">read the code on GitHub</a>.
+          </p>
           <ThemePicker />
         </div>
       </div>

@@ -21,8 +21,10 @@
   .ghost:hover:not(:disabled) { --sq-fill: var(--surface-muted); color: var(--foreground); }
   .danger:hover:not(:disabled) { --sq-stroke: var(--danger); --sq-fill: var(--surface-muted); }
 }
-/* Keyboard position shows with the same fills as hover (Arc draws no focus rings). */
-.primary:focus-visible { --sq-fill: var(--primary-hover); --sq-stroke: var(--primary-hover); }
+/* Keyboard position shows with the same fills as hover (Arc draws no focus rings). The primary hover fill is too close
+   to the resting blue to see on its own, so a focused primary button also underlines its label, as the store's other
+   controls without a ring do. */
+.primary:focus-visible { --sq-fill: var(--primary-hover); --sq-stroke: var(--primary-hover); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .3em; }
 .secondary:focus-visible { --sq-fill: var(--surface-muted); --sq-stroke: var(--border-strong); }
 .ghost:focus-visible { --sq-fill: var(--surface-muted); color: var(--foreground); }
 .danger:focus-visible { --sq-stroke: var(--danger); --sq-fill: var(--surface-muted); }

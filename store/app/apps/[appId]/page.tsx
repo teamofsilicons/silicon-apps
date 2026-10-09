@@ -244,7 +244,7 @@ export default async function AppPage({ params, searchParams }: Props) {
               <h2 id="reviews-title" className={pageStyles.sectionTitle}>Ratings and reviews</h2>
               <div className={pageStyles.summary} data-sq="surface">
                 <div className={pageStyles.score}>
-                  <span className={pageStyles.average}>{rated ? formatRating(reviews.rating) : "None"}</span>
+                  <span className={rated ? pageStyles.average : `${pageStyles.average} ${pageStyles.averageQuiet}`}>{rated ? formatRating(reviews.rating) : "None yet"}</span>
                   {rated ? <Stars rating={reviews.rating!} size={16} /> : null}
                   <span className={pageStyles.statNote}>{reviews.count ? plural(reviews.count, "review") : "No reviews yet"}</span>
                 </div>
@@ -394,13 +394,13 @@ export default async function AppPage({ params, searchParams }: Props) {
                     {development ? (
                       <div className={pageStyles.moreItem}>
                         <p>The latest development release</p>
-                        <Command value={`silicon-apps install '${app.app_id}>dev'`} label="Copy the development install command" />
+                        <Command value={`silicon-apps install '${app.app_id}>dev'`} label="Copy the development install command" wrap />
                       </div>
                     ) : null}
                     {production ? (
                       <div className={pageStyles.moreItem}>
                         <p>This exact version</p>
-                        <Command value={`silicon-apps install '${app.app_id}@${production.version}'`} label="Copy the exact version install command" />
+                        <Command value={`silicon-apps install '${app.app_id}@${production.version}'`} label="Copy the exact version install command" wrap />
                       </div>
                     ) : null}
                     <p className={pageStyles.cardText}>The CLI asks before switching between production and development. An exact version picks what you install first; updates still follow its channel.</p>
