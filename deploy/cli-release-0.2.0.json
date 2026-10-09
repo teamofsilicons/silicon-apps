@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "app_id": "silicon-apps",
+  "source_revision": "1f6c4c935d7e51880f6681f9498f1d11899ce6eb",
+  "ci": "https://github.com/teamofsilicons/silicon-apps/actions/runs/37901900629",
+  "native_builds": "https://github.com/teamofsilicons/silicon-apps/actions/runs/37901917804",
+  "release": "https://github.com/teamofsilicons/silicon-apps/releases/tag/v0.2.0",
+  "targets": 9,
+  "assets_verified": 33,
+  "package_crate": "0.2.0",
+  "client_crate": "0.2.0",
+  "cli_crate": "0.2.0",
+  "crates_io_checksums": {
+    "silicon-apps-package": "bfa646e6575fd33bf4e98df5db663bcec6060bd59c819c5739465ceac97062b7",
+    "silicon-apps-client": "5a1508128180709cf54af6e0bb3ad6b0a32fd011419ae828b7a1b7f84b950b2d",
+    "silicon-apps-cli": "10ecf41e763601839ba39d10140e3ad92557c5bc57746dc94b1d505202f275a1"
+  },
+  "installer": {
+    "url": "https://apps.teamofsilicons.com/install.sh",
+    "sha256": "eaed2029645af4ce6f5b2f911e5af7e4a44db79d35ebe00a78cdfea2548a3beb",
+    "target": "macos-aarch64",
+    "installed_sha256": "b857d06d2f957aec7d7a81dccd6ccd922c1a659d6602591f168fa694eb1e44aa",
+    "installed_version": "silicon-apps 0.2.0",
+    "updater_running": false
+  },
+  "checks": [
+    "two independent artifact checkers",
+    "nine executable archive checks",
+    "33 published asset digests",
+    "install scripts unchanged since 0.1.10 and taken from scripts/ at the source revision",
+    "GitHub latest release resolves to v0.2.0",
+    "public installer in a fresh home with SILICON_APPS_NO_DAEMON=1 and --no-startup installed 0.2.0 and started no process",
+    "crates.io dry run then publish in dependency order"
+  ],
+  "verified_at": "2026-10-09T08:26:41+00:00"
+}
