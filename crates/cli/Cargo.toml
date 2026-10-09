@@ -19,4 +19,5 @@ tokio.workspace = true
 
 [dev-dependencies]
 axum.workspace = true
+silicon-apps-server = { path = "../server" }
 tempfile.workspace = true

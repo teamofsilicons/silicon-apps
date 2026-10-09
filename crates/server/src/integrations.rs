@@ -114,58 +114,180 @@ pub async fn sync_app(s: &Shared, app: &App, secret: Option<&str>) -> Result<()>
         .map_err(accounts_error)?;
     Ok(())
 }
+/// Validate an uploaded package, recording each step on the app's event
+/// stream so its authors can follow the upload as it happens.
+/// An author's signature sent with an upload: key ID and base64 signature.
+pub struct AuthorUploadSignature {
+    pub key_id: String,
+    pub signature: String,
+    pub signer_id: String,
+}
 pub async fn validate_package(
     s: &Shared,
     app_id: &str,
     target: &str,
-    _actor: &str,
+    actor: &str,
     bytes: &[u8],
+    key: &str,
+    author: Option<AuthorUploadSignature>,
 ) -> Result<Package> {
     if !TARGETS.contains(&target) {
         return Err(ApiError::bad(format!("Unsupported target `{target}`.")));
     }
-    let manifest = silicon_apps_package::inspect_archive(bytes).map_err(|e| {
-        let mut e2 = ApiError::new(
-            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-            "invalid_archive",
-            format!("Package archive failed validation: {e:#}"),
-            "Run silicon-apps validate and resolve every error before uploading.",
+    let digest = hash(bytes);
+    let validation_id = new_id();
+    let step = |kind: &str, data: Value| {
+        let mut data = data;
+        data["validation_id"] = json!(validation_id);
+        data["target"] = json!(target);
+        data["sha256"] = json!(digest);
+        data["idempotency_key"] = json!(key);
+        crate::events::progress(s, app_id, actor, key, kind, data);
+    };
+    step(
+        "package.validation_started",
+        json!({"size":bytes.len(),"commands":COMMANDS}),
+    );
+    let fail = |stage: &str, error: ApiError| -> ApiError {
+        step(
+            "package.validation_step",
+            json!({"step":stage,"status":if error.status.is_server_error() {"unavailable"} else {"failed"},"code":error.code,"message":error.message}),
         );
-        e2.details = json!({"stage":"archive","error":format!("{e:#}")});
-        e2
-    })?;
+        error
+    };
+    let manifest = match silicon_apps_package::inspect_archive(bytes) {
+        Ok(manifest) => manifest,
+        Err(e) => {
+            let mut e2 = ApiError::new(
+                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                "invalid_archive",
+                format!("Package archive failed validation: {e:#}"),
+                "Run silicon-apps validate and resolve every error before uploading.",
+            );
+            e2.details = json!({"stage":"archive","error":format!("{e:#}")});
+            return Err(fail("archive", e2));
+        }
+    };
+    step(
+        "package.validation_step",
+        json!({"step":"archive","status":"passed","command":manifest.command}),
+    );
     if manifest.app_id != app_id {
-        return Err(ApiError::bad(
-            "apps.yaml app_id must match the app receiving this package.",
+        return Err(fail(
+            "manifest",
+            ApiError::bad("apps.yaml app_id must match the app receiving this package."),
         ));
     }
     if !manifest.targets.contains_key(target) {
-        return Err(ApiError::bad(
-            "apps.yaml must describe the uploaded target.",
+        return Err(fail(
+            "manifest",
+            ApiError::bad("apps.yaml must describe the uploaded target."),
         ));
     }
-    let url=s.config.runner_url.as_ref().ok_or_else(||ApiError::unavailable("No isolated package runner is configured. Set APPS_RUNNER_URL and APPS_RUNNER_TARGETS."))?;
+    let install_script = match silicon_apps_package::install_script(bytes, &manifest, target) {
+        Ok(script) => script.map(|(script, _)| InstallScriptInfo {
+            path: script.path,
+            sha256: script.sha256,
+            size: script.size,
+        }),
+        Err(e) => {
+            let mut error = ApiError::new(
+                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                "invalid_archive",
+                format!("The install script could not be read: {e:#}"),
+                "Keep the install script named in apps.yaml inside the archive, under 16 MiB.",
+            );
+            error.details = json!({"stage":"manifest","error":format!("{e:#}")});
+            return Err(fail("manifest", error));
+        }
+    };
+    step(
+        "package.validation_step",
+        json!({"step":"manifest","status":"passed","install_script":install_script}),
+    );
+    // An author signature is checked before any runner time is spent.
+    let author_signature = match author {
+        None => None,
+        Some(author) => {
+            let public = {
+                let store = s.store.lock().unwrap();
+                crate::signing::active_author_key(&store.connection, actor, &author.key_id)
+            }
+            .map_err(|e| fail("author_signature", e))?;
+            let message = crate::signing::author_message(
+                app_id,
+                target,
+                &digest,
+                bytes.len() as u64,
+                install_script.as_ref().map(|s| s.sha256.as_str()),
+            );
+            if !crate::signing::verify(&public, &message, &author.signature) {
+                return Err(fail(
+                    "author_signature",
+                    crate::signing::invalid_author_signature(
+                        format!(
+                            "The signature by author key {} does not match this archive.",
+                            author.key_id
+                        ),
+                        json!({"key_id":author.key_id,"signed_message":message}),
+                    ),
+                ));
+            }
+            step(
+                "package.validation_step",
+                json!({"step":"author_signature","status":"passed","key_id":author.key_id}),
+            );
+            Some(AuthorSignature {
+                key_id: author.key_id,
+                algorithm: crate::signing::ALGORITHM.into(),
+                public_key: public,
+                signature: author.signature,
+                signer_uuid: actor.into(),
+                signer_id: author.signer_id,
+                signed_at: now(),
+            })
+        }
+    };
+    let Some(url) = s.config.runner_url.as_ref() else {
+        return Err(fail(
+            "runner",
+            ApiError::unavailable(
+                "No isolated package runner is configured. Set APPS_RUNNER_URL and APPS_RUNNER_TARGETS.",
+            ),
+        ));
+    };
     if !s.config.runner_targets.iter().any(|t| t == target) {
-        return Err(ApiError::unavailable(format!(
-            "No isolated runner is available for {target}; configure a native runner before uploading this target."
-        )));
+        return Err(fail(
+            "runner",
+            ApiError::unavailable(format!(
+                "No isolated runner is available for {target}; configure a native runner before uploading this target."
+            )),
+        ));
     }
-    let token = s.config.runner_token.as_ref().ok_or_else(|| {
-        ApiError::unavailable("APPS_RUNNER_TOKEN is required for the isolated runner.")
-    })?;
-    let digest = hash(bytes);
-    let response=s.http.post(format!("{}/validate",url.trim_end_matches('/'))).bearer_auth(token).json(&json!({"app_id":app_id,"target":target,"package_sha256":digest,"package_base64":base64::engine::general_purpose::STANDARD.encode(bytes),"manifest":manifest})).send().await.map_err(|e|ApiError::unavailable(format!("Package runner could not be reached: {e}")))?;
+    let Some(token) = s.config.runner_token.as_ref() else {
+        return Err(fail(
+            "runner",
+            ApiError::unavailable("APPS_RUNNER_TOKEN is required for the isolated runner."),
+        ));
+    };
+    step(
+        "package.validation_step",
+        json!({"step":"runner","status":"started","commands":COMMANDS}),
+    );
+    let response = s.http.post(format!("{}/validate",url.trim_end_matches('/'))).bearer_auth(token).json(&json!({"app_id":app_id,"target":target,"package_sha256":digest,"package_base64":base64::engine::general_purpose::STANDARD.encode(bytes),"manifest":manifest})).send().await.map_err(|e|fail("runner", ApiError::unavailable(format!("Package runner could not be reached: {e}"))))?;
     let status = response.status();
-    let result: Value = response
-        .json()
-        .await
-        .map_err(|_| ApiError::unavailable("Package runner returned invalid JSON."))?;
+    let result: Value = response.json().await.map_err(|_| {
+        fail(
+            "runner",
+            ApiError::unavailable("Package runner returned invalid JSON."),
+        )
+    })?;
     if status.is_server_error() {
         let mut error = ApiError::unavailable(
             "The configured isolated target runner is unavailable; retry this upload with the same idempotency key.",
         );
         error.details = result;
-        return Err(error);
+        return Err(fail("runner", error));
     }
     if !status.is_success() {
         let mut e = ApiError::new(
@@ -174,12 +296,21 @@ pub async fn validate_package(
             "The isolated runner rejected the package.",
             "Read the exact runner error and command results, fix the package and upload again.",
         );
+        for check in result["validation"].as_array().into_iter().flatten() {
+            step(
+                "package.validation_step",
+                json!({"step":"command","command":check["command"],"exit_code":check["exit_code"],"passed":check["passed"],"expected":check["expected"],"stdout":crate::events::step_output(check["stdout"].as_str().unwrap_or_default()),"stderr":crate::events::step_output(check["stderr"].as_str().unwrap_or_default())}),
+            );
+        }
         e.details = result;
-        return Err(e);
+        return Err(fail("runner", e));
     }
     if result["isolated"] != true || result["target"] != target {
-        return Err(ApiError::unavailable(
-            "Runner did not attest isolated execution on the requested target.",
+        return Err(fail(
+            "runner",
+            ApiError::unavailable(
+                "Runner did not attest isolated execution on the requested target.",
+            ),
         ));
     }
     let mut checks = vec![];
@@ -207,6 +338,10 @@ pub async fn validate_package(
             ),
         };
         passed &= ok;
+        step(
+            "package.validation_step",
+            json!({"step":"command","command":command,"exit_code":exit,"passed":ok,"expected":expected,"stdout":crate::events::step_output(stdout),"stderr":crate::events::step_output(stderr)}),
+        );
         checks.push(json!({"command":command,"exit_code":exit,"stdout":stdout.chars().take(32768).collect::<String>(),"stderr":stderr.chars().take(32768).collect::<String>(),"passed":ok,"expected":expected}));
     }
     if !passed {
@@ -220,9 +355,12 @@ pub async fn validate_package(
         return Err(e);
     }
     let dest = s.config.data_dir.join("packages").join(&digest);
-    crate::objects::publish(&dest, bytes)
-        .await
-        .map_err(|_| ApiError::unavailable("Could not commit the immutable package artifact."))?;
+    crate::objects::publish(&dest, bytes).await.map_err(|_| {
+        fail(
+            "storage",
+            ApiError::unavailable("Could not commit the immutable package artifact."),
+        )
+    })?;
     Ok(Package {
         id: new_id(),
         target: target.into(),
@@ -231,6 +369,9 @@ pub async fn validate_package(
         command: manifest.command,
         validation: checks,
         created_at: now(),
+        install_script,
+        inspected: true,
+        author_signature,
     })
 }
 pub async fn import_accounts(s: &Shared) -> Result<usize> {
@@ -250,6 +391,7 @@ pub async fn import_accounts(s: &Shared) -> Result<usize> {
     let _guard = s.mutation_gate.lock().await;
     let mut store = s.store.lock().unwrap();
     let mut c = store.catalog()?;
+    let marks = crate::events::marks(&c);
     let mut count = 0;
     for v in apps {
         let id = v["app_id"]
@@ -327,11 +469,9 @@ pub async fn import_accounts(s: &Shared) -> Result<usize> {
         count += 1;
     }
     let tx = store.connection.transaction()?;
-    tx.execute(
-        "UPDATE catalog SET document=?1 WHERE id=1",
-        [serde_json::to_string(&c).unwrap()],
-    )?;
+    crate::store::Store::save_catalog(&tx, &c, &marks)?;
     tx.commit()?;
+    store.notify_events();
     Ok(count)
 }
 pub async fn outbox_worker(s: Shared) {
@@ -434,7 +574,8 @@ pub async fn start_background(s: Shared) -> Result<()> {
             "Imported {count} existing Accounts apps, preserving app IDs and Accounts users."
         );
     }
-    tokio::spawn(outbox_worker(s));
+    tokio::spawn(outbox_worker(s.clone()));
+    tokio::spawn(crate::subscriptions::delivery_worker(s));
     Ok(())
 }
 pub fn refresh_identity(s: &Shared, who: &Identity) -> Result<()> {

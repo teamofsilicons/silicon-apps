@@ -539,6 +539,84 @@ pub fn extract_archive(bytes: &[u8], destination: &Path) -> Result<Manifest> {
     }
 }
 
+/// An install script as packaged for one target.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstallScript {
+    /// The script's path inside the package, as written in apps.yaml.
+    pub path: String,
+    /// SHA-256 of the script's exact bytes, lowercase hex.
+    pub sha256: String,
+    pub size: u64,
+}
+/// Install scripts larger than this are refused when read for display or signing.
+pub const MAX_INSTALL_SCRIPT_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Read one regular file from a `.tar.gz` without extracting anything else.
+/// Returns `None` when the archive has no regular file at `path`. Leading `./`
+/// segments are ignored on both sides.
+pub fn read_archive_file(bytes: &[u8], path: &str, limit: u64) -> Result<Option<Vec<u8>>> {
+    fn normal(path: &str) -> String {
+        path.split('/')
+            .filter(|part| !part.is_empty() && *part != ".")
+            .collect::<Vec<_>>()
+            .join("/")
+    }
+    let wanted = normal(path);
+    let reader = GzDecoder::new(Cursor::new(bytes))
+        .take(MAX_EXTRACTED_BYTES + (MAX_ENTRIES as u64 * 1024) + 1);
+    let mut archive = tar::Archive::new(reader);
+    for entry in archive
+        .entries()
+        .context("package must be a valid .tar.gz")?
+    {
+        let mut entry = entry.context("invalid tar entry")?;
+        let entry_path = entry.path()?.to_string_lossy().replace('\\', "/");
+        if normal(&entry_path) != wanted || !entry.header().entry_type().is_file() {
+            continue;
+        }
+        ensure!(
+            entry.size() <= limit,
+            "{path} is {} bytes, more than the {limit} byte limit",
+            entry.size()
+        );
+        let mut content = Vec::with_capacity(entry.size() as usize);
+        entry.read_to_end(&mut content)?;
+        return Ok(Some(content));
+    }
+    Ok(None)
+}
+
+/// The install script `target` runs, with its digest and bytes, or `None`
+/// when the target has no install script. Check the archive with
+/// [`inspect_archive`] first; this reads only the script.
+pub fn install_script(
+    bytes: &[u8],
+    manifest: &Manifest,
+    target: &str,
+) -> Result<Option<(InstallScript, Vec<u8>)>> {
+    let Some(path) = manifest
+        .targets
+        .get(target)
+        .with_context(|| format!("the package does not describe target {target}"))?
+        .install_script
+        .clone()
+    else {
+        return Ok(None);
+    };
+    let content =
+        read_archive_file(bytes, &path, MAX_INSTALL_SCRIPT_BYTES)?.with_context(|| {
+            format!("apps.yaml names install script {path}, but the archive has no such file")
+        })?;
+    Ok(Some((
+        InstallScript {
+            path,
+            sha256: sha256(&content),
+            size: content.len() as u64,
+        },
+        content,
+    )))
+}
+
 pub fn current_target() -> Result<&'static str> {
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
@@ -656,6 +734,45 @@ mod tests {
         let first = pack_directory(dir.path()).unwrap();
         assert_eq!(first, pack_directory(dir.path()).unwrap());
         assert_eq!(inspect_archive(&first).unwrap().app_id, "example");
+    }
+    #[test]
+    fn reads_the_install_script_of_a_target_without_extracting() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("apps.yaml"), "schema_version: 1\napp_id: example\nversion: 1.2.3\ncommand: example\ntargets:\n  linux-x86_64:\n    binary: example\n    install_script: scripts/setup.sh\n  macos-aarch64:\n    binary: example\n").unwrap();
+        fs::write(dir.path().join("example"), "hello").unwrap();
+        fs::create_dir_all(dir.path().join("scripts")).unwrap();
+        fs::write(
+            dir.path().join("scripts/setup.sh"),
+            "#!/bin/sh\necho setup\n",
+        )
+        .unwrap();
+        let bytes = pack_directory(dir.path()).unwrap();
+        let manifest = inspect_archive(&bytes).unwrap();
+        let (script, content) = install_script(&bytes, &manifest, "linux-x86_64")
+            .unwrap()
+            .unwrap();
+        assert_eq!(content, b"#!/bin/sh\necho setup\n");
+        assert_eq!(script.path, "scripts/setup.sh");
+        assert_eq!(script.sha256, sha256(b"#!/bin/sh\necho setup\n"));
+        assert_eq!(script.size, 21);
+        assert!(
+            install_script(&bytes, &manifest, "macos-aarch64")
+                .unwrap()
+                .is_none()
+        );
+        assert!(install_script(&bytes, &manifest, "windows-x86_64").is_err());
+        assert_eq!(
+            read_archive_file(&bytes, "./scripts/setup.sh", 1024)
+                .unwrap()
+                .unwrap(),
+            content
+        );
+        assert!(
+            read_archive_file(&bytes, "missing", 1024)
+                .unwrap()
+                .is_none()
+        );
+        assert!(read_archive_file(&bytes, "scripts/setup.sh", 4).is_err());
     }
     #[test]
     fn rejects_symlink_archive() {

@@ -78,7 +78,20 @@ impl ApiError {
 }
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (self.status,Json(json!({"error":{"code":self.code,"message":self.message,"hint":self.hint,"details":self.details}}))).into_response()
+        // Every 429 says when to come back, whichever limit produced it.
+        let retry_after = (self.status == StatusCode::TOO_MANY_REQUESTS).then(|| {
+            self.details["retry_after_seconds"]
+                .as_u64()
+                .unwrap_or(1)
+                .max(1)
+        });
+        let mut response = (self.status,Json(json!({"error":{"code":self.code,"message":self.message,"hint":self.hint,"details":self.details}}))).into_response();
+        if let Some(seconds) = retry_after
+            && let Ok(value) = seconds.to_string().parse()
+        {
+            response.headers_mut().insert("Retry-After", value);
+        }
+        response
     }
 }
 impl From<rusqlite::Error> for ApiError {

@@ -210,7 +210,7 @@ fn developer_route(method: &Method, path: &str) -> bool {
             | ("POST", ["apps", _, "authors", "leave"])
             | ("DELETE", ["apps", _, "authors" | "invites", _])
             | ("POST", ["apps", _, "packages", _])
-            | ("POST", ["apps", _, "releases", _, "promote"])
+            | ("POST", ["apps", _, "releases", _, "promote" | "withdraw"])
     )
 }
 

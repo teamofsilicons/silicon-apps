@@ -35,6 +35,11 @@ fn config(dir: &std::path::Path) -> Config {
         telemetry_enabled: false,
         telemetry_table_key: None,
         import_accounts: false,
+        rate_limit_reads_per_minute: 600,
+        rate_limit_writes_per_minute: 120,
+        rate_limit_streams: 10,
+        signing_keys: None,
+        revoked_signing_keys: vec![],
     }
 }
 async fn call(
@@ -262,7 +267,6 @@ async fn developer_portal_tokens_manage_owned_apps_but_not_store_actions_or_othe
         ("POST", "/v1/reports"),
         ("POST", "/v1/platforms"),
         ("GET", "/v1/apps/secret-app/resolve"),
-        ("POST", "/v1/apps/secret-app/publish/extra"),
     ] {
         let (status, body) = call(
             &app,
@@ -275,6 +279,17 @@ async fn developer_portal_tokens_manage_owned_apps_but_not_store_actions_or_othe
         .await;
         assert_eq!(status, 401, "{method} {path}: {body}");
     }
+    // A path outside the route table is refused before any credential is read.
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/v1/apps/secret-app/publish/extra",
+        Some(&token),
+        json!({}),
+        Some("forbidden-developer"),
+    )
+    .await;
+    assert_eq!(status, 404, "{body}");
     for bad in [
         signed(&key, &issuer, "silicon-accounts", now + 600),
         signed(&key, &issuer, "other", now + 600),
@@ -594,6 +609,9 @@ fn seed_private(state: &silicon_apps_server::Shared) {
         command: "secret-app".into(),
         validation: vec![],
         created_at: now(),
+        install_script: None,
+        inspected: true,
+        author_signature: None,
     };
     std::fs::write(
         state.config.data_dir.join("packages").join(&pkg.sha256),
@@ -698,6 +716,8 @@ async fn oauth_login_uses_only_configured_origins_and_binds_state_to_browser() {
         "https://developer.example.test".into(),
     ];
     cfg.accounts_app_secret = Some("test-secret".into());
+    // A deployed service signs with the key from its runtime secret.
+    cfg.signing_keys = Some(silicon_apps_server::signing::generate("oauth-test").0);
     let app = router(AppState::new(cfg).unwrap());
     for (host, expected) in [
         (

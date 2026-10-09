@@ -96,6 +96,10 @@ async fn daemon_once_exits_unsuccessfully_when_an_app_cannot_be_updated() {
         sha256: "0".repeat(64),
         installed_at: "2026-01-01T00:00:00Z".into(),
         server: server.clone(),
+        signature_key_id: None,
+        author_key_id: None,
+        signed_by: None,
+        install_script: None,
     };
     state
         .save_installed(&BTreeMap::from([("fixture".into(), item)]))
@@ -176,13 +180,41 @@ async fn unix_daemon_self_update_executes_new_binary_with_same_supervised_pid() 
         "2.0.0",
         "#!/bin/sh\nprintf '%s\\n%s\\n' \"$$\" \"$*\" > \"$APPS_HANDOFF_MARKER\"\n",
     );
-    let resolution = json!({
+    let mut resolution = json!({
         "app_id":"silicon-apps",
         "release":{"id":"release-2","app_id":"silicon-apps","channel":"production","version":"2.0.0","package_ids":["package-2"]},
         "package":{"id":"package-2","target":package::current_target().unwrap(),"sha256":package::sha256(&updated),"size":updated.len(),"command":"apps"},
         "download_path":"/package"
     });
+    // The service signs what it serves; this fixture signs the same way.
+    let ring = silicon_apps_server::signing::Keyring::parse(
+        &silicon_apps_server::signing::generate("fixture").0,
+        &[],
+    )
+    .unwrap();
+    let message = silicon_apps_server::signing::release_message(
+        &silicon_apps_server::signing::ReleaseFields {
+            app_id: "silicon-apps",
+            target: package::current_target().unwrap(),
+            version: "2.0.0",
+            channel: "production",
+            sha256: &package::sha256(&updated),
+            size: updated.len() as u64,
+            release_id: "release-2",
+            install_script_sha256: None,
+        },
+    );
+    let (key_id, signature) = ring.sign(&message);
+    resolution["signature"] = json!({"key_id":key_id,"algorithm":"ed25519","signature":signature});
+    let keys = json!({"keys":[{"key_id":key_id,"public_key":ring.active_public_key(),"status":"active","endorsements":[]}],"revoked":[]});
     let router = Router::new()
+        .route(
+            "/.well-known/silicon-apps-keys.json",
+            get(move || {
+                let keys = keys.clone();
+                async move { Json(keys) }
+            }),
+        )
         .route(
             "/v1/apps/silicon-apps/resolve",
             get(move || {

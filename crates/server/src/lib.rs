@@ -1,14 +1,20 @@
 mod auth;
 pub mod config;
+pub mod discovery;
 pub mod error;
+pub mod events;
 mod integrations;
 pub mod model;
 mod objects;
+pub mod ratelimit;
+pub mod routes;
+pub mod signing;
 pub mod store;
+pub mod subscriptions;
 mod telemetry;
 
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     body::Bytes,
     extract::{DefaultBodyLimit, State},
     http::{HeaderMap, Method, Uri},
@@ -34,6 +40,11 @@ pub struct AppState {
     pub mutation_gate: tokio::sync::Mutex<()>,
     pub telemetry: Option<Arc<space_station::SpaceClient>>,
     pub identity_cache: Mutex<BTreeMap<String, (std::time::Instant, Identity)>>,
+    pub limiter: ratelimit::Limiter,
+    /// Signs every release package Apps serves.
+    pub signer: Arc<signing::Keyring>,
+    /// Last isolated-runner reachability check: when, result, RFC 3339 time.
+    pub runner_probe: Mutex<Option<(std::time::Instant, bool, String)>>,
 }
 pub type Shared = Arc<AppState>;
 impl AppState {
@@ -63,6 +74,27 @@ impl AppState {
             }
         }
         store.migrate_silicon_apps_id()?;
+        let signer = Arc::new(signing::Keyring::load(&config)?);
+        signer.record(&store.connection)?;
+        {
+            // Sign what was published before signing existed, and re-sign
+            // after a key rotation, so every served package is signed by the
+            // active key.
+            let mut c = store.catalog()?;
+            let inspected = signing::inspect_packages(&mut c, &config.data_dir.join("packages"));
+            let signed = signing::sign_catalog(&mut c, &signer);
+            if inspected + signed > 0 {
+                store.connection.execute(
+                    "UPDATE catalog SET document=?1 WHERE id=1",
+                    [serde_json::to_string(&c).unwrap()],
+                )?;
+                eprintln!(
+                    "Release signing: read {inspected} package install scripts and signed {signed} release packages with {}.",
+                    signer.active_id()
+                );
+            }
+        }
+        store.signer = Some(signer.clone());
         let accounts =
             AccountsClient::new(&config.accounts_url).map_err(|e| ApiError::bad(e.to_string()))?;
         let http = reqwest::Client::builder()
@@ -71,7 +103,15 @@ impl AppState {
             .build()
             .map_err(|e| ApiError::bad(e.to_string()))?;
         let telemetry = telemetry::build(&config)?;
+        let limiter = ratelimit::Limiter::new(
+            config.rate_limit_reads_per_minute,
+            config.rate_limit_writes_per_minute,
+            config.rate_limit_streams,
+        );
         Ok(Arc::new(Self {
+            limiter,
+            signer,
+            runner_probe: Mutex::new(None),
             config,
             telemetry,
             identity_cache: Mutex::new(BTreeMap::new()),
@@ -83,10 +123,45 @@ impl AppState {
     }
 }
 pub fn router(state: Shared) -> Router {
-    Router::new().route("/health",get(||async{Json(json!({"status":"ok","service":"silicon-apps","version":env!("CARGO_PKG_VERSION")}))})).route("/v1/{*path}",any(handle)).layer(DefaultBodyLimit::max(512*1024*1024)).with_state(state)
+    Router::new()
+        .route(
+            "/health",
+            get(|| async {
+                Json(
+                    json!({"status":"ok","service":"silicon-apps","version":env!("CARGO_PKG_VERSION")}),
+                )
+            }),
+        )
+        .route("/openapi.json", get(discovery::openapi))
+        .route("/v1/openapi.json", get(discovery::openapi))
+        .route("/.well-known/agent.json", get(discovery::agent_card))
+        .route("/.well-known/agent-card.json", get(discovery::agent_card))
+        .route(signing::KEYS_PATH, get(discovery::signing_keys))
+        .route("/v1/{*path}", any(handle))
+        .fallback(discovery::not_found)
+        .method_not_allowed_fallback(discovery::method_not_allowed)
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            discovery::negotiate,
+        ))
+        .layer(DefaultBodyLimit::max(512 * 1024 * 1024))
+        .with_state(state)
+}
+/// The request's `Idempotency-Key`, required on every catalog mutation.
+pub(crate) fn idempotency_key(headers: &HeaderMap) -> Result<&str> {
+    headers
+        .get("Idempotency-Key")
+        .and_then(|v| v.to_str().ok())
+        .filter(|v| (8..=200).contains(&v.len()) && v.bytes().all(|b| (33..=126).contains(&b)))
+        .ok_or_else(|| {
+            ApiError::bad(
+                "Every mutation requires an Idempotency-Key containing 8 to 200 printable non-space characters.",
+            )
+        })
 }
 async fn handle(
     State(s): State<Shared>,
+    client: Option<Extension<ratelimit::ClientKey>>,
     method: Method,
     uri: Uri,
     headers: HeaderMap,
@@ -96,13 +171,27 @@ async fn handle(
     let enabled = headers.get("X-Apps-Telemetry").is_none_or(|v| v != "off");
     let route = telemetry::route_template(uri.path());
     let verb = method.to_string();
-    let mut result = match dispatch(s.clone(), method, uri, headers, body).await {
+    let client = client
+        .map(|Extension(key)| key)
+        .unwrap_or(ratelimit::ClientKey(None));
+    let mut result = match dispatch(s.clone(), method, uri, headers, body, client).await {
         Ok(r) => r,
         Err(e) => e.into_response(),
     };
-    result
-        .headers_mut()
-        .insert("Cache-Control", "private, no-store".parse().unwrap());
+    let streaming = result
+        .headers()
+        .get("Content-Type")
+        .is_some_and(|v| v.as_bytes().starts_with(b"text/event-stream"));
+    result.headers_mut().insert(
+        "Cache-Control",
+        if streaming {
+            "private, no-store, no-transform"
+        } else {
+            "private, no-store"
+        }
+        .parse()
+        .unwrap(),
+    );
     result
         .headers_mut()
         .insert("X-Content-Type-Options", "nosniff".parse().unwrap());
@@ -124,6 +213,7 @@ async fn dispatch(
     uri: Uri,
     headers: HeaderMap,
     raw: Bytes,
+    client: ratelimit::ClientKey,
 ) -> Result<Response> {
     let path = uri
         .path()
@@ -145,9 +235,17 @@ async fn dispatch(
             "Upgrade the CLI using the public installer, then use silicon-apps as the app ID.",
         ));
     }
+    // The route table is the contract: anything else is refused before
+    // credentials are read or another service is contacted.
+    if routes::find(method.as_str(), uri.path()).is_none() {
+        return Err(ApiError::missing());
+    }
     let q: BTreeMap<String, String> =
         serde_urlencoded::from_str(uri.query().unwrap_or_default())
             .map_err(|_| ApiError::bad("Query parameters are invalid."))?;
+    if path == "capabilities" {
+        return Ok(Json(discovery::capabilities(&s, &q).await?).into_response());
+    }
     if path.starts_with("auth/") {
         if raw.len() > 64 * 1024 {
             return Err(ApiError::bad("Auth requests are limited to 64 KiB."));
@@ -164,6 +262,31 @@ async fn dispatch(
     }
     if path == "session" && method == Method::GET {
         return Ok(Json(json!({"authenticated":who.is_some(),"account":who})).into_response());
+    }
+    let p: Vec<_> = path.trim_matches('/').split('/').collect();
+    if p[0] == "keys" {
+        return signing::handle(&s, &method, &p, &headers, &raw, who.as_ref()).await;
+    }
+    if p[0] == "subscriptions" {
+        return subscriptions::handle(&s, &method, &p, &q, &headers, &raw, who.as_ref()).await;
+    }
+    let feed = match p.as_slice() {
+        ["events"] | ["events", "stream"] => Some(match q.get("subscription") {
+            Some(id) if !id.is_empty() => events::Feed::Subscription(id.clone()),
+            _ => events::Feed::Account,
+        }),
+        ["apps", app, "events"] | ["apps", app, "events", "stream"] => {
+            Some(events::Feed::App((*app).to_owned()))
+        }
+        _ => None,
+    };
+    if let Some(feed) = feed {
+        let reader = events::authorize(&s, who.as_ref(), &feed)?;
+        if p.last() == Some(&"stream") {
+            let guard = s.limiter.open_stream(&client)?;
+            return events::stream(&s, reader, feed, &q, &headers, guard);
+        }
+        return Ok(Json(events::list(&s, &reader, feed, &q)?).into_response());
     }
     if path == "targets" && method == Method::GET {
         let c = s.store.lock().unwrap().catalog()?;
@@ -188,7 +311,6 @@ async fn dispatch(
         let available = available && integrations::registry_available(&s, id).await?;
         return Ok(Json(json!({"available":available})).into_response());
     }
-    let p: Vec<_> = path.trim_matches('/').split('/').collect();
     if method == Method::GET {
         if p.len() == 5 && p[0] == "apps" && p[2] == "packages" && p[4] == "download" {
             let app = s.store.lock().unwrap().app(p[1])?;
@@ -200,10 +322,24 @@ async fn dispatch(
                 .iter()
                 .find(|pkg| pkg.id == p[3])
                 .ok_or_else(ApiError::missing)?;
-            if !app.is_author(who.as_ref())
-                && !app.releases.iter().any(|r| r.package_ids.contains(&pkg.id))
-            {
-                return Err(ApiError::missing());
+            if !app.is_author(who.as_ref()) {
+                let containing: Vec<_> = app
+                    .releases
+                    .iter()
+                    .filter(|r| r.package_ids.contains(&pkg.id))
+                    .collect();
+                if containing.is_empty() {
+                    return Err(ApiError::missing());
+                }
+                // Bytes of withdrawn releases are not served to installers.
+                if containing.iter().all(|r| r.is_withdrawn()) {
+                    return Err(ApiError::new(
+                        axum::http::StatusCode::GONE,
+                        "release_withdrawn",
+                        "This package belongs only to withdrawn releases.",
+                        "Resolve the app again to get the latest good release.",
+                    ));
+                }
             }
             let bytes = tokio::fs::read(s.config.data_dir.join("packages").join(&pkg.sha256))
                 .await
@@ -279,11 +415,27 @@ async fn dispatch(
         return Err(ApiError::missing());
     }
     auth::check_csrf(&s, &headers)?;
-    let key=headers.get("Idempotency-Key").and_then(|v|v.to_str().ok()).filter(|v|(8..=200).contains(&v.len())&&v.bytes().all(|b|(33..=126).contains(&b))).ok_or_else(||ApiError::bad("Every mutation requires an Idempotency-Key containing 8–200 printable non-space characters."))?;
+    let key = idempotency_key(&headers)?;
     let _guard = s.mutation_gate.lock().await;
     let actor = who.as_ref().map(|i| i.uuid.as_str()).unwrap_or("anonymous");
     let digest = hash(&raw);
-    let fingerprint = format!("{}:{}:{}", method.as_str(), path, digest);
+    let upload = p.len() == 4 && p[0] == "apps" && p[2] == "packages";
+    let author_signature = if upload {
+        author_upload_signature(&headers, who.as_ref())?
+    } else {
+        None
+    };
+    let fingerprint = match &author_signature {
+        Some(a) => format!(
+            "{}:{}:{}:{}:{}",
+            method.as_str(),
+            path,
+            digest,
+            a.key_id,
+            a.signature
+        ),
+        None => format!("{}:{}:{}", method.as_str(), path, digest),
+    };
     s.store.lock().unwrap().expire_secret_replays()?;
     s.store
         .lock()
@@ -292,7 +444,6 @@ async fn dispatch(
     if let Some(v) = s.store.lock().unwrap().replay(actor, key, &fingerprint)? {
         return Ok(([("Idempotent-Replayed", "true")], Json(v)).into_response());
     }
-    let upload = p.len() == 4 && p[0] == "apps" && p[2] == "packages";
     let media = p.len() == 3 && p[0] == "apps" && p[2] == "media";
     let body: Value = if upload || media || raw.is_empty() {
         json!({})
@@ -428,7 +579,9 @@ async fn dispatch(
         ));
     }
     if upload {
-        match integrations::validate_package(&s, p[1], p[3], actor, &raw).await {
+        match integrations::validate_package(&s, p[1], p[3], actor, &raw, key, author_signature)
+            .await
+        {
             Ok(package) => prepared.package = Some(package),
             Err(error) => {
                 if error.status == axum::http::StatusCode::UNPROCESSABLE_ENTITY {
@@ -531,6 +684,36 @@ async fn dispatch(
     )
         .into_response())
 }
+/// `X-Apps-Author-Key-Id` and `X-Apps-Author-Signature` on a package upload.
+fn author_upload_signature(
+    headers: &HeaderMap,
+    who: Option<&Identity>,
+) -> Result<Option<integrations::AuthorUploadSignature>> {
+    let header = |name: &str| {
+        headers
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_owned)
+    };
+    match (
+        header("X-Apps-Author-Key-Id"),
+        header("X-Apps-Author-Signature"),
+    ) {
+        (None, None) => Ok(None),
+        (Some(key_id), Some(signature)) if key_id.len() <= 64 && signature.len() <= 200 => {
+            Ok(Some(integrations::AuthorUploadSignature {
+                key_id,
+                signature,
+                signer_id: who.map(|w| w.id.clone()).unwrap_or_default(),
+            }))
+        }
+        _ => Err(ApiError::bad(
+            "Send X-Apps-Author-Key-Id and X-Apps-Author-Signature together, or neither.",
+        )),
+    }
+}
 async fn upload_media(
     s: &Shared,
     app_id: &str,
@@ -600,6 +783,7 @@ async fn upload_media(
     let result = json!({"url":format!("/v1/apps/{app_id}/media/{digest}"),"id":digest,"kind":if mime.starts_with("image/"){"image"}else{"video"},"size":raw.len(),"content_type":mime});
     let mut store = s.store.lock().unwrap();
     let mut c = store.catalog()?;
+    let marks = events::marks(&c);
     c.apps.get_mut(app_id).ok_or_else(ApiError::missing)?.event(
         actor,
         "media.uploaded",
@@ -613,15 +797,13 @@ async fn upload_media(
         .unwrap()
         .idempotency_key = Some(key.into());
     let tx = store.connection.transaction()?;
-    tx.execute(
-        "UPDATE catalog SET document=?1 WHERE id=1",
-        [serde_json::to_string(&c).unwrap()],
-    )?;
+    Store::save_catalog(&tx, &c, &marks)?;
     tx.execute(
         "INSERT INTO idempotency(actor,key,fingerprint,response,created_at) VALUES(?1,?2,?3,?4,?5)",
         rusqlite::params![actor, key, fingerprint, result.to_string(), now()],
     )?;
     tx.commit()?;
+    store.notify_events();
     Ok(Json(result).into_response())
 }
 pub use integrations::start_background;

@@ -9,7 +9,26 @@ use std::{collections::BTreeMap, path::Path};
 
 pub struct Store {
     pub connection: Connection,
+    /// Bumped after every commit that appends events; streams and the
+    /// webhook worker wait on it.
+    pub events: tokio::sync::watch::Sender<u64>,
+    /// Signs every new release's packages before the catalog is saved.
+    pub signer: Option<std::sync::Arc<crate::signing::Keyring>>,
 }
+/// Orders accepted by `GET /v1/apps?sort=`.
+pub const SORTS: [&str; 6] = [
+    "relevance",
+    "rating",
+    "installs",
+    "name",
+    "updated",
+    "newest",
+];
+const MIGRATIONS: [&str; 3] = [
+    include_str!("../../../migrations/001_catalog.sql"),
+    include_str!("../../../migrations/002_events.sql"),
+    include_str!("../../../migrations/003_signing.sql"),
+];
 #[derive(Default)]
 pub struct Prepared {
     pub identities: Vec<Identity>,
@@ -97,13 +116,36 @@ impl Store {
         let c = Connection::open(path)?;
         c.pragma_update(None, "journal_mode", "WAL")?;
         c.busy_timeout(std::time::Duration::from_secs(10))?;
-        c.execute_batch(include_str!("../../../migrations/001_catalog.sql"))?;
-        Ok(Self { connection: c })
+        Self::migrate(c)
     }
     pub fn memory() -> Result<Self> {
-        let c = Connection::open_in_memory()?;
-        c.execute_batch(include_str!("../../../migrations/001_catalog.sql"))?;
-        Ok(Self { connection: c })
+        Self::migrate(Connection::open_in_memory()?)
+    }
+    fn migrate(c: Connection) -> Result<Self> {
+        for migration in MIGRATIONS {
+            c.execute_batch(migration)?;
+        }
+        Ok(Self {
+            connection: c,
+            events: tokio::sync::watch::channel(0).0,
+            signer: None,
+        })
+    }
+    pub fn notify_events(&self) {
+        self.events.send_modify(|n| *n = n.wrapping_add(1));
+    }
+    /// Save a changed catalog and append the history entries it gained since
+    /// `marks` to the event log, in the caller's transaction.
+    pub fn save_catalog(
+        tx: &Connection,
+        c: &Catalog,
+        marks: &BTreeMap<String, usize>,
+    ) -> Result<usize> {
+        tx.execute(
+            "UPDATE catalog SET document=?1 WHERE id=1",
+            [serde_json::to_string(c).unwrap()],
+        )?;
+        crate::events::append(tx, c, &crate::events::new_since(c, marks))
     }
     pub fn catalog(&self) -> Result<Catalog> {
         let raw: String =
@@ -153,6 +195,12 @@ impl Store {
         tx.execute(
             "UPDATE catalog SET document=?1 WHERE id=1",
             [serde_json::to_string(&catalog).unwrap()],
+        )?;
+        let migrated = catalog.apps[APP_ID].history.last().unwrap();
+        crate::events::append(
+            &tx,
+            &catalog,
+            &[crate::events::NewEvent::from_history(APP_ID, migrated)],
         )?;
         tx.execute(
             "UPDATE pending_secrets SET app_id=?1 WHERE app_id='apps'",
@@ -315,13 +363,47 @@ impl Store {
         }
         if p == ["apps"] {
             let mine = q.get("mine").is_some_and(|v| v == "true");
-            if mine || q.get("visibility").is_some_and(|v| v == "private") {
+            let visibility = q.get("visibility").filter(|v| !v.is_empty());
+            if visibility.is_some_and(|v| v != "public" && v != "private") {
+                return Err(ApiError::bad("visibility must be public or private."));
+            }
+            if mine || visibility.is_some_and(|v| v == "private") {
                 need(who)?;
             }
             let query = q.get("q").map(|v| v.to_lowercase()).unwrap_or_default();
             if query.len() > 512 {
                 return Err(ApiError::bad("Search query is limited to 512 bytes."));
             }
+            let tags: Vec<String> = q
+                .get("tags")
+                .map(|v| {
+                    v.split(',')
+                        .map(|t| t.trim().to_lowercase())
+                        .filter(|t| !t.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default();
+            if tags.len() > 20 {
+                return Err(ApiError::bad("Filter by at most 20 tags."));
+            }
+            let target = q.get("target").filter(|v| !v.is_empty());
+            if target.is_some_and(|t| !TARGETS.contains(&t.as_str())) {
+                let mut error = ApiError::bad("target is not a package target.");
+                error.details = json!({"targets":TARGETS});
+                return Err(error);
+            }
+            let sort = q
+                .get("sort")
+                .map(String::as_str)
+                .filter(|v| !v.is_empty())
+                .unwrap_or("relevance");
+            if !SORTS.contains(&sort) {
+                let mut error = ApiError::bad("sort is not supported.");
+                error.details = json!({"sort":SORTS});
+                return Err(error);
+            }
+            let limit = strict_page(q, "limit", 50, 1, 100)?;
+            let offset = strict_page(q, "offset", 0, 0, usize::MAX)?;
             let mut apps: Vec<_> = c
                 .apps
                 .values()
@@ -332,24 +414,41 @@ impl Store {
                         a.published && a.visible(who)
                     }
                 })
-                .filter(|a| q.get("visibility").is_none_or(|v| v == &a.visibility))
+                .filter(|a| visibility.is_none_or(|v| v == &a.visibility))
+                .filter(|a| {
+                    tags.iter()
+                        .all(|tag| a.tags.iter().any(|t| t.eq_ignore_ascii_case(tag)))
+                })
+                .filter(|a| target.is_none_or(|t| a.targets().contains(t)))
                 .filter_map(|a| search_score(a, &query).map(|s| (s, a)))
                 .collect();
+            let by_rating = |a: &App, b: &App| {
+                b.rating()
+                    .unwrap_or(-1.0)
+                    .partial_cmp(&a.rating().unwrap_or(-1.0))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            };
             apps.sort_by(|(sa, a), (sb, b)| {
-                sb.cmp(sa)
-                    .then_with(|| {
-                        b.rating()
-                            .partial_cmp(&a.rating())
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                    .then_with(|| a.app_id.cmp(&b.app_id))
+                match sort {
+                    "rating" => by_rating(a, b).then_with(|| b.reviews.len().cmp(&a.reviews.len())),
+                    "installs" => b.installs.cmp(&a.installs),
+                    "name" => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+                    "updated" => b.updated_at.cmp(&a.updated_at),
+                    "newest" => b.created_at.cmp(&a.created_at),
+                    _ => sb.cmp(sa).then_with(|| by_rating(a, b)),
+                }
+                .then_with(|| a.app_id.cmp(&b.app_id))
             });
             let total = apps.len();
-            let limit = page(q, "limit", 50).min(100);
-            let offset = page(q, "offset", 0);
-            return Ok(
-                json!({"items":apps.into_iter().skip(offset).take(limit).map(|(_,a)|a.view(who)).collect::<Vec<_>>(),"total":total}),
-            );
+            let next_offset = (offset.saturating_add(limit) < total).then(|| offset + limit);
+            return Ok(json!({
+                "items":apps.into_iter().skip(offset).take(limit).map(|(_,a)|a.view(who)).collect::<Vec<_>>(),
+                "total":total,
+                "limit":limit,
+                "offset":offset,
+                "next_offset":next_offset,
+                "sort":sort
+            }));
         }
         if p.len() < 2 || p[0] != "apps" {
             return Err(ApiError::missing());
@@ -405,13 +504,39 @@ impl Store {
                     app.latest(channel)
                 }
                 .ok_or_else(|| {
-                    ApiError::new(
+                    let mut error = ApiError::new(
                         axum::http::StatusCode::NOT_FOUND,
                         "release_not_found",
                         format!("No {channel} release matches this request."),
                         "Use the development channel or choose an available version.",
-                    )
+                    );
+                    error.details =
+                        json!({"channel":channel,"withdrawn":app.withdrawn(Some(channel))});
+                    error
                 })?;
+                // A withdrawn release is never served, not even by exact version.
+                if let Some(w) = &release.withdrawn {
+                    let replacement = app.latest(channel);
+                    let mut error = ApiError::new(
+                        axum::http::StatusCode::GONE,
+                        "release_withdrawn",
+                        format!(
+                            "{} {channel} {} was withdrawn: {}",
+                            app.app_id, release.version, w.reason
+                        ),
+                        match replacement {
+                            Some(r) => format!(
+                                "Install {} {} instead: it is the latest good {channel} release.",
+                                app.app_id, r.version
+                            ),
+                            None => format!(
+                                "No good {channel} release is available yet. Try again after the authors publish one."
+                            ),
+                        },
+                    );
+                    error.details = json!({"release_id":release.id,"version":release.version,"channel":channel,"reason":w.reason,"withdrawn_at":w.at,"replacement":replacement.map(|r|json!({"release_id":r.id,"version":r.version}))});
+                    return Err(error);
+                }
                 let target = q
                     .get("target")
                     .ok_or_else(|| ApiError::bad("target is required."))?;
@@ -427,9 +552,26 @@ impl Store {
                             "Choose a supported target shown on the app page.",
                         )
                     })?;
-                Ok(
-                    json!({"app_id":app.app_id,"release":release,"package":package,"download_path":format!("/v1/apps/{}/packages/{}/download",app.app_id,package.id)}),
-                )
+                // Every package Apps serves is signed.
+                let signature =
+                    crate::signing::resolution_signature(release, package).ok_or_else(|| {
+                        ApiError::new(
+                            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                            "release_not_signed",
+                            "This release's package has no signature yet, so it is not served.",
+                            "Try again in a minute. If it lasts, report it with silicon-apps report.",
+                        )
+                    })?;
+                Ok(json!({
+                    "app_id":app.app_id,
+                    "release":release,
+                    "package":package,
+                    "download_path":format!("/v1/apps/{}/packages/{}/download",app.app_id,package.id),
+                    "signature":signature,
+                    "author_signature":package.author_signature,
+                    "install_script":package.install_script,
+                    "withdrawn":app.withdrawn(Some(channel)),
+                }))
             }
             _ => Err(ApiError::missing()),
         }
@@ -448,22 +590,30 @@ impl Store {
             tx.query_row("SELECT document FROM catalog WHERE id=1", [], |r| r.get(0))?;
         let mut c: Catalog = serde_json::from_str(&raw)
             .map_err(|_| ApiError::unavailable("Catalog storage is invalid."))?;
-        let before: std::collections::BTreeMap<String, usize> = c
-            .apps
-            .iter()
-            .map(|(id, a)| (id.clone(), a.history.len()))
-            .collect();
+        let before = crate::events::marks(&c);
         let mut outbox = vec![];
-        let response = apply(&mut c, &m, &mut outbox)?;
+        let mut response = apply(&mut c, &m, &mut outbox)?;
+        if let Some(signer) = &self.signer
+            && crate::signing::sign_catalog(&mut c, signer) > 0
+        {
+            // A new or promoted release answers with its signatures.
+            let p: Vec<_> = m.path.trim_matches('/').split('/').collect();
+            if let (Some(app_id), Some(release_id)) = (p.get(1), response["id"].as_str())
+                && response.get("package_ids").is_some()
+                && let Some(release) = c
+                    .apps
+                    .get(*app_id)
+                    .and_then(|a| a.releases.iter().find(|r| r.id == release_id))
+            {
+                response = json!(release);
+            }
+        }
         for (id, app) in &mut c.apps {
             for event in app.history.iter_mut().skip(*before.get(id).unwrap_or(&0)) {
                 event.idempotency_key = Some(m.key.into());
             }
         }
-        tx.execute(
-            "UPDATE catalog SET document=?1 WHERE id=1",
-            [serde_json::to_string(&c).unwrap()],
-        )?;
+        let appended = Self::save_catalog(&tx, &c, &before)?;
         tx.execute("INSERT INTO idempotency(actor,key,fingerprint,response,created_at) VALUES(?1,?2,?3,?4,?5)",params![actor,m.key,fingerprint,response.to_string(),now()])?;
         tx.execute(
             "DELETE FROM pending_secrets WHERE actor=?1 AND key=?2",
@@ -476,6 +626,9 @@ impl Store {
             )?;
         }
         tx.commit()?;
+        if appended > 0 {
+            self.notify_events();
+        }
         Ok((response, false))
     }
     pub fn validation_failure(
@@ -487,22 +640,44 @@ impl Store {
         error: &ApiError,
     ) -> Result<()> {
         let mut c = self.catalog()?;
+        let marks = crate::events::marks(&c);
         let app = c.apps.get_mut(app_id).ok_or_else(ApiError::missing)?;
         app.event(who, "package.validation_failed", error.details.clone());
         app.history.last_mut().unwrap().idempotency_key = Some(key.into());
         let response = json!({"_status":error.status.as_u16(),"error":{"code":error.code,"message":error.message,"hint":error.hint,"details":error.details}});
         let tx = self.connection.transaction()?;
-        tx.execute(
-            "UPDATE catalog SET document=?1 WHERE id=1",
-            [serde_json::to_string(&c).unwrap()],
-        )?;
+        Self::save_catalog(&tx, &c, &marks)?;
         tx.execute("INSERT INTO idempotency(actor,key,fingerprint,response,created_at) VALUES(?1,?2,?3,?4,?5)",params![who,key,fingerprint,response.to_string(),now()])?;
         tx.commit()?;
+        self.notify_events();
         Ok(())
     }
 }
 fn page(q: &BTreeMap<String, String>, key: &str, default: usize) -> usize {
     q.get(key).and_then(|v| v.parse().ok()).unwrap_or(default)
+}
+/// A pagination value that must be a whole number in range when present.
+fn strict_page(
+    q: &BTreeMap<String, String>,
+    key: &str,
+    default: usize,
+    min: usize,
+    max: usize,
+) -> Result<usize> {
+    match q.get(key).filter(|v| !v.is_empty()) {
+        None => Ok(default),
+        Some(v) => v
+            .parse::<usize>()
+            .ok()
+            .filter(|n| (min..=max).contains(n))
+            .ok_or_else(|| {
+                ApiError::bad(if max == usize::MAX {
+                    format!("{key} must be a whole number of at least {min}.")
+                } else {
+                    format!("{key} must be a whole number from {min} to {max}.")
+                })
+            }),
+    }
 }
 fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -> Result<Value> {
     let p: Vec<_> = m.path.trim_matches('/').split('/').collect();
@@ -953,6 +1128,48 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             app.event(actor, "package.accepted", json!(package));
             Ok(json!(package))
         }
+        "releases" if m.method == "POST" && p.len() == 5 && p[4] == "withdraw" => {
+            let w = need(who)?;
+            let reason = str_field(b, "reason")
+                .map_err(|_| ApiError::bad("reason is required: say why the release is withdrawn, for example what breaks."))?
+                .trim();
+            if reason.is_empty() || reason.chars().count() > 500 {
+                return Err(ApiError::bad("reason must contain 1 to 500 characters."));
+            }
+            let index = app
+                .releases
+                .iter()
+                .position(|r| r.id == p[3])
+                .ok_or_else(ApiError::missing)?;
+            if let Some(w) = &app.releases[index].withdrawn {
+                let mut error = ApiError::new(
+                    axum::http::StatusCode::CONFLICT,
+                    "release_withdrawn",
+                    format!("This release was already withdrawn at {}.", w.at),
+                    "Nothing to do. Publish a new release to replace it.",
+                );
+                error.details = json!({"reason":w.reason,"withdrawn_at":w.at});
+                return Err(error);
+            }
+            app.releases[index].withdrawn = Some(Withdrawal {
+                at: now(),
+                by_uuid: w.uuid.clone(),
+                by_id: w.id.clone(),
+                reason: reason.into(),
+            });
+            let release = app.releases[index].clone();
+            let replacement = app
+                .latest(&release.channel)
+                .map(|r| json!({"release_id":r.id,"version":r.version}));
+            app.event(
+                actor,
+                "release.withdrawn",
+                json!({"release_id":release.id,"version":release.version,"channel":release.channel,"reason":reason,"replacement":replacement}),
+            );
+            let mut view = json!(release);
+            view["replacement"] = replacement.unwrap_or(Value::Null);
+            Ok(view)
+        }
         "releases" if m.method == "POST" => {
             let version = str_field(b, "version")?;
             if version_tuple(version).is_none() {
@@ -967,6 +1184,16 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     .iter()
                     .find(|r| r.id == p[3] && r.channel == "development")
                     .ok_or_else(ApiError::missing)?;
+                if let Some(w) = &dev.withdrawn {
+                    let mut error = ApiError::new(
+                        axum::http::StatusCode::CONFLICT,
+                        "release_withdrawn",
+                        "A withdrawn release cannot be promoted.",
+                        "Create a new development release with fixed packages and promote that one.",
+                    );
+                    error.details = json!({"reason":w.reason,"withdrawn_at":w.at});
+                    return Err(error);
+                }
                 (
                     "production",
                     dev.package_ids.clone(),
@@ -1017,6 +1244,9 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                 notes,
                 created_at: now(),
                 promoted_from,
+                signatures: BTreeMap::new(),
+                signed_by_author: false,
+                withdrawn: None,
             };
             app.releases.push(release.clone());
             app.event(
@@ -1082,7 +1312,7 @@ pub(crate) fn mutation_route_exists(method: &str, p: &[&str]) -> bool {
             | ("POST", ["apps", _, "authors", "leave"])
             | ("DELETE", ["apps", _, "authors" | "invites", _])
             | ("POST", ["apps", _, "packages", _])
-            | ("POST", ["apps", _, "releases", _, "promote"])
+            | ("POST", ["apps", _, "releases", _, "promote" | "withdraw"])
     )
 }
 fn validate_url(value: &str) -> bool {

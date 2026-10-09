@@ -8,13 +8,19 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+base64.workspace = true
 chrono.workspace = true
 dirs.workspace = true
+ed25519-dalek = "2"
 fs2.workspace = true
+hex.workspace = true
+hmac = "0.12"
+rand.workspace = true
 reqwest.workspace = true
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 silicon-accounts-client.workspace = true
 silicon-apps-package.workspace = true
 space-station.workspace = true
@@ -25,6 +31,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 axum.workspace = true
+silicon-apps-server = { path = "../server" }
 
 [target.'cfg(windows)'.dev-dependencies]
 uds_windows = "1.2.1"

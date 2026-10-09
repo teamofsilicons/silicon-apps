@@ -23,8 +23,47 @@ struct Fixture {
 }
 async fn resolve(State(fixture): State<Arc<Mutex<Fixture>>>) -> Json<Value> {
     let f = fixture.lock().unwrap();
+    let mut resolution = json!({"app_id":"fixture","release":{"id":format!("release-{}",f.version),"app_id":"fixture","channel":"production","version":f.version,"package_ids":["pkg"]},"package":{"id":"pkg","target":package::current_target().unwrap(),"sha256":f.checksum,"size":f.bytes.len(),"command":"fixture"},"download_path":"/package"});
+    sign(&mut resolution, &f.bytes);
+    Json(resolution)
+}
+/// The fixture service's release signing key.
+fn signer() -> &'static silicon_apps_server::signing::Keyring {
+    static RING: std::sync::LazyLock<silicon_apps_server::signing::Keyring> =
+        std::sync::LazyLock::new(|| {
+            silicon_apps_server::signing::Keyring::parse(
+                "fixture-key:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+                &[],
+            )
+            .unwrap()
+        });
+    &RING
+}
+/// Sign a resolution the way the service does.
+fn sign(resolution: &mut Value, bytes: &[u8]) {
+    let target = resolution["package"]["target"].as_str().unwrap().to_owned();
+    let manifest = package::inspect_archive(bytes).unwrap();
+    let script = package::install_script(bytes, &manifest, &target)
+        .unwrap()
+        .map(|(s, _)| s.sha256);
+    let message = silicon_apps_server::signing::release_message(
+        &silicon_apps_server::signing::ReleaseFields {
+            app_id: resolution["app_id"].as_str().unwrap(),
+            target: &target,
+            version: resolution["release"]["version"].as_str().unwrap(),
+            channel: resolution["release"]["channel"].as_str().unwrap(),
+            sha256: &package::sha256(bytes),
+            size: bytes.len() as u64,
+            release_id: resolution["release"]["id"].as_str().unwrap(),
+            install_script_sha256: script.as_deref(),
+        },
+    );
+    let (key_id, signature) = signer().sign(&message);
+    resolution["signature"] = json!({"key_id":key_id,"algorithm":"ed25519","signature":signature});
+}
+async fn signing_keys() -> Json<Value> {
     Json(
-        json!({"app_id":"fixture","release":{"id":format!("release-{}",f.version),"app_id":"fixture","channel":"production","version":f.version,"package_ids":["pkg"]},"package":{"id":"pkg","target":package::current_target().unwrap(),"sha256":f.checksum,"size":f.bytes.len(),"command":"fixture"},"download_path":"/package"}),
+        json!({"keys":[{"key_id":"fixture-key","public_key":signer().active_public_key(),"status":"active","endorsements":[]}],"revoked":[]}),
     )
 }
 async fn download(State(fixture): State<Arc<Mutex<Fixture>>>) -> impl IntoResponse {
@@ -61,6 +100,7 @@ fn package_fixture(version: &str, script: Option<&str>) -> Fixture {
 async fn server(fixture: Arc<Mutex<Fixture>>) -> (Client, tokio::task::JoinHandle<()>) {
     let app = Router::new()
         .route("/v1/apps/fixture/resolve", get(resolve))
+        .route("/.well-known/silicon-apps-keys.json", get(signing_keys))
         .route("/package", get(download))
         .route(
             "/v1/apps/fixture/installs",
@@ -219,6 +259,7 @@ async fn install_count_survives_transport_failure_and_retries_with_same_key() {
     let received = keys.clone();
     let app = Router::new()
         .route("/v1/apps/fixture/resolve", get(resolve))
+        .route("/.well-known/silicon-apps-keys.json", get(signing_keys))
         .route("/package", get(download))
         .route(
             "/v1/apps/fixture/installs",
@@ -437,6 +478,7 @@ async fn telemetry_opt_out_survives_auth_and_covers_json_upload_and_download() {
             }),
         )
         .route("/v1/apps/fixture/resolve", get(resolve))
+        .route("/.well-known/silicon-apps-keys.json", get(signing_keys))
         .route(
             "/package",
             get(move |headers: axum::http::HeaderMap| {

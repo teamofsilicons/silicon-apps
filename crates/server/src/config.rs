@@ -19,8 +19,31 @@ pub struct Config {
     pub telemetry_enabled: bool,
     pub telemetry_table_key: Option<String>,
     pub import_accounts: bool,
+    /// Requests per minute per client for reads (GET); 0 disables the limit.
+    pub rate_limit_reads_per_minute: u32,
+    /// Requests per minute per client for mutations; 0 disables the limit.
+    pub rate_limit_writes_per_minute: u32,
+    /// Event streams one client may hold open at once; 0 disables the limit.
+    pub rate_limit_streams: u32,
+    /// `APPS_SIGNING_KEYS`: `key_id:base64-seed` Ed25519 keys, newest first.
+    /// Required outside local development; locally a key is generated.
+    pub signing_keys: Option<String>,
+    /// `APPS_REVOKED_SIGNING_KEYS`: key IDs CLIs must stop trusting.
+    pub revoked_signing_keys: Vec<String>,
 }
 impl Config {
+    /// A loopback public URL means local development: webhook subscriptions
+    /// may then deliver to loopback and private addresses over HTTP.
+    pub fn local_development(&self) -> bool {
+        url::Url::parse(&self.public_url)
+            .ok()
+            .is_some_and(|u| match u.host() {
+                Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
+                Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
+                Some(url::Host::Domain(d)) => d == "localhost" || d.ends_with(".localhost"),
+                None => false,
+            })
+    }
     pub fn validate_dev_boundary(&self) -> Result<()> {
         if self.dev_auth {
             let local = |raw: &str| {
@@ -44,6 +67,13 @@ impl Config {
     }
     pub fn from_env() -> Result<Self> {
         let get = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+        let limit = |k: &str, default: u32| -> Result<u32> {
+            get(k).map_or(Ok(default), |v| {
+                v.parse().map_err(|_| {
+                    ApiError::bad(format!("{k} must be a whole number; 0 disables it."))
+                })
+            })
+        };
         let bind = get("APPS_BIND")
             .unwrap_or_else(|| "127.0.0.1:4310".into())
             .parse::<SocketAddr>()
@@ -121,6 +151,17 @@ impl Config {
             import_accounts: get("APPS_IMPORT_ACCOUNTS")
                 .map(|v| v == "1")
                 .unwrap_or(!dev_auth && get("APPS_ACCOUNTS_SERVICE_TOKEN").is_some()),
+            rate_limit_reads_per_minute: limit("APPS_RATE_LIMIT_READS_PER_MINUTE", 600)?,
+            rate_limit_writes_per_minute: limit("APPS_RATE_LIMIT_WRITES_PER_MINUTE", 120)?,
+            rate_limit_streams: limit("APPS_RATE_LIMIT_STREAMS", 10)?,
+            signing_keys: get("APPS_SIGNING_KEYS"),
+            revoked_signing_keys: get("APPS_REVOKED_SIGNING_KEYS")
+                .unwrap_or_default()
+                .split(',')
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .map(str::to_owned)
+                .collect(),
         })
     }
 }

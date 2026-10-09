@@ -57,6 +57,9 @@ fn package(s: &mut Store, w: &Identity, id: &str, target: &str) -> Value {
         command: id.into(),
         validation: vec![json!({"passed":true})],
         created_at: now(),
+        install_script: None,
+        inspected: true,
+        author_signature: None,
     };
     change(
         s,
@@ -585,6 +588,14 @@ fn invitations_can_be_cancelled_or_declined_and_adminship_transfers_to_an_accept
 #[test]
 fn immutable_releases_keep_separate_channel_versions_and_latest_semver() {
     let mut s = Store::memory().unwrap();
+    // Releases are signed when they are created, as in the service.
+    s.signer = Some(std::sync::Arc::new(
+        silicon_apps_server::signing::Keyring::parse(
+            &silicon_apps_server::signing::generate("domain-test").0,
+            &[],
+        )
+        .unwrap(),
+    ));
     let a = who("alice");
     create(&mut s, &a, "test-app");
     publish(&mut s, &a, "test-app");
@@ -911,6 +922,9 @@ fn platform_id_migration_keeps_release_history_and_refuses_collisions() {
         notes: "Original".into(),
         created_at: now(),
         promoted_from: None,
+        signatures: Default::default(),
+        signed_by_author: false,
+        withdrawn: None,
     });
     let before = app.clone();
     catalog.apps.insert("apps".into(), app);

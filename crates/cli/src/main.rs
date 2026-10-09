@@ -51,7 +51,17 @@ enum Command {
         mine: bool,
     },
     /// View an app's page: authors, packages, links, media, rating and installs.
-    Show { app: String },
+    /// --install-script prints the script a release runs on install and update, with its sha256.
+    Show {
+        /// An app ID, or 'app>dev', 'app@1.2.3' or 'app>dev@1.2.3' with --install-script.
+        app: String,
+        /// Print the install script's sha256 and contents, after checking the release's signatures.
+        #[arg(long)]
+        install_script: bool,
+        /// The target to read it for. Defaults to this computer's target.
+        #[arg(long, requires = "install_script")]
+        target: Option<String>,
+    },
     /// Check whether an immutable app ID (3–30 characters, a-z 0-9 - _) is available.
     Availability { app: String },
     /// Create an app and show its secret once. Next: setup, upload, release, publish.
@@ -94,11 +104,15 @@ enum Command {
         output: PathBuf,
     },
     /// Upload for isolated target validation of --help, accounts and login status.
+    /// Add --sign-key to sign the package with your author key as well.
     Upload {
         app: String,
         #[arg(long)]
         target: String,
         file: PathBuf,
+        /// Sign with an author key: its ID from `silicon-apps keys list`, or a key file's path.
+        #[arg(long)]
+        sign_key: Option<String>,
     },
     /// List uploaded packages and exact validation results.
     Packages { app: String },
@@ -124,6 +138,22 @@ enum Command {
         release: String,
         #[arg(long)]
         version: String,
+    },
+    /// Withdraw a bad release: it stops being served, installs get the previous good
+    /// release on its channel, and updaters move installed copies off it. Final.
+    /// Example: silicon-apps withdraw ring RELEASE_ID --reason "1.4.0 deletes the config file"
+    Withdraw {
+        app: String,
+        release: String,
+        /// Why, in a sentence. Shown on the app page and to everyone who had it installed.
+        #[arg(long)]
+        reason: String,
+    },
+    /// Manage your author signing keys. Packages you upload with --sign-key carry your
+    /// signature too, and installs check it.
+    Keys {
+        #[command(subcommand)]
+        action: Keys,
     },
     /// Review the saved app and all missing requirements before publishing.
     Readiness { app: String },
@@ -204,6 +234,40 @@ enum Command {
         #[arg(long)]
         pr: Option<String>,
     },
+    /// Read or follow events: your account feed, an app you author, or a subscription.
+    /// Example: silicon-apps events --app ring --type 'package.*' --follow
+    Events {
+        /// An app you author. Omit for your own account feed.
+        #[arg(long, conflicts_with = "subscription")]
+        app: Option<String>,
+        /// Read through one of your subscriptions' filters.
+        #[arg(long)]
+        subscription: Option<String>,
+        /// Event types: exact (release.promoted), a group (package.*) or *. Repeatable.
+        #[arg(long = "type", value_delimiter = ',')]
+        types: Vec<String>,
+        /// Keep the stream open and print each event as one JSON line as it happens.
+        #[arg(long)]
+        follow: bool,
+        /// Start after this event seq (sent as Last-Event-ID with --follow).
+        #[arg(long)]
+        after: Option<i64>,
+        /// Page size, or with --follow the number of events to print before exiting.
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// Get told about releases and other events by signed webhook or stream.
+    /// Example: silicon-apps subscriptions create --app briefcase --type release.promoted --webhook https://example.com/hooks/apps
+    Subscriptions {
+        #[command(subcommand)]
+        action: Subscriptions,
+    },
+    /// Show what this server supports. --require checks needs such as streaming or target:linux-x86_64.
+    Capabilities {
+        /// Requirements to check: streaming, subscriptions, webhooks, version:V, auth:METHOD, event:TYPE, target:TARGET.
+        #[arg(long, value_delimiter = ',')]
+        require: Vec<String>,
+    },
     /// Read bundled instructive/informative docs or the complete command tree.
     Docs {
         #[arg(default_value="start",value_parser=["start","publish","manifest","install","auth","why","tree","links"])]
@@ -269,6 +333,27 @@ enum Authors {
     RotateSecret,
 }
 #[derive(Subcommand)]
+enum Keys {
+    /// Create a key pair, keep the private key in .apps/keys (owner-only) and register
+    /// the public key with Apps. --public-key registers a key you already have instead.
+    Add {
+        /// A label for the key, such as the machine it lives on.
+        #[arg(long)]
+        name: Option<String>,
+        /// Register this base64 Ed25519 public key instead of creating a key pair.
+        #[arg(long)]
+        public_key: Option<String>,
+    },
+    /// List your author keys and whether this home holds each private key.
+    List,
+    /// Revoke a key, for example when it leaked. Nothing new can be signed with it.
+    Revoke {
+        key_id: String,
+        #[arg(long)]
+        reason: Option<String>,
+    },
+}
+#[derive(Subcommand)]
 enum Invites {
     List,
     Accept { invite: String },
@@ -285,6 +370,70 @@ enum Webhook {
     },
     /// Generate a replacement whsec_ secret; save it now because it is shown once.
     Rotate,
+}
+#[derive(Subcommand)]
+enum Subscriptions {
+    /// List your subscriptions (active and paused unless --status says otherwise).
+    List {
+        #[arg(long,value_parser=["active","paused","cancelled","all"])]
+        status: Option<String>,
+    },
+    /// Subscribe to an app you can see, or omit --app for your account feed.
+    /// A webhook subscription prints its whsec_ signing secret once; save it now.
+    Create {
+        /// The app to follow. Omit to follow your account feed.
+        #[arg(long)]
+        app: Option<String>,
+        /// Event types: exact, group.* or *. Default: what you can see.
+        #[arg(long = "type", value_delimiter = ',')]
+        types: Vec<String>,
+        /// Only releases on this channel. Repeatable; default both.
+        #[arg(long = "channel", value_parser = ["production", "development"])]
+        channels: Vec<String>,
+        /// Deliver each event to this HTTPS URL, signed with the subscription secret.
+        #[arg(long, conflicts_with = "stream", required_unless_present = "stream")]
+        webhook: Option<String>,
+        /// Deliver to a stream you read with `silicon-apps events --subscription ID --follow`.
+        #[arg(long)]
+        stream: bool,
+        #[arg(long)]
+        description: Option<String>,
+    },
+    /// Show a subscription and its delivery counts.
+    Show { id: String },
+    /// Change event types, channels, delivery or description.
+    Update {
+        id: String,
+        #[arg(long = "type", value_delimiter = ',')]
+        types: Vec<String>,
+        #[arg(long = "channel", value_parser = ["production", "development"])]
+        channels: Vec<String>,
+        /// Receive both channels again.
+        #[arg(long, conflicts_with = "channels")]
+        all_channels: bool,
+        #[arg(long, conflicts_with = "stream")]
+        webhook: Option<String>,
+        #[arg(long)]
+        stream: bool,
+        #[arg(long)]
+        description: Option<String>,
+    },
+    /// Stop deliveries for now. Events while paused are held for 72 hours.
+    Pause { id: String },
+    /// Resume a paused subscription; held deliveries go out.
+    Resume { id: String },
+    /// Cancel a subscription for good.
+    Cancel { id: String },
+    /// List recent webhook deliveries with attempts and the exact last error.
+    Deliveries {
+        id: String,
+        #[arg(long,value_parser=["pending","delivered","failed"])]
+        status: Option<String>,
+    },
+    /// Replace the signing secret and print the new one once.
+    RotateSecret { id: String },
+    /// Send a signed test delivery to the webhook.
+    Ping { id: String },
 }
 #[derive(Subcommand)]
 enum Daemon {
@@ -330,8 +479,35 @@ enum ConfigAction {
     },
 }
 
-#[tokio::main]
-async fn main() {
+/// Parsing and running the command tree needs more stack than the 1 MiB
+/// Windows gives the main thread in debug builds, so everything runs on one
+/// thread with a known, larger stack.
+fn main() {
+    let worker = std::thread::Builder::new()
+        .name("silicon-apps".into())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            match tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(runtime) => runtime.block_on(run()),
+                Err(error) => {
+                    eprintln!("error: could not start the async runtime: {error}");
+                    std::process::exit(1);
+                }
+            }
+        });
+    match worker.map(|handle| handle.join()) {
+        Ok(Ok(())) => {}
+        Ok(Err(_)) => std::process::exit(101),
+        Err(error) => {
+            eprintln!("error: could not start the command thread: {error}");
+            std::process::exit(1);
+        }
+    }
+}
+async fn run() {
     let arguments: Vec<_> = std::env::args_os().collect();
     let cli = match Cli::try_parse_from(&arguments) {
         Ok(cli) => cli,
@@ -349,9 +525,15 @@ async fn main() {
     let json_output = cli.json;
     // The command future contains every operation's state; keep it off Windows' 1 MiB
     // main stack so rendering a nested help tree has enough stack in debug builds too.
+    let listing = matches!(
+        &cli.command,
+        Command::Subscriptions {
+            action: Subscriptions::Deliveries { .. }
+        } | Command::Events { .. }
+    );
     match Box::pin(execute(&cli)).await {
         Ok(value) => {
-            let failed = failed_result(&value);
+            let failed = !listing && failed_result(&value);
             if !value.is_null() {
                 if !json_output && value.get("message").and_then(Value::as_str).is_some() {
                     println!("{}", value["message"].as_str().unwrap());
@@ -371,7 +553,7 @@ async fn main() {
         }
         Err(error) => {
             if json_output {
-                eprintln!("{}", json!({"error":{"message":format!("{error:#}")}}));
+                eprintln!("{}", error_json(&error));
             } else {
                 eprintln!("error: {error:#}");
             }
@@ -436,7 +618,29 @@ async fn execute(cli: &Cli) -> Result<Value> {
             mine,
         } => client.search(query, *private, *mine).await?,
         Command::List { private, mine } => client.search("", *private, *mine).await?,
-        Command::Show { app } => client.app(app).await?,
+        Command::Show {
+            app,
+            install_script,
+            target,
+        } => {
+            if *install_script {
+                let spec: install::InstallSpec = app.parse()?;
+                let target = match target {
+                    Some(t) => {
+                        ensure!(
+                            package::TARGETS.contains(&t.as_str()),
+                            "unknown target `{t}`; choose from {}",
+                            package::TARGETS.join(", ")
+                        );
+                        t.as_str()
+                    }
+                    None => package::current_target()?,
+                };
+                install::inspect_install_script(&client, &state, &spec, target).await?
+            } else {
+                client.app(app).await?
+            }
+        }
         Command::Availability { app } => client.available(app).await?,
         Command::Create {
             app,
@@ -593,13 +797,23 @@ async fn execute(cli: &Cli) -> Result<Value> {
             std::fs::write(output, &bytes)?;
             json!({"path":output,"sha256":package::sha256(&bytes),"size":bytes.len()})
         }
-        Command::Upload { app, target, file } => {
+        Command::Upload {
+            app,
+            target,
+            file,
+            sign_key,
+        } => {
+            let author = sign_key
+                .as_deref()
+                .map(|id| apps::signing::AuthorKey::load(&state, id))
+                .transpose()?;
             client
-                .upload(
+                .upload_signed(
                     app,
                     target,
                     std::fs::read(file)
                         .with_context(|| format!("cannot read {}", file.display()))?,
+                    author.as_ref(),
                     key,
                 )
                 .await?
@@ -645,6 +859,51 @@ async fn execute(cli: &Cli) -> Result<Value> {
                 )
                 .await?
         }
+        Command::Withdraw {
+            app,
+            release,
+            reason,
+        } => client.withdraw_release(app, release, reason, key).await?,
+        Command::Keys { action } => match action {
+            Keys::Add { name, public_key } => {
+                let (public, saved) = match public_key {
+                    Some(public) => (public.trim().to_owned(), None),
+                    None => {
+                        let key = apps::signing::AuthorKey::generate();
+                        let path = key.save(&state)?;
+                        (key.public_key.clone(), Some(path))
+                    }
+                };
+                let mut result = client
+                    .add_author_key(&public, name.as_deref(), key)
+                    .await
+                    .with_context(|| match &saved {
+                        Some(path) => format!(
+                            "the private key is saved at {}, but Apps did not register it; retry with --public-key {public}",
+                            path.display()
+                        ),
+                        None => "Apps did not register the key".into(),
+                    })?;
+                result["private_key_path"] = json!(saved);
+                result
+            }
+            Keys::List => {
+                let mut result = client.author_keys().await?;
+                for item in result["items"].as_array_mut().into_iter().flatten() {
+                    let local = item["key_id"]
+                        .as_str()
+                        .and_then(|id| apps::signing::key_path(&state, id).ok())
+                        .filter(|path| path.is_file());
+                    item["private_key_path"] = json!(local);
+                }
+                result
+            }
+            Keys::Revoke { key_id, reason } => {
+                client
+                    .revoke_author_key(key_id, reason.as_deref(), key)
+                    .await?
+            }
+        },
         Command::Readiness { app } => {
             client
                 .action("GET", app, &["readiness"], None, None)
@@ -768,6 +1027,13 @@ async fn execute(cli: &Cli) -> Result<Value> {
                     install::install(&client, &state, &config, &spec, switch).await?
                 };
                 let mut result = serde_json::to_value(outcome)?;
+                if let Some(notice) = result["notice"].as_str() {
+                    eprintln!("{notice}");
+                }
+                if no_daemon() {
+                    result["updater"] = json!({"status":"disabled","reason":"SILICON_APPS_NO_DAEMON=1: no updater runs in this environment. Run `silicon-apps update` when you want updates."});
+                    return Ok(result);
+                }
                 match updater::start_configured(&state, &std::env::current_exe()?, &config).await {
                     Ok(receipt) => {
                         result["updater"] = receipt;
@@ -798,9 +1064,22 @@ async fn execute(cli: &Cli) -> Result<Value> {
         }
         Command::Installed => json!({"items":state.installed()?.into_values().collect::<Vec<_>>()}),
         Command::Update { app } => {
-            updater::update(&client, &state, &config, app.as_deref()).await?
+            let result = updater::update(&client, &state, &config, app.as_deref()).await?;
+            for item in result["items"].as_array().into_iter().flatten() {
+                for field in ["notice", "install_script_notice"] {
+                    if let Some(notice) = item[field].as_str() {
+                        eprintln!("{notice}");
+                    }
+                }
+            }
+            result
         }
         Command::Daemon { action } => match action {
+            Daemon::Run { once: false, .. } | Daemon::Start | Daemon::Install if no_daemon() => {
+                anyhow::bail!(
+                    "SILICON_APPS_NO_DAEMON=1 is set, so this environment runs no updater. Unset it to run one, or use `silicon-apps update` (or `daemon run --once`) for a single check."
+                )
+            }
             Daemon::Run { once, detached } => {
                 let executable = std::env::current_exe()?;
                 let windows_needs_copy = cfg!(windows)
@@ -921,6 +1200,112 @@ async fn execute(cli: &Cli) -> Result<Value> {
                 .await?
         }
         Command::Report { message, pr } => client.report(message, pr.as_deref(), key).await?,
+        Command::Capabilities { require } => {
+            let require: Vec<&str> = require.iter().map(String::as_str).collect();
+            client.capabilities(&require).await?
+        }
+        Command::Events {
+            app,
+            subscription,
+            types,
+            follow,
+            after,
+            limit,
+        } => {
+            let feed = match (app, subscription) {
+                (Some(app), _) => apps::events::Feed::App(app.clone()),
+                (None, Some(id)) => apps::events::Feed::Subscription(id.clone()),
+                (None, None) => apps::events::Feed::Account,
+            };
+            let types: Vec<&str> = types.iter().map(String::as_str).collect();
+            if *follow {
+                let after = after.map(|seq| seq.to_string());
+                let mut stream = client
+                    .stream_events(&feed, after.as_deref(), &types)
+                    .await?;
+                let mut printed = 0;
+                while let Some(event) = stream.next().await? {
+                    println!("{}", event.data);
+                    io::stdout().flush()?;
+                    printed += 1;
+                    if limit.is_some_and(|limit| printed >= limit) {
+                        break;
+                    }
+                }
+                return Ok(Value::Null);
+            }
+            client.events(&feed, *after, &types, *limit).await?
+        }
+        Command::Subscriptions { action } => match action {
+            Subscriptions::List { status } => client.subscriptions(status.as_deref()).await?,
+            Subscriptions::Create {
+                app,
+                types,
+                channels,
+                webhook,
+                stream: _,
+                description,
+            } => {
+                let request = apps::events::NewSubscription {
+                    app_id: app.clone(),
+                    types: types.clone(),
+                    channels: channels.clone(),
+                    delivery: match webhook {
+                        Some(url) => apps::events::Delivery::Webhook { url: url.clone() },
+                        None => apps::events::Delivery::Stream,
+                    },
+                    description: description.clone(),
+                };
+                client.create_subscription(&request, key).await?
+            }
+            Subscriptions::Show { id } => client.subscription(id).await?,
+            Subscriptions::Update {
+                id,
+                types,
+                channels,
+                all_channels,
+                webhook,
+                stream,
+                description,
+            } => {
+                let mut changes = json!({});
+                if !types.is_empty() {
+                    changes["types"] = json!(types);
+                }
+                if !channels.is_empty() {
+                    changes["channels"] = json!(channels);
+                }
+                if *all_channels {
+                    changes["channels"] = json!([]);
+                }
+                if let Some(url) = webhook {
+                    changes["delivery"] = json!({"mode":"webhook","url":url});
+                }
+                if *stream {
+                    changes["delivery"] = json!({"mode":"stream"});
+                }
+                if let Some(text) = description {
+                    changes["description"] = json!(text);
+                }
+                ensure!(
+                    changes.as_object().is_some_and(|c| !c.is_empty()),
+                    "nothing to change: pass --type, --channel, --all-channels, --webhook, --stream or --description"
+                );
+                client.update_subscription(id, changes, key).await?
+            }
+            Subscriptions::Pause { id } => client.pause_subscription(id, key).await?,
+            Subscriptions::Resume { id } => client.resume_subscription(id, key).await?,
+            Subscriptions::Cancel { id } => client.cancel_subscription(id, key).await?,
+            Subscriptions::Deliveries { id, status } => {
+                client
+                    .subscription_deliveries(id, status.as_deref())
+                    .await?
+            }
+            Subscriptions::RotateSecret { id } => {
+                client.rotate_subscription_secret(id, key).await?
+            }
+            Subscriptions::Ping { id } => client.ping_subscription(id, key).await?,
+        },
         Command::Docs { .. } | Command::Accounts => unreachable!(),
     };
     updater::telemetry(
@@ -950,6 +1335,25 @@ fn confirm(message: &str) -> Result<bool> {
         input.trim().to_ascii_lowercase().as_str(),
         "y" | "yes"
     ))
+}
+/// `SILICON_APPS_NO_DAEMON=1`: never start or register the updater, for
+/// ephemeral environments such as CI.
+fn no_daemon() -> bool {
+    std::env::var("SILICON_APPS_NO_DAEMON").is_ok_and(|v| matches!(v.trim(), "1" | "true" | "yes"))
+}
+/// The structured form of an error for --json output: the API's or a
+/// signature check's code, message, hint and details when there is one.
+fn error_json(error: &anyhow::Error) -> Value {
+    let chain = format!("{error:#}");
+    for cause in error.chain() {
+        if let Some(e) = cause.downcast_ref::<apps::ApiError>() {
+            return json!({"error":{"code":e.code,"status":e.status,"message":e.message,"hint":e.hint,"details":e.details,"chain":chain}});
+        }
+        if let Some(e) = cause.downcast_ref::<apps::signing::VerificationError>() {
+            return json!({"error":{"code":e.code,"message":e.message,"hint":e.hint,"details":e.details,"chain":chain}});
+        }
+    }
+    json!({"error":{"code":"cli_error","message":chain}})
 }
 fn bundled_docs(topic: &str) -> String {
     if topic == "tree" {

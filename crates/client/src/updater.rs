@@ -34,9 +34,19 @@ pub async fn update(
             ensure!(item.server==auth::service_scope(client.base_url())?,"{} is installed from {}; selected registry {} cannot update it. Use --server {} update {} or explicitly reinstall from another registry with --yes.",item.app_id,item.server,client.base_url(),item.server,item.app_id);
             let latest=client.resolve(&spec,&item.target).await?;
             if latest.release.id==item.release_id {return Ok(json!({"app_id":item.app_id,"status":"current","version":item.version}));}
+            // A withdrawn release is replaced by the latest good one on its
+            // channel, even when that one has a lower version.
+            let withdrawn=latest.withdrawn.iter().find(|w|w.release_id==item.release_id).cloned();
             if let Some(receipt)=defer_self_install(state,config,&spec,false)?{return Ok(receipt);}
             let outcome=install::install(client,state,config,&spec,false).await?;
-            Ok::<_,anyhow::Error>(json!({"app_id":item.app_id,"status":"updated","version":outcome.installed.version,"warning":outcome.warning}))
+            let mut result=json!({"app_id":item.app_id,"status":"updated","version":outcome.installed.version,"previous_version":item.version,"warning":outcome.warning,"notice":outcome.notice});
+            if let Some(w)=withdrawn {
+                result["status"]=json!("replaced_withdrawn");
+                result["withdrawn"]=json!({"version":w.version,"reason":w.reason,"withdrawn_at":w.withdrawn_at});
+                result["notice"]=json!(format!("{} {} was withdrawn by its authors ({}); moved to {}.",item.app_id,item.version,w.reason,outcome.installed.version));
+                if let Some(script)=outcome.notice { result["install_script_notice"]=json!(script); }
+            }
+            Ok::<_,anyhow::Error>(result)
         }.await;
         results.push(match result {
             Ok(value) => value,

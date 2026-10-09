@@ -76,6 +76,54 @@ pub struct Release {
     pub notes: String,
     pub created_at: String,
     pub promoted_from: Option<String>,
+    /// The API's signature over each package's release manifest, by package ID.
+    #[serde(default)]
+    pub signatures: BTreeMap<String, ReleaseSignature>,
+    /// Every package in this release also carries a valid author signature.
+    #[serde(default)]
+    pub signed_by_author: bool,
+    /// Set when an author withdrew this release; it is then never served.
+    #[serde(default)]
+    pub withdrawn: Option<Withdrawal>,
+}
+impl Release {
+    pub fn is_withdrawn(&self) -> bool {
+        self.withdrawn.is_some()
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ReleaseSignature {
+    pub key_id: String,
+    pub algorithm: String,
+    /// Base64 Ed25519 signature over the release manifest message.
+    pub signature: String,
+    pub install_script_sha256: Option<String>,
+    pub signed_at: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Withdrawal {
+    pub at: String,
+    pub by_uuid: String,
+    pub by_id: String,
+    pub reason: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InstallScriptInfo {
+    pub path: String,
+    pub sha256: String,
+    pub size: u64,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AuthorSignature {
+    pub key_id: String,
+    pub algorithm: String,
+    /// Base64 Ed25519 public key the signature verifies with.
+    pub public_key: String,
+    /// Base64 Ed25519 signature over the author package message.
+    pub signature: String,
+    pub signer_uuid: String,
+    pub signer_id: String,
+    pub signed_at: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Package {
@@ -86,6 +134,16 @@ pub struct Package {
     pub command: String,
     pub validation: Vec<Value>,
     pub created_at: String,
+    /// The install script this target runs, when it has one.
+    #[serde(default)]
+    pub install_script: Option<InstallScriptInfo>,
+    /// Whether Apps has read this package's install script information.
+    /// Packages uploaded before signing existed are read once at startup.
+    #[serde(default)]
+    pub inspected: bool,
+    /// The uploading author's own signature, when they signed the package.
+    #[serde(default)]
+    pub author_signature: Option<AuthorSignature>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct History {
@@ -156,11 +214,28 @@ impl App {
                 })
         })
     }
+    /// The newest release on a channel that has not been withdrawn.
     pub fn latest(&self, channel: &str) -> Option<&Release> {
         self.releases
             .iter()
-            .filter(|r| r.channel == channel)
+            .filter(|r| r.channel == channel && !r.is_withdrawn())
             .max_by_key(|r| version_tuple(&r.version).unwrap_or_default())
+    }
+    /// Withdrawn releases, newest first, as the app page and resolve show them.
+    pub fn withdrawn(&self, channel: Option<&str>) -> Vec<Value> {
+        let mut items: Vec<&Release> = self
+            .releases
+            .iter()
+            .filter(|r| r.is_withdrawn() && channel.is_none_or(|c| c == r.channel))
+            .collect();
+        items.sort_by_key(|r| std::cmp::Reverse(version_tuple(&r.version).unwrap_or_default()));
+        items
+            .into_iter()
+            .map(|r| {
+                let w = r.withdrawn.as_ref().unwrap();
+                json!({"release_id":r.id,"version":r.version,"channel":r.channel,"reason":w.reason,"withdrawn_at":w.at,"withdrawn_by":w.by_id})
+            })
+            .collect()
     }
     pub fn rating(&self) -> Option<f64> {
         if self.reviews.is_empty() {
@@ -172,7 +247,9 @@ impl App {
             )
         }
     }
-    pub fn view(&self, who: Option<&Identity>) -> Value {
+    /// Targets of the latest production release, or of the latest development
+    /// release when there is no production release yet.
+    pub fn targets(&self) -> Vec<String> {
         let mut targets: Vec<_> = self
             .latest("production")
             .or_else(|| self.latest("development"))
@@ -185,7 +262,33 @@ impl App {
             })
             .unwrap_or_default();
         targets.sort();
-        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"latest_production":self.latest("production"),"latest_development":self.latest("development"),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
+        targets
+    }
+    pub fn view(&self, who: Option<&Identity>) -> Value {
+        let targets = self.targets();
+        let latest = self
+            .latest("production")
+            .or_else(|| self.latest("development"));
+        // Who signed the current release's packages as author, by current ID.
+        let mut signed_by: Vec<String> = latest
+            .map(|r| {
+                r.package_ids
+                    .iter()
+                    .filter_map(|id| self.packages.iter().find(|p| &p.id == id))
+                    .filter_map(|p| p.author_signature.as_ref())
+                    .map(|a| {
+                        self.authors
+                            .iter()
+                            .find(|author| author.uuid == a.signer_uuid)
+                            .map(|author| author.id.clone())
+                            .unwrap_or_else(|| a.signer_id.clone())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        signed_by.sort();
+        signed_by.dedup();
+        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
         if self.is_author(who) {
             v["domains"] = json!(self.domains);
             v["account_ids"] = json!(self.account_ids);
@@ -211,7 +314,7 @@ impl App {
         if !(200..=600).contains(&self.description.chars().count()) {
             errors.push(json!({"field":"description","message":"Description must contain 200 to 600 characters."}));
         }
-        if self.releases.is_empty() {
+        if self.releases.iter().all(Release::is_withdrawn) {
             errors.push(json!({"field":"packages","message":"Create a development release containing at least one validated package."}));
         }
         json!({"ready":errors.is_empty(),"errors":errors,"required_commands":COMMANDS})

@@ -76,6 +76,19 @@ pub struct Installed {
     pub installed_at: String,
     #[serde(default)]
     pub server: String,
+    /// The API key that signed this release, when it came from a registry.
+    #[serde(default)]
+    pub signature_key_id: Option<String>,
+    /// The author key that also signed the package, if any.
+    #[serde(default)]
+    pub author_key_id: Option<String>,
+    /// The c:id or si:id that signed as author, if any.
+    #[serde(default)]
+    pub signed_by: Option<String>,
+    /// The install script's SHA-256, or `none` when the target has none.
+    /// Missing for installs made before this was recorded.
+    #[serde(default)]
+    pub install_script: Option<String>,
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct InstallOutcome {
@@ -83,6 +96,9 @@ pub struct InstallOutcome {
     pub message: String,
     pub count_recorded: bool,
     pub warning: Option<String>,
+    /// One line to show the person: the install script changed, or the
+    /// author signature changed, since the installed version.
+    pub notice: Option<String>,
 }
 
 pub fn requires_channel_switch(state: &LocalState, spec: &InstallSpec) -> Result<Option<String>> {
@@ -244,6 +260,10 @@ async fn install_source(
                     command: manifest.command,
                 },
                 download_path: String::new(),
+                signature: None,
+                author_signature: None,
+                install_script: None,
+                withdrawn: vec![],
             };
             (resolution, archive.bytes)
         }
@@ -271,6 +291,19 @@ async fn install_source(
         manifest.app_id == spec.app_id || legacy_manifest(&manifest, spec, &source_server),
         "manifest belongs to another app"
     );
+    // A registry package is installed only when its signature checks out. A
+    // local archive is trusted through the --sha256 its caller supplied.
+    let verified = match client {
+        Some(client) => Some(
+            crate::signing::verify_package(client, state, &resolution, &bytes, &manifest, target)
+                .await?,
+        ),
+        None => None,
+    };
+    let script_digest = match &verified {
+        Some(v) => v.install_script_sha256.clone(),
+        None => crate::signing::install_script_sha256(&bytes, &manifest, target)?,
+    };
     let package_target = manifest
         .targets
         .get(target)
@@ -358,6 +391,10 @@ async fn install_source(
             sha256: resolution.package.sha256.clone(),
             installed_at: chrono::Utc::now().to_rfc3339(),
             server: source_server.clone(),
+            signature_key_id: verified.as_ref().map(|v| v.key_id.clone()),
+            author_key_id: verified.as_ref().and_then(|v| v.author_key_id.clone()),
+            signed_by: verified.as_ref().and_then(|v| v.author.clone()),
+            install_script: Some(script_digest.clone().unwrap_or_else(|| "none".into())),
         };
         if legacy {
             installed.remove("apps");
@@ -400,6 +437,7 @@ async fn install_source(
     if backup.exists() {
         fs::remove_dir_all(&backup)?;
     }
+    let notice = old.as_ref().and_then(|old| change_notice(old, &item));
     if let Some(old) = old
         && old.command != item.command
     {
@@ -423,6 +461,7 @@ async fn install_source(
         ),
         installed: item,
         count_recorded: client.is_some() && count.is_ok(),
+        notice,
         warning: if client.is_none() {
             Some("Local archive registered for automatic channel updates; registry install count will be recorded on its first registry installation.".into())
         } else {
@@ -431,6 +470,105 @@ async fn install_source(
         })
         },
     })
+}
+
+/// One line about what changed between two installed versions that the
+/// person should know: a different install script, or a different (or
+/// missing) author signature.
+pub fn change_notice(old: &Installed, new: &Installed) -> Option<String> {
+    let short = |digest: &str| -> String {
+        if digest == "none" {
+            "none".into()
+        } else {
+            digest.chars().take(12).collect()
+        }
+    };
+    if let (Some(before), Some(after)) = (&old.install_script, &new.install_script)
+        && before != after
+    {
+        return Some(if after == "none" {
+            format!(
+                "{} {} no longer runs an install script (it was sha256 {}).",
+                new.app_id,
+                new.version,
+                short(before)
+            )
+        } else {
+            format!(
+                "{} {} changes its install script (sha256 {} -> {}). Read it with `silicon-apps show {} --install-script`.",
+                new.app_id,
+                new.version,
+                short(before),
+                short(after),
+                new.app_id
+            )
+        });
+    }
+    match (&old.author_key_id, &new.author_key_id) {
+        (Some(before), None) => Some(format!(
+            "{} {} is not signed by an author, though {} was (key {before}).",
+            new.app_id, new.version, old.version
+        )),
+        (Some(before), Some(after)) if before != after => Some(format!(
+            "{} {} is signed by a different author key ({before} -> {after}, {}).",
+            new.app_id,
+            new.version,
+            new.signed_by.as_deref().unwrap_or("unknown signer")
+        )),
+        _ => None,
+    }
+}
+
+/// Read the install script a release runs on a target, after checking the
+/// package's signatures, without installing anything.
+pub async fn inspect_install_script(
+    client: &Client,
+    state: &LocalState,
+    spec: &InstallSpec,
+    target: &str,
+) -> Result<serde_json::Value> {
+    let resolution = client.resolve(spec, target).await?;
+    let bytes = client.download(&resolution).await?;
+    let manifest = package::inspect_archive(&bytes)?;
+    let verified =
+        crate::signing::verify_package(client, state, &resolution, &bytes, &manifest, target)
+            .await?;
+    let script = package::install_script(&bytes, &manifest, target)?;
+    let label = format!(
+        "{} {} ({}, {target})",
+        resolution.app_id, resolution.release.version, resolution.release.channel
+    );
+    let mut value = json!({
+        "app_id":resolution.app_id,
+        "version":resolution.release.version,
+        "channel":resolution.release.channel,
+        "release_id":resolution.release.id,
+        "target":target,
+        "signature_key_id":verified.key_id,
+        "signed_by":verified.author,
+        "install_script":null,
+    });
+    match script {
+        None => value["message"] = json!(format!("{label} has no install script.")),
+        Some((info, content)) => {
+            let text = String::from_utf8(content).ok();
+            value["install_script"] = json!({
+                "path":info.path,
+                "sha256":info.sha256,
+                "size":info.size,
+                "content":text,
+                "binary":text.is_none(),
+            });
+            value["message"] = json!(format!(
+                "{label} runs {} on install and update.\nsha256 {}\n\n{}",
+                info.path,
+                info.sha256,
+                text.as_deref()
+                    .unwrap_or("(not UTF-8 text; use --json to see its digest and size)")
+            ));
+        }
+    }
+    Ok(value)
 }
 
 // Historical first-party archives are immutable. Their checksum still comes

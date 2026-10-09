@@ -15,7 +15,10 @@ path = "src/main.rs"
 axum = "0.8"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
+ed25519-dalek = "2"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 hex = "0.4"
+hmac = "0.12"
 rand = "0.9"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
@@ -33,7 +36,6 @@ url = "2"
 uuid = { version = "1", features = ["v4", "serde"] }
 
 [dev-dependencies]
-ed25519-dalek = "2"
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
