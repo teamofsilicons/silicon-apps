@@ -3,7 +3,7 @@
 These files are installation templates. No infrastructure, domains, credentials, mail transport, or native workers are provisioned by adding them to the repository.
 
 - `local.env.example`: configuration consumed by `bash scripts/dev.sh` after copying to `.env`.
-- `api.env.example`: API configuration for both public domains; replace all credential and endpoint placeholders.
+- `api.env.example`: API configuration for both public domains; replace all credential and endpoint placeholders. The optional, commented `APPS_HISTORICAL_APP_IDS` lists comma-separated `app_id:owner_uuid` entries, such as `dm:zQo`: each reserves a historical Silicon Accounts app ID of 1 or 2 characters, which new apps cannot use, for the one account (by its case-sensitive Accounts UUID) allowed to create it. Only that account, signed in, sees the ID as available and can create it; to everyone else it is an invalid ID. The API refuses to start on a malformed value. See [Reserve a historical app ID for its owner](../docs/operations.md#reserve-a-historical-app-id-for-its-owner).
 - `runner.env.example`: isolated Linux worker configuration. Replace image placeholders with pre-pulled immutable digests.
 - `runner-gateway.env.example`: the same Python process routing selected targets to authenticated HTTPS workers on separate hosts.
 - `Caddyfile`: unbuffered event streams and same-origin `/v1` routing to the API, installer downloads, the store's immutable `/_next/static` files and every other path to the server-rendered store, with security headers; old developer paths redirect to the shared portal.

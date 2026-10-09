@@ -110,6 +110,41 @@ The worker secret contains only its runner token. Configure a dedicated Space
 Station table key for telemetry. Mail defaults to the official Accounts
 integration. The store needs no secret.
 
+`APPS_HISTORICAL_APP_IDS` is optional. It reserves historical Silicon Accounts
+app IDs of 1 or 2 characters, which new apps cannot use, for the one account
+allowed to create each: comma-separated `app_id:owner_uuid` entries, with the
+owner's case-sensitive Accounts UUID. Only that account, signed in, sees the ID
+as available and can create it (`silicon-apps create dm --name DM`); to everyone
+else it is an invalid ID, so the list is never revealed. The ID must not be in
+the Accounts registry, or it is taken. For DM the value is `dm:zQo`, reserving
+`dm` for the account with UUID `zQo`. The installer writes every key of the
+secret to `/etc/silicon-apps/api.env` during an install, so add the key before
+installing the release that reads it; the API in service ignores keys it does
+not know. Add it without printing the other values:
+
+```sh
+python3 - <<'PY'
+import json, subprocess
+arn = 'arn:aws:secretsmanager:us-east-2:234951665042:secret:silicon-apps/production/runtime-XDvPON'
+aws = ['aws', '--profile', 'silicon-production', '--region', 'us-east-2', 'secretsmanager']
+current = json.loads(subprocess.run(aws + ['get-secret-value', '--secret-id', arn, '--output', 'json'],
+                                    check=True, capture_output=True, text=True).stdout)['SecretString']
+secret = json.loads(current)
+secret['APPS_HISTORICAL_APP_IDS'] = 'dm:zQo'
+subprocess.run(aws + ['put-secret-value', '--secret-id', arn, '--secret-string', 'file:///dev/stdin'],
+               input=json.dumps(secret), check=True, capture_output=True, text=True)
+print('APPS_HISTORICAL_APP_IDS set; keys now:', ', '.join(sorted(secret)))
+PY
+```
+
+The installer does not check this value. A malformed one stops the API at
+startup with `invalid_historical_app_ids` and a message naming the entry, the
+health wait of up to five minutes fails, and the installer rolls back to the
+previous release and environment file. A valid one is logged at startup as
+`Historical app IDs, each creatable only by its configured owner: dm.` Once the
+app exists the entry has no further effect. See
+[the operations guide](../docs/operations.md#reserve-a-historical-app-id-for-its-owner).
+
 Set `APPS_RUNNER_TARGETS` only to execution environments that have actually
 been deployed and verified (below). Other native release archives do not imply
 other upload workers exist. macOS and Windows workers follow the isolation and

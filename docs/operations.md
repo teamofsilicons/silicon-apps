@@ -62,7 +62,7 @@ OAuth codes, SLTs and rotating refresh tokens are one-use credentials. Catalog i
 
 `APPS_IMPORT_ACCOUNTS=1` fetches the private Accounts app registry before the API begins listening and imports missing apps. It defaults to enabled when real authentication and a service token are configured. `APPS_IMPORT_ACCOUNTS=0` explicitly disables startup import.
 
-The import preserves app IDs, Accounts users and sign-in configuration. It brings names, descriptions, logos, website links and accepted author UUIDs into Apps. Existing short legacy IDs, such as `dm`, remain addressable even though **new** Apps IDs require 3–30 characters. Imported apps start as unpublished setup drafts with no fabricated packages or releases. Already imported Apps records are skipped on subsequent starts; import does not overwrite their app-store edits.
+The import preserves app IDs, Accounts users and sign-in configuration. It brings names, descriptions, logos, website links and accepted author UUIDs into Apps. Existing short legacy IDs, such as `dm`, remain addressable even though **new** Apps IDs require 3–30 characters. To create one such app without the import, reserve its ID for its owner (below). Imported apps start as unpublished setup drafts with no fabricated packages or releases. Already imported Apps records are skipped on subsequent starts; import does not overwrite their app-store edits.
 
 Before the first production import:
 
@@ -74,6 +74,22 @@ Before the first production import:
 6. Add real release packages and publish each app when ready. Migration itself is not store publication.
 
 Creates, explicit secret rotations, and accepted authorship changes synchronize through the official Accounts integration. The durable `accounts.sync` outbox retries metadata/author reconciliation. Operator registry migration is a service startup operation, not an end-user CLI command.
+
+### Reserve a historical app ID for its owner
+
+`APPS_HISTORICAL_APP_IDS` lets one account create an app under a historical Silicon Accounts ID that is shorter than a new ID may be, such as `dm`, without importing the Accounts registry. It is for an ID that the Accounts registry does not hold, so there is nothing to import; an ID still in the registry stays taken and is brought in by the import instead. The value is comma-separated `app_id:owner_uuid` entries, for example `dm:zQo`:
+
+- `app_id` is 1 or 2 of `a-z`, `0-9`, `-` and `_`: a valid existing-app ID that is not a valid new ID (3 to 30 characters) and not reserved. Each ID appears once.
+- `owner_uuid` is the permanent Silicon Accounts UUID of the one Carbon or Silicon allowed to create the app, not their c:id or si:id. It is ASCII letters and digits and is compared exactly, so case matters. One owner may hold several IDs.
+- Spaces around entries and parts, and empty entries, are ignored. Anything else that does not fit stops the API at startup with `invalid_historical_app_ids` and a message naming the entry. A valid value is logged at startup as `Historical app IDs, each creatable only by its configured owner: dm.`
+
+With the setting:
+
+- `GET /v1/apps/availability/{app_id}` answers `available: true` for a listed ID only when the caller is signed in as its owner and the ID is free, both in Apps and in the Accounts registry. Signed out, or signed in as anyone else, the answer is `available: false`, the same as for any invalid ID, so the list is never revealed.
+- `POST /v1/apps` (`silicon-apps create dm --name DM`) creates the app for its owner exactly like any other creation: the app secret is shown once, the app is registered with Silicon Accounts through the private sync, a retry with the same idempotency key replays the result, and the owner becomes the first author and admin. Its `app.created` history entry and event add `historical_app_id: true`. Anyone else gets the usual `400 invalid_input` answer for an invalid ID.
+- Once created, the app is an ordinary app. Manifests, uploads, releases, installs, media and the store already accept existing 1 or 2 character IDs. The entry then has no further effect and may stay or be removed.
+
+The setting imports nothing, does not create the app by itself and changes no existing app. The CLI has never checked an app ID before sending it, so released CLIs can already create such an app. The shared developer portal's Apps proxy in `silicon-accounts/developer` forwards only 3 to 30 character IDs, so create and set up such an app with the `silicon-apps` CLI.
 
 ## Configure the API
 
@@ -90,6 +106,7 @@ Use [deploy/api.env.example](../deploy/api.env.example) as a starting point. Emp
 | `APPS_ACCOUNTS_APP_SECRET`    | Unset                                 | Apps app credential held only by the backend.                                                           |
 | `APPS_ACCOUNTS_SERVICE_TOKEN` | Unset                                 | Private registry and mail bridge credential.                                                            |
 | `APPS_IMPORT_ACCOUNTS`        | On with real auth + service token     | `1` imports existing registry entries on startup; `0` skips import.                                     |
+| `APPS_HISTORICAL_APP_IDS`     | Empty                                 | Comma-separated `app_id:owner_uuid`: 1–2 character Accounts IDs only that owner may create.             |
 | `APPS_RUNNER_URL`             | Unset                                 | Worker/gateway base URL; the API appends `/validate`.                                                   |
 | `APPS_RUNNER_TOKEN`           | Unset                                 | Bearer credential shared with that worker/gateway.                                                      |
 | `APPS_RUNNER_TARGETS`         | Empty                                 | Comma-separated targets for which an execution worker is actually configured.                           |
