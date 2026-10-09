@@ -12,9 +12,9 @@
   "DeveloperUrl": "https://developers.teamofsilicons.com",
   "AccountsDeveloperUrl": "https://developers.teamofsilicons.com",
   "Runtime": "native-systemd",
-  "ApiSourceRevision": "16d900b023b410cec194672a944943fb2cdf7235",
-  "ApiArchiveSha256": "a91d9c6b4a388371f13eb3c65baf06a6fc0a86bde8a8accd1735b6c089e2d261",
-  "ApiBinarySha256": "6d26a415926a6090e221478b9e3ceb6146d2b95b8f921e6e2a860fc8f7aaf55f",
+  "ApiSourceRevision": "ce17f5729c67a21f042bc8f6d11c17ca5c8f9404",
+  "ApiArchiveSha256": "358e9f6062af3a7981be549bc64de5db00523b19c543a949c566e6d08cc2229e",
+  "ApiBinarySha256": "5a190f7360d2e1f315933fe951177062652d3f16ceee2327482b33a899a7d63d",
   "ApiVersion": "0.1.2",
   "WorkerSourceRevision": "1d92c9a659420d4754e8f8b5de71ae16cc74a69e",
   "PreviousWorkerSourceRevision": "b2a3db8e575701575dfc283ba8bab0ed51a1cb60",
@@ -117,7 +117,7 @@
   "RestoredBackupSha256": "df7f06b9cca9ea8eb3aee617985bba0fb494b7d340007b4cb8d1e94173ca9e08",
   "CatalogInstallVerified": true,
   "CatalogInstallEvidenceSha256": "6e3cd05025ffb95d381b031f6d7d364082009a74b8e10131a1478d262057bb23",
-  "VerifiedAt": "2026-10-09T12:47:14.197534+00:00",
+  "VerifiedAt": "2026-10-09T21:28:24.132275+00:00",
   "DeveloperFrontendRepository": "silicon-accounts",
   "DeveloperFrontendPath": "developer",
   "DeveloperPublicIp": "3.138.98.112",
@@ -162,9 +162,9 @@
   "SharedDocsPages": 52,
   "SharedDocsPublicHttpVerified": true,
   "SharedDocsPublicBrowserVerified": true,
-  "InstallCommandId": "2adf7ef3-c27d-4d0a-8e43-e53511ba181d",
-  "VerificationCommandId": "05d9bfd6-4849-4e58-94a9-cfb559c781c8",
-  "LatestBackupKey": "backups/20261009T154309Z.tar.gz",
+  "InstallCommandId": "172be4f5-0f66-4fe6-9d71-eb7aeea03c3c",
+  "VerificationCommandId": "a0ed68f6-9123-41fa-8d17-508f65406204",
+  "LatestBackupKey": "backups/20261009T212315Z.tar.gz",
   "CliCommand": "silicon-apps",
   "CliGithubVersion": "0.2.0",
   "CatalogInstallVerificationCommandId": "c41ad415-9b82-41dc-b40c-ac6d14c79d0c",
@@ -330,11 +330,11 @@
     "checked_at": "2026-10-08T23:46:25.576Z"
   },
   "StoreAuthorProfileServerTests": 30,
-  "ApiArchiveSize": 80441682,
-  "ApiArchiveFiles": 1428,
+  "ApiArchiveSize": 80449182,
+  "ApiArchiveFiles": 1419,
   "ApiArchiveSymlinks": 28,
-  "PreviousApiSourceRevision": "687085739e48c595a4a450349c1aef1c90b44820",
-  "PreviousApiArchiveSha256": "bbcaf9efb04f1e0594ea6f3ebc026c85410bfdeab03982f7304e8247a46f07e3",
+  "PreviousApiSourceRevision": "16d900b023b410cec194672a944943fb2cdf7235",
+  "PreviousApiArchiveSha256": "a91d9c6b4a388371f13eb3c65baf06a6fc0a86bde8a8accd1735b6c089e2d261",
   "ApiMigrations": [
     "001_catalog",
     "002_events",
@@ -347,7 +347,7 @@
   "StoreUser": "silicon-apps-store",
   "StoreFramework": "Next.js 16.3.8",
   "StoreNodeVersion": "24.21.0",
-  "StoreBuildId": "d4UPOZxo7-a40pHZ7jhp5",
+  "StoreBuildId": "94Vd_nNcw0f7IuUaMGdsy",
   "StoreBuild": "built",
   "SigningKeyId": "apps-2026-10",
   "SigningPublicKey": "5WC06dtS61w+mPv3E0xNVz5ZoNQNMpX5/8YutuLZ3DU=",
@@ -358,10 +358,10 @@
     "release_packages_signed": 50,
     "key_id": "apps-2026-10"
   },
-  "PreDeployBackupKey": "backups/20261009T124033Z.tar.gz",
-  "PreDeployBackupSize": 180225939,
-  "PreDeployBackupVersionId": "2TWYaiGd77lKAtutcuzOR7UkurCoVUQI",
-  "InstallerBackupKey": "backups/20261009T124159Z.tar.gz",
+  "PreDeployBackupKey": "backups/20261009T212212Z.tar.gz",
+  "PreDeployBackupSize": 180227569,
+  "PreDeployBackupVersionId": "qIy0U2_p29SoHqdc_iH497LQ1LwFH9M4",
+  "InstallerBackupKey": "backups/20261009T212315Z.tar.gz",
   "ReleasedCliCompatibility": {
     "cli": "0.1.10",
     "installer": "https://apps.teamofsilicons.com/install.sh",
@@ -378,14 +378,14 @@
   },
   "ValidationRunnerReachable": true,
   "WorkerChangedInRelease": false,
-  "InstallerBackupSize": 180225926,
+  "InstallerBackupSize": 180227567,
   "LogWatchCommandIds": [
-    "214aa7e7-b832-44c5-80fc-f89b3f99bde2",
-    "4971766d-64a5-4f8a-a858-ca9822f919cd"
+    "3a2465fa-6651-4239-89d8-bdf096b873ca",
+    "1b762e7b-69ee-48a0-8ef8-d4b1d885f4b3"
   ],
   "PreSigningBackupKey": "backups/20261009T070318Z.tar.gz",
-  "ApiArchiveKey": "releases/16d900b023b410cec194672a944943fb2cdf7235.tar.gz",
-  "ApiArchiveVersionId": "D7yFABtE4YyWY3Mrwut4QMMJu00HctZq",
+  "ApiArchiveKey": "releases/ce17f5729c67a21f042bc8f6d11c17ca5c8f9404.tar.gz",
+  "ApiArchiveVersionId": "E_FjE3NvJyY54vzw7jlqoUj5HIiRN47T",
   "StoreWebMcp": false,
   "StoreWebMcpRemovedRevision": "606a30c",
   "StoreWebMcpPublicScan": {
@@ -401,7 +401,7 @@
     "case_insensitive": true,
     "matches": 0
   },
-  "PreDeployBackupCommandId": "2b525adf-eb28-40ae-8574-908fa2e3e417",
+  "PreDeployBackupCommandId": "a68f2ca4-f294-44a6-98ec-2910905df456",
   "StoreOpenSourceLicense": "MIT",
   "StoreFooterStatusUrl": "https://developers.teamofsilicons.com/status",
   "StoreOpenSourcePublicCheck": {
@@ -414,5 +414,25 @@
     "footer_status_link": true,
     "mit_wording": true,
     "home_faq_open_source": true
-  }
+  },
+  "PreviousApiBinarySha256": "6d26a415926a6090e221478b9e3ceb6146d2b95b8f921e6e2a860fc8f7aaf55f",
+  "McpServer": false,
+  "McpRemovedRevision": "ce17f57",
+  "McpRemovalPublicCheck": {
+    "mcp_post": 404,
+    "mcp_get": 404,
+    "mcp_json_rpc": false,
+    "documents_without_mcp": [
+      "/.well-known/agent.json",
+      "/.well-known/agent-card.json",
+      "/v1/capabilities",
+      "/openapi.json",
+      "/llms.txt",
+      "/llms-full.txt",
+      "/"
+    ],
+    "robots_mcp_lines": 0,
+    "require_mcp": 422
+  },
+  "InstallerBackupVersionId": "1A933h1c7aQRUnopJm5VKxPj7WjUONxN"
 }

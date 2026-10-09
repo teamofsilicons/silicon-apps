@@ -538,3 +538,97 @@ and `/health`.
 Rollback, if ever needed: move `AWSCURRENT` back to secret version `b54319c7` and run the same install again.
 No catalog data changed. Nothing was rolled back. `production.json` lists the four targets in
 `ActiveUploadTargets` and drops `VerifiedNotYetActiveUploadTargets`.
+
+## Release of ce17f57: the MCP server removed
+
+Source `ce17f5729c67a21f042bc8f6d11c17ca5c8f9404` (main). The Carbon asked for the MCP server to go. The store's
+`/mcp` route and its tools are deleted, so `/mcp` answers the store's 404 page; the home page, its FAQ,
+`/llms.txt` and `/robots.txt` no longer mention it. The API (`crates/server`) no longer advertises MCP: the
+agent card's description, links and interfaces, the `links` and the `mcp` requirement of `/v1/capabilities`,
+and the OpenAPI description. This time the API binary changed; the API version string stays `0.1.2`. The worker
+(`1d92c9a`) and the runtime secret (version `266af4f2`, four Linux targets) were not touched. Since `16d900b`
+the installer gained the worker's four-target steps; its API path is unchanged.
+
+### Checks before the release
+
+- `CARGO_TARGET_DIR=target/integration cargo test -p silicon-apps-server --locked`: 53 tests passed, none failed.
+  `crates/server/openapi.json` is byte-identical to what `crates/server/openapi.py` writes.
+- Store: `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint` and `pnpm build` passed. The build has no
+  `/mcp` route and no `modelContext` or `webmcp`.
+- Deploy tests with `/opt/homebrew/bin/python3` (3.14.6): 59 ran, 8 Caddy routing tests skipped; the 9 tests in
+  `deploy/test_caddy.py` passed against the local Caddy 2.11.4.
+- `cargo zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.34 -p silicon-apps-server --bin
+  apps-server` (zig 0.15.2 from the uv `ziglang` package through `CARGO_ZIGBUILD_PYTHON_PATH`). Highest glibc
+  symbol `GLIBC_2.34`; the binary holds no `/mcp` string.
+
+### Archive
+
+`deploy/package.py` with the same Caddy archive and `--api` built the store and wrote:
+
+| | |
+|---|---|
+| archive SHA-256 | `358e9f6062af3a7981be549bc64de5db00523b19c543a949c566e6d08cc2229e` |
+| size | 80,449,182 bytes, 1,419 files, 28 symlinks |
+| API binary SHA-256 | `5a190f7360d2e1f315933fe951177062652d3f16ceee2327482b33a899a7d63d` (was `6d26a415…aaf55f`) |
+| Node.js | 24.21.0 (pinned checksum) |
+| store build | `94Vd_nNcw0f7IuUaMGdsy`, built by the packager |
+
+The installer's `prepare_release` (loaded with `python3 -B`) verified it locally: no file outside
+`node_modules` mentions `/mcp`, `modelContext` or `webmcp`, both installers match `scripts/`, and
+`deploy/install.py` is the file at `ce17f57`. Uploaded to `releases/ce17f5729c67a21f042bc8f6d11c17ca5c8f9404.tar.gz`
+(S3 version `E_FjE3NvJyY54vzw7jlqoUj5HIiRN47T`).
+
+### Backups and install
+
+On-demand backup first (SSM `a68f2ca4-f294-44a6-98ec-2910905df456`): `backups/20261009T212212Z.tar.gz`,
+180,227,569 bytes, S3 version `qIy0U2_p29SoHqdc_iH497LQ1LwFH9M4`, confirmed with `head-object`. No secret was
+read or changed by this operator.
+
+SSM `172be4f5-0f66-4fe6-9d71-eb7aeea03c3c` checked the archive's SHA-256 (`OK`) before extracting anything,
+extracted only `deploy/install.py` and ran it with `--role api`. The candidate store rendered on
+`127.0.0.1:4321`; the installer uploaded `backups/20261009T212315Z.tar.gz` (180,227,567 bytes, S3 version
+`1A933h1c7aQRUnopJm5VKxPj7WjUONxN`) after stopping the API at 21:23:15 UTC, and switched `current`. The API
+started at 21:23:23, the store at 21:23:24 and Caddy at 21:23:26. `previous-release` now names `16d900b`. As
+before, systemd recorded the old store's SIGTERM exit (status 143) as `Failed with result 'exit-code'`; the new
+store started normally.
+
+Host checks, SSM `a0ed68f6-9123-41fa-8d17-508f65406204`: `current` and `deployment.json` name `ce17f57` and the
+archive hash; `build.json` records store build `94Vd_nNcw0f7IuUaMGdsy`; the API, the store (as
+`silicon-apps-store`), Caddy and the backup timer are active and enabled with no restarts; the preflight unit is
+inactive; the binary hash is `5a190f73…a7d63d`; `/health` is ok; the keys document lists `apps-2026-10` active
+with the pinned public key and nothing revoked; `GET /` on `127.0.0.1:4320` answered 200 with 136,343 bytes,
+the status link and the MIT wording; the store's `GET` and `POST /mcp` answered 404 HTML; the API's
+`/v1/capabilities`, both agent cards and `/openapi.json` hold no `mcp`; `/v1/targets` lists the four Linux
+targets with a runner. Log watch (SSM `3a2465fa-6651-4239-89d8-bdf096b873ca` at 21:24:37 and
+`1b762e7b-69ee-48a0-8ef8-d4b1d885f4b3` at 21:28:02 UTC): the API journal holds only its two start lines, the
+store logged nothing after its start lines, Caddy no warning or error after its start (it keeps no access log),
+and every service kept its PID with no restarts.
+
+### Public checks
+
+All against `https://apps.teamofsilicons.com` with `curl --max-time`, at 21:21 UTC before and from 21:23:50 UTC
+after:
+
+| check | before (16d900b) | after (ce17f57) |
+|---|---|---|
+| `POST /mcp` initialize | 200 JSON-RPC result | 404 HTML, no `jsonrpc` |
+| `GET /mcp` | 405 JSON | 404 HTML |
+| `mcp` (any case) in `/.well-known/agent.json`, `agent-card.json`, `/v1/capabilities`, `/openapi.json` | 7, 7, 2, 5 | 0, 0, 0, 0 |
+| `/robots.txt` lines with `/mcp` | 2 | 0 |
+| `mcp` (any case) in `/` and `/llms.txt` | 37 and 3 | 0 and 0 (`/llms-full.txt` also 0) |
+| `/v1/capabilities?require=mcp` | | 422 `capabilities_missing`, unknown capability |
+| `/v1/targets` with `runner_available` | the four Linux targets | the four Linux targets, of 9 |
+| `?require=` the four Linux targets | | 200 |
+| `/apps/silicon-accounts`, `/apps/silicon-apps` show | 0.4.0, 0.2.0 | 0.4.0, 0.2.0 |
+| `/install.sh`, `/install.ps1` | byte-identical | byte-identical to `scripts/`, `no-cache` |
+
+After the release, as before: `/`, `/search?q=accounts` and both app pages 200 with one `<main>`, the same
+JSON-LD types (the home `FAQPage` keeps 8 questions), the status link in the footer, the MIT wording and no
+`modelContext` or `webmcp`; `/apps/no-such-app-xyz` 404; `/llms.txt` 200 starting `# Silicon Apps`;
+`/sitemap.xml` 200 with 10 URLs; `/health` 200 `{"status":"ok","version":"0.1.2"}` with the strict CSP;
+`/openapi.json` 200, OpenAPI 3.1.0, 61 paths; `/.well-known/silicon-apps-keys.json` 200 with `apps-2026-10`
+active; `/developer`, `/docs` and `/store/silicon-accounts` 308; static chunks `immutable`, a missing one 404;
+`/v1/events/stream` 401 JSON; `developers.teamofsilicons.com` 200. A recheck at 21:28 UTC gave 200 for `/`,
+`/search`, both app pages and `/health` with no `mcp`, and 404 for `POST /mcp`.
+
+Nothing was rolled back. `production.json` records the new identities.
