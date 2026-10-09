@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-"""Install a verified Apps release, restoring files and services on failed cutover."""
+"""Install a verified Apps release, restoring files and services on failed cutover.
+
+Runs on Amazon Linux 2023 (Python 3.9): keep the syntax 3.9-compatible.
+"""
 import argparse
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -19,6 +24,104 @@ import urllib.request
 ROOT = pathlib.Path('/opt/silicon-apps')
 ETC = pathlib.Path('/etc')
 STATE = pathlib.Path('/var/lib')
+API_URL = 'http://127.0.0.1:4310'
+STORE_USER = 'silicon-apps-store'
+STORE_SERVICE = 'silicon-apps-store'
+STORE_PORT = 4320
+# The candidate store answers here before any live change; nothing else uses this port.
+PREFLIGHT_PORT = 4321
+PREFLIGHT_UNIT = 'silicon-apps-store-preflight'
+STORE_PUBLIC_URL = 'https://apps.teamofsilicons.com'
+# Text the server-rendered home page always contains, even when the API is unreachable.
+STORE_READY_TEXT = ('<main', 'Silicon Apps')
+# Mirrors PINNED_KEYS in crates/client/src/signing.rs (a test keeps them equal). The CLI
+# trusts only these keys and keys they endorse, so a wrong seed here breaks every install.
+PINNED_SIGNING_KEYS = {'apps-2026-10': '5WC06dtS61w+mPv3E0xNVz5ZoNQNMpX5/8YutuLZ3DU='}
+
+# Ed25519 public key derivation (RFC 8032, section 5.1.5), so the seed in the runtime
+# secret can be checked against the pinned public key without third-party modules.
+_P = 2 ** 255 - 19
+_D = -121665 * pow(121666, _P - 2, _P) % _P
+_SQRT_M1 = pow(2, (_P - 1) // 4, _P)
+
+
+def _point_add(a, b):
+    p, q = (a[1] - a[0]) * (b[1] - b[0]) % _P, (a[1] + a[0]) * (b[1] + b[0]) % _P
+    r, s = 2 * a[3] * b[3] * _D % _P, 2 * a[2] * b[2] % _P
+    e, f, g, h = q - p, s - r, s + r, q + p
+    return (e * f % _P, g * h % _P, f * g % _P, e * h % _P)
+
+
+def _base_point():
+    y = 4 * pow(5, _P - 2, _P) % _P
+    x2 = (y * y - 1) * pow(_D * y * y + 1, _P - 2, _P)
+    x = pow(x2, (_P + 3) // 8, _P)
+    if (x * x - x2) % _P:
+        x = x * _SQRT_M1 % _P
+    if x & 1:
+        x = _P - x
+    return (x, y, 1, x * y % _P)
+
+
+def ed25519_public_key(seed):
+    digest = hashlib.sha512(seed).digest()
+    scalar = int.from_bytes(digest[:32], 'little')
+    scalar = (scalar & ((1 << 254) - 8)) | (1 << 254)
+    result, point = (0, 1, 1, 0), _base_point()
+    while scalar:
+        if scalar & 1:
+            result = _point_add(result, point)
+        point = _point_add(point, point)
+        scalar >>= 1
+    inverse = pow(result[2], _P - 2, _P)
+    x, y = result[0] * inverse % _P, result[1] * inverse % _P
+    return base64.b64encode((y | ((x & 1) << 255)).to_bytes(32, 'little')).decode()
+
+
+def check_signing_keys(secret):
+    """Fail before any change unless APPS_SIGNING_KEYS is usable. Never echo key material."""
+    raw = secret.get('APPS_SIGNING_KEYS') or ''
+    if not raw.strip():
+        raise ValueError('The runtime secret has no APPS_SIGNING_KEYS. The API refuses to start without it: add the '
+                         'production release signing key (key_id:base64-seed, newest first) to the secret and retry. '
+                         'Nothing was changed.')
+    ids = []
+    for index, entry in enumerate([e.strip() for e in re.split(r'[,\n]', raw) if e.strip()], 1):
+        key_id, separator, seed = entry.partition(':')
+        if not separator or not re.fullmatch(r'[A-Za-z0-9._-]{1,64}', key_id):
+            raise ValueError('APPS_SIGNING_KEYS entry %d is not key_id:base64-seed.' % index)
+        try:
+            seed_bytes = base64.b64decode(seed.strip(), validate=True)
+        except (binascii.Error, ValueError):
+            seed_bytes = b''
+        if len(seed_bytes) != 32 or base64.b64encode(seed_bytes).decode() != seed.strip():
+            raise ValueError('APPS_SIGNING_KEYS key %s is not a base64 32-byte Ed25519 seed.' % key_id)
+        if key_id in ids:
+            raise ValueError('APPS_SIGNING_KEYS lists key %s twice.' % key_id)
+        pinned = PINNED_SIGNING_KEYS.get(key_id)
+        if pinned and ed25519_public_key(seed_bytes) != pinned:
+            raise ValueError('APPS_SIGNING_KEYS key %s does not match the public key pinned in the CLI; every install '
+                             'would fail verification. Use the production key from the release key file.' % key_id)
+        ids.append(key_id)
+    revoked = [v.strip() for v in (secret.get('APPS_REVOKED_SIGNING_KEYS') or '').split(',') if v.strip()]
+    if ids[0] in revoked:
+        raise ValueError('The active signing key %s is listed in APPS_REVOKED_SIGNING_KEYS.' % ids[0])
+    if not any(key_id in PINNED_SIGNING_KEYS for key_id in ids):
+        raise ValueError('APPS_SIGNING_KEYS holds no key pinned in the CLI (%s); the CLI could not trust its '
+                         'signatures.' % ', '.join(sorted(PINNED_SIGNING_KEYS)))
+    return ids[0]
+
+
+def check_api_secret(secret):
+    """Validate the API runtime secret before anything is installed; returns the active signing key ID."""
+    required = ('APPS_ACCOUNTS_APP_SECRET', 'APPS_ACCOUNTS_SERVICE_TOKEN', 'APPS_RUNNER_URL')
+    if any(not secret.get(key) for key in required) or secret.get('APPS_DEV_AUTH') != '0':
+        raise ValueError('Production integrations are required and APPS_DEV_AUTH must be 0.')
+    origins = [o.strip().rstrip('/') for o in (secret.get('APPS_ALLOWED_ORIGINS') or '').split(',')]
+    if STORE_PUBLIC_URL not in origins:
+        raise ValueError('APPS_ALLOWED_ORIGINS must include ' + STORE_PUBLIC_URL + ': the store sends that Origin '
+                         'with every visitor write.')
+    return check_signing_keys(secret)
 
 
 def run(args, **kwargs):
@@ -78,29 +181,60 @@ def environment_file(values):
     return ''.join(lines)
 
 
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with open(path, 'rb') as source:
+        for block in iter(lambda: source.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def walk(path):
+    """Yield (entry, relative name) for every entry below path without following symlinks."""
+    for current, directories, files in os.walk(path):
+        for name in directories + files:
+            item = pathlib.Path(current) / name
+            yield item, item.relative_to(path).as_posix()
+
+
 def verify_release(path, revision, manifest):
-    if manifest.get('revision') != revision or not isinstance(manifest.get('files'), dict):
+    """Regular files match their hashes; symlinks (the store's pnpm links) match their recorded,
+    relative targets and resolve inside the release. Nothing else may exist."""
+    links = manifest.get('symlinks', {})
+    if manifest.get('revision') != revision or not isinstance(manifest.get('files'), dict) or not isinstance(links, dict):
         raise ValueError('Bundle revision or file manifest mismatch.')
-    actual = set()
-    for item in path.rglob('*'):
-        if item.is_symlink() or not (item.is_dir() or item.is_file()):
-            raise ValueError('Release contains a non-regular filesystem entry.')
-        if item.is_file() and item.relative_to(path).as_posix() != 'build.json':
-            actual.add(item.relative_to(path).as_posix())
-    if actual != set(manifest['files']):
-        raise ValueError('Release file inventory differs from the verified bundle.')
-    for name, digest in manifest['files'].items():
+    for name in [*manifest['files'], *links]:
         relative = pathlib.PurePosixPath(name)
         if relative.is_absolute() or '..' in relative.parts:
             raise ValueError('Unsafe bundle file path.')
-        if hashlib.sha256((path / name).read_bytes()).hexdigest() != digest:
+    files, actual_links = set(), {}
+    for item, name in walk(path):
+        if item.is_symlink():
+            actual_links[name] = os.readlink(item)
+        elif item.is_file():
+            if name != 'build.json':
+                files.add(name)
+        elif not item.is_dir():
+            raise ValueError('Release contains a non-regular filesystem entry.')
+    if files != set(manifest['files']) or actual_links != links:
+        raise ValueError('Release file inventory differs from the verified bundle.')
+    top = path.resolve()
+    for name, target in links.items():
+        try:
+            resolved = (path / name).resolve(strict=True)
+        except (OSError, RuntimeError):
+            raise ValueError('Release symlink is broken: ' + name)
+        if os.path.isabs(target) or (resolved != top and top not in resolved.parents):
+            raise ValueError('Release symlink leaves the release: ' + name)
+    for name, digest in manifest['files'].items():
+        if file_sha256(path / name) != digest:
             raise ValueError('Release file checksum mismatch: ' + name)
 
 
 def prepare_release(archive, expected_sha, revision, root=ROOT):
     if not re.fullmatch(r'[a-f0-9]{40}', revision):
         raise ValueError('Revision must be the exact forty-character commit.')
-    if hashlib.sha256(archive.read_bytes()).hexdigest() != expected_sha:
+    if file_sha256(archive) != expected_sha:
         raise ValueError('Archive checksum mismatch; nothing installed.')
     releases = root / 'releases'
     releases.mkdir(parents=True, exist_ok=True)
@@ -124,13 +258,16 @@ def prepare_release(archive, expected_sha, revision, root=ROOT):
                 bundle.extractall(stage, filter='data')
                 verify_release(stage, revision, manifest)
                 # data_filter intentionally omits directory modes; normalize the verified
-                # bundle so a restrictive caller umask cannot hide service files.
+                # bundle so a restrictive caller umask cannot hide service files. chmod
+                # follows symlinks, so links are skipped (their targets are entries too).
                 stage.chmod(0o755)
-                for directory_path in stage.rglob('*'):
-                    if directory_path.is_dir():
+                for directory_path, _ in walk(stage):
+                    if directory_path.is_dir() and not directory_path.is_symlink():
                         directory_path.chmod(0o755)
                 for entry in bundle.getmembers():
                     target = stage / entry.name
+                    if entry.issym() or entry.islnk() or target.is_symlink():
+                        continue
                     if target.is_dir():
                         target.chmod(0o755)
                     elif target.is_file():
@@ -206,14 +343,27 @@ class Cutover:
             raise RuntimeError('Rollback encountered a service or filesystem error; inspect local service status.')
 
 
+def store_renders(opener, port):
+    """GET / answers 200 with server-rendered HTML (the page text, not an empty client shell)."""
+    request = urllib.request.Request('http://127.0.0.1:%d/' % port, headers={
+        # A monitor user agent, so the store does not count the check as a page view.
+        'Accept': 'text/html', 'User-Agent': 'silicon-apps-install-monitor (python)'})
+    with opener.open(request, timeout=10) as response:
+        body = response.read(4 * 1024 * 1024).decode('utf-8', 'replace')
+        return (response.status == 200 and response.headers.get_content_type() == 'text/html'
+                and all(text in body for text in STORE_READY_TEXT))
+
+
 def wait_ready(service, role, timeout=60):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
             if role == 'api':
-                with opener.open('http://127.0.0.1:4310/health', timeout=2) as response:
+                with opener.open(API_URL + '/health', timeout=2) as response:
                     ready = json.load(response).get('status') == 'ok'
+            elif role == 'store':
+                ready = store_renders(opener, STORE_PORT)
             else:
                 request = urllib.request.Request('http://127.0.0.1:4312/validate', data=b'{}')
                 try:
@@ -226,7 +376,64 @@ def wait_ready(service, role, timeout=60):
         except (OSError, ValueError):
             pass
         time.sleep(1)
-    raise RuntimeError('Local service readiness timed out; no successful cutover recorded.')
+    raise RuntimeError(service + ' readiness timed out; no successful cutover recorded.')
+
+
+def unit_properties(unit, release):
+    """The [Service] settings of a reviewed unit as systemd-run properties, pointed at one release."""
+    properties, section = [], None
+    for line in unit.splitlines():
+        line = line.strip()
+        if line.startswith('[') and line.endswith(']'):
+            section = line
+        elif section == '[Service]' and '=' in line and not line.startswith('#'):
+            key, value = line.split('=', 1)
+            if key in ('ExecStart', 'Restart', 'RestartSec'):
+                continue
+            properties += ['-p', key + '=' + value.replace('/opt/silicon-apps/current', str(release))]
+    return properties
+
+
+def preflight_store(release, timeout=90):
+    """Run the candidate store from its release directory, with the store unit's user and
+    sandbox, on a spare port against the running API. It must render before anything live changes."""
+    unit = (release / 'deploy' / (STORE_SERVICE + '.service')).read_text()
+    subprocess.run(['systemctl', 'stop', PREFLIGHT_UNIT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(['systemctl', 'reset-failed', PREFLIGHT_UNIT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    run(['systemd-run', '--quiet', '--collect', '--unit', PREFLIGHT_UNIT, '--description',
+         'Silicon Apps candidate store check', *unit_properties(unit, release),
+         '-p', 'Environment=PORT=%d' % PREFLIGHT_PORT, '--',
+         str(release / 'node/bin/node'), str(release / 'store/server.js')], stdout=subprocess.DEVNULL)
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if subprocess.run(['systemctl', 'is-active', '--quiet', PREFLIGHT_UNIT]).returncode != 0:
+                raise RuntimeError('The candidate store exited before it rendered; see journalctl -u '
+                                   + PREFLIGHT_UNIT + '. Nothing was changed.')
+            try:
+                if store_renders(opener, PREFLIGHT_PORT):
+                    return
+            except (OSError, ValueError):
+                pass
+            time.sleep(1)
+        raise RuntimeError('The candidate store did not render GET / in time; see journalctl -u '
+                           + PREFLIGHT_UNIT + '. Nothing was changed.')
+    finally:
+        subprocess.run(['systemctl', 'stop', PREFLIGHT_UNIT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def verify_signing(active_key_id):
+    """The started API publishes the configured active key and the pinned keys unchanged."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(API_URL + '/.well-known/silicon-apps-keys.json', timeout=10) as response:
+        document = json.load(response)
+    published = {key.get('key_id'): key.get('public_key') for key in document.get('keys', [])}
+    if document.get('active_key_id') != active_key_id or active_key_id not in published:
+        raise RuntimeError('The API does not publish the configured active signing key.')
+    for key_id, public_key in PINNED_SIGNING_KEYS.items():
+        if key_id in published and published[key_id] != public_key:
+            raise RuntimeError('The API publishes signing key ' + key_id + ' with a different public key than the CLI pins.')
 
 
 def main():
@@ -246,10 +453,8 @@ def main():
     token = secret.get('APPS_RUNNER_TOKEN', '')
     if len(token) < 32 or not token.isascii() or any(c.isspace() for c in token):
         raise ValueError('Production runner token must contain at least 32 ASCII non-space characters.')
-    if args.role == 'api':
-        required = ('APPS_ACCOUNTS_APP_SECRET', 'APPS_ACCOUNTS_SERVICE_TOKEN', 'APPS_RUNNER_URL')
-        if any(not secret.get(key) for key in required) or secret.get('APPS_DEV_AUTH') != '0':
-            raise ValueError('Production integrations are required and APPS_DEV_AUTH must be 0.')
+    # Includes APPS_SIGNING_KEYS: the API refuses to start without it, so fail before any change.
+    active_key = check_api_secret(secret) if args.role == 'api' else None
     release = prepare_release(pathlib.Path(args.archive), args.sha256, args.revision)
     directory(ETC / 'silicon-apps', 'root', 0o700)
     files = {}
@@ -302,13 +507,17 @@ def main():
         account('caddy', STATE / 'caddy')
         directory(STATE / 'caddy', 'caddy')
         directory(ETC / 'caddy', 'root', 0o755)
+        # The store runs as its own user with no state and no access to the API's secrets.
+        account(STORE_USER, STATE / STORE_USER)
         # Validate the candidate without replacing the live configuration.
         run([str(release / 'bin/caddy'), 'validate', '--config', str(release / 'deploy/Caddyfile')], stdout=subprocess.DEVNULL)
+        preflight_store(release)
         env = secret
         service = 'silicon-apps-api'
-        services = [service, 'caddy', 'silicon-apps-backup.timer']
+        services = [service, STORE_SERVICE, 'caddy', 'silicon-apps-backup.timer']
         unit = (release / 'deploy/silicon-apps-api.service').read_text().replace('/opt/silicon-apps/bin/apps-server', '/opt/silicon-apps/current/bin/apps-server')
         files[ETC / 'systemd/system/silicon-apps-api.service'] = (unit, 0o644)
+        files[ETC / 'systemd/system' / (STORE_SERVICE + '.service')] = ((release / 'deploy' / (STORE_SERVICE + '.service')).read_text(), 0o644)
         files[ETC / 'caddy/Caddyfile'] = ((release / 'deploy/Caddyfile').read_text(), 0o644)
         caddy = '''[Unit]\nDescription=Silicon Apps HTTPS\nAfter=network-online.target\n[Service]\nUser=caddy\nGroup=caddy\nEnvironment=HOME=/var/lib/caddy\nExecStart=/opt/silicon-apps/current/bin/caddy run --config /etc/caddy/Caddyfile\nExecReload=/opt/silicon-apps/current/bin/caddy reload --config /etc/caddy/Caddyfile\nRestart=on-failure\nAmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nReadWritePaths=/var/lib/caddy\n[Install]\nWantedBy=multi-user.target\n'''
         files[ETC / 'systemd/system/caddy.service'] = (caddy, 0o644)
@@ -329,8 +538,14 @@ def main():
         run(['systemctl', 'daemon-reload'])
         run(['systemctl', 'enable', service], stdout=subprocess.DEVNULL)
         run(['systemctl', 'restart', service])
-        wait_ready(service, args.role)
+        # The API listens only after reading and signing every stored package, which can take a while once.
+        wait_ready(service, args.role, timeout=300 if args.role == 'api' else 60)
         if args.role == 'api':
+            # The first start with a signing key signs every existing release (backed up above).
+            verify_signing(active_key)
+            run(['systemctl', 'enable', STORE_SERVICE], stdout=subprocess.DEVNULL)
+            run(['systemctl', 'restart', STORE_SERVICE])
+            wait_ready(STORE_SERVICE, 'store')
             # Restart to use the new Caddy binary as well as its configuration.
             run(['systemctl', 'enable', 'caddy', 'silicon-apps-backup.timer'], stdout=subprocess.DEVNULL)
             run(['systemctl', 'restart', 'caddy', 'silicon-apps-backup.timer'])

@@ -1,0 +1,16 @@
+/* Settings: four quiet cards (the account, appearance, telemetry, reporting a problem), one column. */
+.cards { display: grid; gap: var(--space-4); }
+.card { --sq-r: var(--radius-panel); --sq-fill: var(--surface); --sq-stroke: var(--border); display: grid; gap: var(--space-4); border: 1px solid var(--sq-stroke); padding: var(--space-6); background: var(--sq-fill); scroll-margin-top: 80px; }
+.cardTitle { margin: 0; color: var(--foreground); font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; letter-spacing: -.02em; }
+.text { margin: 0; color: var(--text-secondary); line-height: 1.6; }
+.note { margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.55; }
+.row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.who { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.whoText { display: grid; min-width: 0; }
+.whoName { overflow: hidden; color: var(--foreground); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.whoId { overflow: hidden; color: var(--text-muted); font-family: var(--font-mono); font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
+.form { display: grid; gap: var(--space-4); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+@media (max-width: 599px) {
+  .card { padding: var(--space-5); }
+}

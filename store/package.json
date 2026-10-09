@@ -1,0 +1,37 @@
+{
+  "name": "@silicon-apps/store",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The Silicon Apps store at apps.teamofsilicons.com: server-rendered discovery, app pages, reviews and agent endpoints.",
+  "scripts": {
+    "dev": "node scripts/build-llms.mjs --quiet && next dev --hostname 127.0.0.1 --port ${PORT:-8710}",
+    "build": "node scripts/build-llms.mjs && next build && node scripts/standalone.mjs",
+    "start": "cd .next/standalone && HOSTNAME=${HOSTNAME:-127.0.0.1} PORT=${PORT:-8710} node server.js",
+    "typecheck": "node scripts/build-llms.mjs --quiet && next typegen && tsc --noEmit -p tsconfig.json",
+    "lint": "eslint --max-warnings=0 .",
+    "build:llms": "node scripts/build-llms.mjs",
+    "test:e2e": "playwright test",
+    "e2e:api": "node scripts/e2e-api.mjs",
+    "seed": "node scripts/seed-fixture.mjs",
+    "screens": "node scripts/screens.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "1.52.0",
+    "next": "16.3.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "24.19.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.8",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

@@ -1,0 +1,349 @@
+/*
+ * The store's shared pieces, in the developer site's language (developer/components/home/home.module.css and Arc UI):
+ * quiet squircle cards on the page, BDO Grotesk headings, brand blue only where you act, fills (never rings) for hover
+ * and keyboard focus. Every rounded surface is a squircle: data-sq plus --sq-r / --sq-fill / --sq-stroke.
+ */
+
+/* Page frame ------------------------------------------------------------------------------------------------------ */
+.page { width: 100%; max-width: var(--page-max); margin-inline: auto; padding: clamp(24px, 4vw, 40px) var(--gutter) clamp(64px, 8vw, 104px); }
+.narrow { max-width: calc(var(--page-narrow) + 2 * var(--gutter)); }
+.pageHead { display: grid; gap: var(--space-3); max-width: 760px; margin: var(--space-6) 0 clamp(24px, 3vw, 36px); }
+.eyebrow { margin: 0; color: var(--accent-ink); font-size: var(--text-sm); font-weight: 600; }
+.pageTitle {
+  margin: 0;
+  color: var(--foreground);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1.45rem + 2.2vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+.lede { margin: 0; color: var(--text-secondary); font-size: 1.0625rem; line-height: 1.65; text-wrap: pretty; }
+.muted { color: var(--text-muted); }
+.small { font-size: var(--text-sm); }
+.page :not(pre) > code:not(.commandText) { --sq-r: 6px; padding: .08em .34em; background: var(--surface-muted); color: var(--foreground); font-size: .86em; overflow-wrap: anywhere; }
+
+/* Breadcrumbs. */
+.crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; color: var(--text-muted); font-size: var(--text-sm); list-style: none; }
+.crumbs li { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.crumbs li + li::before { content: "/"; color: var(--border-strong); }
+.crumbs a { color: var(--text-secondary); text-decoration: none; }
+.crumbs a:hover { color: var(--foreground); text-decoration: underline; text-underline-offset: .22em; }
+.crumbs [aria-current] { overflow: hidden; color: var(--foreground); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Search results. */
+.results { margin-top: var(--space-8); }
+.resultsCount { margin: 0 0 var(--space-4); color: var(--text-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+
+/* Section heads. */
+.section { margin-top: clamp(48px, 6vw, 72px); scroll-margin-top: 80px; }
+.sectionHead { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-3) var(--space-6); margin-bottom: var(--space-6); }
+.sectionHeadText { display: grid; gap: var(--space-2); min-width: 0; max-width: 680px; }
+.sectionTitle { margin: 0; color: var(--foreground); font-family: var(--font-display); font-size: clamp(1.5rem, 1.2rem + 1.1vw, 2rem); font-weight: 600; letter-spacing: -.03em; line-height: 1.1; }
+.sectionLede { margin: 0; color: var(--text-secondary); line-height: 1.6; }
+.moreLink { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-ink); font-size: var(--text-sm); font-weight: 500; text-decoration: none; white-space: nowrap; }
+.moreLink:hover, .moreLink:focus-visible { text-decoration: underline; text-underline-offset: .22em; }
+
+/* App logos and avatars ----------------------------------------------------------------------------------------- */
+.logo { --sq-r: 22%; display: block; flex: none; object-fit: cover; background: var(--surface); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent); }
+img.logo { border: 1px solid var(--border-subtle); }
+.monogram {
+  --sq-r: 22%;
+  display: grid;
+  flex: none;
+  place-items: center;
+  background: linear-gradient(145deg, color-mix(in oklab, var(--primary) 16%, var(--surface)), color-mix(in oklab, var(--primary) 7%, var(--surface)));
+  color: var(--accent-ink);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -.02em;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+.avatar { --sq-r: 30%; display: inline-grid; flex: none; place-items: center; background: var(--surface-muted); color: var(--foreground); font-family: var(--font-display); font-weight: 600; }
+.avatar[data-kind="Silicon"] { background: var(--accent-subtle); color: var(--accent-ink); }
+
+/* Stars: decoration next to the number they repeat (the number is always there as text). */
+.stars { --star: #C2700C; --star-empty: var(--border-strong); display: inline-flex; flex: none; align-items: center; gap: 1px; }
+:global(:root[data-theme="dark"]) .stars { --star: #E9B24F; }
+.star { color: var(--star-empty); }
+.starOn { color: var(--star); fill: var(--star); }
+.starHalf { color: var(--star); fill: color-mix(in oklab, var(--star) 45%, transparent); }
+
+/* Badges and chips. */
+.badge {
+  --sq-r: 7px;
+  --sq-fill: var(--surface-muted);
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  background: var(--sq-fill);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.badgeAccent { --sq-fill: var(--accent-subtle); color: var(--accent-ink); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.chip {
+  --sq-r: 11px;
+  --sq-fill: var(--surface);
+  --sq-stroke: var(--border);
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--sq-stroke);
+  padding: 0 12px;
+  background: var(--sq-fill);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+.chip:hover, .chip:focus-visible { --sq-fill: var(--surface-muted); --sq-stroke: var(--border-strong); color: var(--foreground); }
+.chip[aria-current] { --sq-fill: var(--accent-subtle); --sq-stroke: transparent; color: var(--accent-ink); }
+.chipCount { color: var(--text-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+
+/* App cards ----------------------------------------------------------------------------------------------------- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.grid > li { display: grid; min-width: 0; }
+.card {
+  --sq-r: var(--radius-panel);
+  --sq-fill: var(--surface);
+  --sq-stroke: var(--border);
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-4);
+  min-width: 0;
+  border: 1px solid var(--sq-stroke);
+  padding: var(--space-5);
+  background: var(--sq-fill);
+  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-standard) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
+}
+.card:hover, .card:focus-within { --sq-stroke: var(--border-strong); box-shadow: var(--shadow-raised); }
+.card:active { transform: scale(.995); }
+.cardTop { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.cardTitle { display: grid; gap: 3px; min-width: 0; }
+.cardName { overflow: hidden; margin: 0; color: var(--foreground); font-family: var(--font-display); font-size: 1.1875rem; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.cardName a { color: inherit; text-decoration: none; }
+/* The whole card is the link's target, so the name stays the one accessible link. */
+.cardName a::after { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.cardName a:focus-visible { background: none; box-shadow: none; text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .25em; }
+.cardId { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; color: var(--text-muted); font-family: var(--font-mono); font-size: .8125rem; letter-spacing: 0; }
+.cardText { display: -webkit-box; overflow: hidden; margin: 0; color: var(--text-secondary); font-size: .9375rem; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin: 0; padding: 0; color: var(--text-secondary); font-size: var(--text-sm); list-style: none; }
+.meta li { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.meta svg { color: var(--text-muted); }
+.meta .metaStar { color: var(--star, #C2700C); fill: currentColor; }
+:global(:root[data-theme="dark"]) .meta .metaStar { color: #E9B24F; }
+.metaOs { color: var(--text-muted); }
+
+/* Featured: a wider card with the banner (or a quiet wash with the logo) on top. */
+.featuredGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.featuredGrid > li { display: grid; min-width: 0; }
+.featured { grid-template-rows: auto auto 1fr auto; padding: 0; overflow: hidden; }
+.featuredArt { --sq-r: 0; position: relative; display: grid; aspect-ratio: 3 / 1; place-items: center; overflow: hidden; border-bottom: 1px solid var(--border-subtle); background: var(--surface-muted); }
+.featuredArt img { width: 100%; height: 100%; object-fit: cover; }
+.featuredWash { position: absolute; inset: 0; background-image: radial-gradient(var(--dot-color) 1px, transparent 1.3px), var(--wash); background-size: 18px 18px, 100% 100%; }
+.featuredArt .logo, .featuredArt .monogram { position: relative; box-shadow: var(--shadow-raised); }
+.featured .cardTop, .featured .cardText, .featured .meta { padding-inline: var(--space-5); }
+.featuredTop { padding-top: var(--space-1); }
+.featured .meta { padding-bottom: var(--space-5); }
+
+/* Commands -------------------------------------------------------------------------------------------------------- */
+/* One command on one line, with Arc's icon copy button: the install command on cards and app pages. */
+.command {
+  --sq-r: var(--radius-control);
+  --sq-fill: var(--surface);
+  --sq-stroke: var(--border);
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--sq-stroke);
+  padding: 4px 4px 4px var(--space-4);
+  background: var(--sq-fill);
+}
+.commandText { flex: 1; min-width: 0; overflow-x: auto; color: var(--foreground); font-family: var(--font-mono); font-size: .875rem; letter-spacing: 0; white-space: pre; scrollbar-width: none; }
+.commandText::-webkit-scrollbar { display: none; }
+.prompt { color: var(--accent-ink); user-select: none; }
+.commandLarge { min-height: 56px; }
+.commandLarge .commandText { font-size: .9375rem; }
+
+/* Empty states and notices -------------------------------------------------------------------------------------- */
+.empty {
+  --sq-r: var(--radius-surface);
+  --sq-fill: var(--surface);
+  --sq-stroke: var(--border);
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--sq-stroke);
+  padding: clamp(36px, 6vw, 64px) var(--space-6);
+  background: var(--sq-fill);
+  text-align: center;
+}
+.empty::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--wash); }
+.emptyIcon { --sq-r: 14px; --sq-fill: var(--accent-subtle); display: grid; width: 48px; height: 48px; place-items: center; margin-bottom: var(--space-1); background: var(--sq-fill); color: var(--accent-ink); }
+.emptyTitle { margin: 0; color: var(--foreground); font-family: var(--font-display); font-size: clamp(1.375rem, 1.2rem + .8vw, 1.75rem); font-weight: 600; letter-spacing: -.025em; line-height: 1.15; }
+.emptyCopy { display: grid; justify-items: center; gap: var(--space-3); max-width: 52ch; color: var(--text-secondary); line-height: 1.6; }
+.emptyCopy p { margin: 0; }
+.emptyActions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-2); }
+
+.notice { --sq-r: var(--radius-control); --sq-fill: var(--surface); --sq-stroke: var(--border); display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--space-3); border: 1px solid var(--sq-stroke); padding: var(--space-4) var(--space-5); background: var(--sq-fill); color: var(--foreground); line-height: 1.6; }
+.notice svg { margin-top: 3px; }
+.notice p { margin: 0; }
+.noticeTitle { font-weight: 600; }
+.noticeBody { display: grid; gap: var(--space-1); color: var(--text-secondary); }
+.success { --sq-fill: color-mix(in oklab, var(--success) 8%, var(--surface)); --sq-stroke: color-mix(in oklab, var(--success) 30%, var(--border)); }
+.success svg { color: var(--success); }
+.danger { --sq-fill: color-mix(in oklab, var(--danger) 7%, var(--surface)); --sq-stroke: color-mix(in oklab, var(--danger) 30%, var(--border)); }
+.danger svg { color: var(--danger); }
+.info { --sq-fill: var(--accent-subtle); --sq-stroke: transparent; }
+.info svg { color: var(--accent-ink); }
+
+/* Pagination: Arc's pagination as plain links. */
+.pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-2); margin-top: var(--space-8); }
+.pagination ol { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.pagination li { display: flex; align-items: center; gap: 4px; }
+.pageLink {
+  --sq-r: 11px;
+  --sq-fill: transparent;
+  display: inline-flex;
+  min-width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px;
+  background: var(--sq-fill);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+a.pageLink:hover, a.pageLink:focus-visible { --sq-fill: var(--surface-muted); color: var(--foreground); }
+.pageLink[aria-current] { --sq-fill: var(--primary); color: var(--primary-foreground); }
+.pageLink[aria-disabled] { color: var(--text-muted); opacity: .6; }
+.pageGap { color: var(--text-muted); }
+
+/* Form controls: Arc's input, select, textarea and search field as plain HTML. ------------------------------------- */
+.field { display: grid; gap: var(--space-2); min-width: 0; }
+.label { color: var(--foreground); font-size: var(--text-sm); font-weight: 500; line-height: var(--leading-body); }
+.hint { margin: 0; color: var(--text-muted); font-size: var(--text-xs); line-height: var(--leading-body); }
+.hint[data-low] { color: var(--warning); }
+.input, .select, .textarea {
+  --sq-r: var(--radius-control);
+  width: 100%;
+  min-height: var(--control-height-md);
+  border: 1px solid var(--border-strong);
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--foreground);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+.textarea { min-height: 112px; padding: var(--space-3); line-height: 1.55; resize: vertical; }
+.select {
+  appearance: none;
+  padding-right: 36px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%), linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 52%, calc(100% - 13px) 52%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+  cursor: pointer;
+}
+.input::placeholder, .textarea::placeholder { color: var(--text-muted); }
+@media (hover: hover) and (pointer: fine) { .input:hover, .select:hover, .textarea:hover { border-color: var(--foreground); } }
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible { border-color: var(--foreground); }
+
+/* The search field: a squircle shell with the glass, the field and the button. */
+.search { width: 100%; }
+.searchShell {
+  --sq-r: var(--radius-control);
+  --sq-fill: var(--surface);
+  --sq-stroke: var(--border-strong);
+  display: flex;
+  min-height: var(--control-height-lg);
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--sq-stroke);
+  padding: 4px 4px 4px var(--space-4);
+  background: var(--sq-fill);
+  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-standard) var(--ease-standard);
+}
+@media (hover: hover) and (pointer: fine) { .searchShell:hover:not(:focus-within) { --sq-stroke: var(--foreground); } }
+.searchShell:focus-within { --sq-stroke: var(--foreground); }
+.searchShell > svg { flex: none; color: var(--text-muted); transition: color var(--duration-fast) var(--ease-standard); }
+.searchShell:focus-within > svg { color: var(--foreground); }
+.searchInput { width: 100%; min-width: 0; height: 40px; border: 0; padding: 0; background: transparent; color: var(--foreground); font: inherit; font-size: var(--text-base); outline: 0; }
+.searchInput::placeholder { color: var(--text-muted); }
+.searchInput::-webkit-search-cancel-button { display: none; }
+.searchLarge .searchShell { min-height: 60px; padding: 6px 6px 6px var(--space-5); box-shadow: var(--shadow-raised); }
+.searchLarge .searchInput { font-size: 1.0625rem; }
+.searchButton { flex: none; }
+
+/* The search page's filters: one form, the field on top and the filters in a row under it. */
+.filters { --sq-r: var(--radius-panel); --sq-fill: var(--surface); --sq-stroke: var(--border); display: grid; gap: var(--space-4); border: 1px solid var(--sq-stroke); padding: var(--space-5); background: var(--sq-fill); }
+.filterRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; align-items: end; gap: var(--space-4); }
+.filterSubmit { min-width: 120px; }
+
+/* Segmented control: Arc's segmented control as radio buttons. */
+.segmented { min-width: 0; margin: 0; border: 0; padding: 0; }
+.segmented legend { margin-bottom: var(--space-2); padding: 0; }
+.segmentTrack { --sq-r: 12px; --sq-fill: var(--surface-muted); display: inline-flex; gap: 2px; padding: 3px; background: var(--sq-fill); }
+.segment { position: relative; display: inline-flex; }
+.segment input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.segment span { --sq-r: 9px; --sq-fill: transparent; display: inline-flex; height: 36px; align-items: center; padding: 0 14px; background: var(--sq-fill); color: var(--text-secondary); font-size: var(--text-sm); font-weight: 500; transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.segment:hover span { color: var(--foreground); }
+.segment input:checked + span { --sq-fill: var(--surface); color: var(--foreground); box-shadow: var(--shadow-resting); }
+.segment input:focus-visible + span { color: var(--foreground); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
+
+@media (max-width: 899px) {
+  .filterRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .filterSubmit { width: 100%; }
+}
+@media (max-width: 1023px) {
+  .featuredGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .featuredGrid > li:nth-child(3) { display: none; }
+}
+@media (max-width: 719px) {
+  .filters { padding: var(--space-4); }
+  /* Tag and platform stay side by side on a phone, so the results start sooner. */
+  .filterRow { gap: var(--space-3); }
+  .filterRow > .segmented, .filterRow > .filterSubmit { grid-column: 1 / -1; }
+  .featuredGrid { grid-template-columns: minmax(0, 1fr); }
+  .featuredGrid > li:nth-child(3) { display: grid; }
+  .card { padding: var(--space-4); }
+  .featured { padding: 0; }
+  .featured .cardTop, .featured .cardText, .featured .meta { padding-inline: var(--space-4); }
+  .featured .meta { padding-bottom: var(--space-4); }
+}
+@media (max-width: 399px) {
+  .filterRow { grid-template-columns: minmax(0, 1fr); }
+}
+/* On a phone the whole command stays visible: it wraps instead of scrolling out of sight. */
+@media (max-width: 479px) {
+  .commandText { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .commandLarge .commandText { font-size: .875rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .chip, .pageLink, .searchShell, .searchShell > svg, .input, .select, .textarea, .segment span { transition: none; }
+  .card:active { transform: none; }
+}

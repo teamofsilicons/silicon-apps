@@ -1,4 +1,5 @@
-# The current symlink selects one immutable release containing web/ and bin/.
+# The current symlink selects one immutable release: bin/ (API, Caddy), node/, store/ (the
+# server-rendered store, a Next.js standalone server on 127.0.0.1:4320) and web/ (the installers).
 # The shared developer frontend lives with Accounts at developers.teamofsilicons.com.
 developer.teamofsilicons.com {
 	map {query.tab} {authoring_section} {
@@ -17,7 +18,6 @@ developer.teamofsilicons.com {
 }
 
 apps.teamofsilicons.com {
-	encode zstd gzip
 	map {query.tab} {authoring_section} {
 		authors authors
 		releases releases
@@ -43,8 +43,23 @@ apps.teamofsilicons.com {
 	@docsPage path_regexp docsPage ^/docs/(.+)$
 	redir @docsPage https://developers.teamofsilicons.com/docs/apps/{re.docsPage.1}?{query} 308
 
-	@api path /v1 /v1/* /health
+	# Server-Sent Events: straight to the API, flushed on every write and never compressed.
+	@apps_sse path_regexp apps_sse ^/v1/(apps/[^/]+/)?events/stream$
+	handle @apps_sse {
+		reverse_proxy 127.0.0.1:4310 {
+			flush_interval -1
+		}
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+	}
+
+	# The Apps API and its discovery documents. The event streams above are excluded so the
+	# two routes never overlap, whatever order Caddy sorts them in.
+	@api {
+		path /v1 /v1/* /health /openapi.json /.well-known/agent.json /.well-known/agent-card.json /.well-known/silicon-apps-keys.json
+		not path_regexp ^/v1/(apps/[^/]+/)?events/stream$
+	}
 	handle @api {
+		encode zstd gzip
 		request_body {
 			max_size 180MB
 		}
@@ -55,30 +70,36 @@ apps.teamofsilicons.com {
 				response_header_timeout 150s
 			}
 		}
-		header Cache-Control "no-store"
+		# The API sets its own caching (private, no-store; discovery documents for 5 minutes).
+		header ?Cache-Control "no-store"
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 	}
 
 	@installers path /install.sh /install.ps1
 	handle @installers {
+		encode zstd gzip
 		root * /opt/silicon-apps/current/web
 		header Content-Type "text/plain; charset=utf-8"
 		header Cache-Control "no-cache"
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 		file_server
 	}
 
-	# Hashed assets are immutable. A missing asset must return 404, not index.html.
-	@assets path /assets/*
-	handle @assets {
-		root * /opt/silicon-apps/current/web
+	# The store's hashed build files are immutable. A missing file is a 404 from disk, never a page.
+	handle_path /_next/static/* {
+		encode zstd gzip
+		root * /opt/silicon-apps/current/store/.next/static
 		header Cache-Control "public, max-age=31536000, immutable"
 		file_server
 	}
 
+	# Everything else is the server-rendered store. It sets its own Content-Security-Policy with a
+	# fresh nonce per response, so none is set here.
 	handle {
-		root * /opt/silicon-apps/current/web
-		header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' https: data:; media-src 'self' https:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-		header Cache-Control "no-cache"
-		try_files {path} /index.html
-		file_server
+		encode zstd gzip
+		request_body {
+			max_size 2MB
+		}
+		reverse_proxy 127.0.0.1:4320
 	}
 }

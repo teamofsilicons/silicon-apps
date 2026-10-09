@@ -1,0 +1,21 @@
+# Dependencies
+/node_modules
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Built by `pnpm build:llms` (store/llms → the agent files' module) before dev, build and typecheck
+/lib/agent/generated/
+
+# Local environment
+.env*
+!.env.example
+
+# Playwright and screenshot output
+/test-results/
+/playwright-report/
+/e2e/.artifacts/
+/.screens/
