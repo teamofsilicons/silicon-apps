@@ -1,5 +1,81 @@
-use crate::error::{ApiError, Result};
-use std::{net::SocketAddr, path::PathBuf};
+use crate::{
+    error::{ApiError, Result},
+    model::{Identity, reserved_app_id, valid_app_id},
+};
+use std::{collections::BTreeMap, net::SocketAddr, path::PathBuf};
+
+/// `APPS_HISTORICAL_APP_IDS`: app IDs that Silicon Accounts issued before
+/// Silicon Apps existed and that are shorter than a new ID may be (1 or 2
+/// characters, such as `dm`). Each is reserved for the one Carbon or Silicon,
+/// by Silicon Accounts UUID, who may create it here; to anyone else it is an
+/// invalid ID. Comma-separated `app_id:owner_uuid` entries, such as `dm:zQo`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct HistoricalAppIds(BTreeMap<String, String>);
+impl HistoricalAppIds {
+    pub fn parse(raw: &str) -> Result<Self> {
+        let bad = |message: String| {
+            ApiError::new(
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "invalid_historical_app_ids",
+                message,
+                "Set APPS_HISTORICAL_APP_IDS to comma-separated app_id:owner_uuid entries, such as dm:zQo, or leave it unset.",
+            )
+        };
+        let mut ids = BTreeMap::new();
+        for entry in raw.split(',').map(str::trim).filter(|e| !e.is_empty()) {
+            let Some((id, owner)) = entry.split_once(':') else {
+                return Err(bad(format!(
+                    "APPS_HISTORICAL_APP_IDS entry `{entry}` is not app_id:owner_uuid."
+                )));
+            };
+            let (id, owner) = (id.trim(), owner.trim());
+            if !silicon_apps_package::valid_existing_app_id(id) {
+                return Err(bad(format!(
+                    "APPS_HISTORICAL_APP_IDS: `{id}` is not an app ID; a historical app ID is 1 or 2 of a-z, 0-9, - and _."
+                )));
+            }
+            if reserved_app_id(id) {
+                return Err(bad(format!(
+                    "APPS_HISTORICAL_APP_IDS: `{id}` is reserved for a built-in Silicon Accounts service."
+                )));
+            }
+            if valid_app_id(id) {
+                return Err(bad(format!(
+                    "APPS_HISTORICAL_APP_IDS: `{id}` has 3 or more characters, so it is an ordinary new app ID; list only historical app IDs of 1 or 2 characters."
+                )));
+            }
+            if owner.is_empty() {
+                return Err(bad(format!(
+                    "APPS_HISTORICAL_APP_IDS: `{id}` has no owner; put the owner's Silicon Accounts UUID after the colon."
+                )));
+            }
+            if !owner.bytes().all(|b| b.is_ascii_alphanumeric()) {
+                return Err(bad(format!(
+                    "APPS_HISTORICAL_APP_IDS: owner `{owner}` of `{id}` is not a Silicon Accounts UUID; a UUID is ASCII letters and digits, matched exactly."
+                )));
+            }
+            if ids.insert(id.to_owned(), owner.to_owned()).is_some() {
+                return Err(bad(format!(
+                    "APPS_HISTORICAL_APP_IDS lists `{id}` more than once; give each historical app ID exactly one owner."
+                )));
+            }
+        }
+        Ok(Self(ids))
+    }
+    /// Whether `who` is signed in as the configured owner of the historical
+    /// app ID `id`. UUIDs are case-sensitive and compared exactly.
+    pub fn allows(&self, id: &str, who: Option<&Identity>) -> bool {
+        who.is_some_and(|who| self.0.get(id).is_some_and(|owner| *owner == who.uuid))
+    }
+    /// The configured historical app IDs, in order.
+    pub fn ids(&self) -> Vec<&str> {
+        self.0.keys().map(String::as_str).collect()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 #[derive(Clone)]
 pub struct Config {
     pub bind: SocketAddr,
@@ -19,6 +95,9 @@ pub struct Config {
     pub telemetry_enabled: bool,
     pub telemetry_table_key: Option<String>,
     pub import_accounts: bool,
+    /// `APPS_HISTORICAL_APP_IDS`: 1–2 character Accounts app IDs and the one
+    /// account each may be created by. Empty unless configured.
+    pub historical_app_ids: HistoricalAppIds,
     /// Requests per minute per client for reads (GET); 0 disables the limit.
     pub rate_limit_reads_per_minute: u32,
     /// Requests per minute per client for mutations; 0 disables the limit.
@@ -151,6 +230,9 @@ impl Config {
             import_accounts: get("APPS_IMPORT_ACCOUNTS")
                 .map(|v| v == "1")
                 .unwrap_or(!dev_auth && get("APPS_ACCOUNTS_SERVICE_TOKEN").is_some()),
+            historical_app_ids: HistoricalAppIds::parse(
+                &get("APPS_HISTORICAL_APP_IDS").unwrap_or_default(),
+            )?,
             rate_limit_reads_per_minute: limit("APPS_RATE_LIMIT_READS_PER_MINUTE", 600)?,
             rate_limit_writes_per_minute: limit("APPS_RATE_LIMIT_WRITES_PER_MINUTE", 120)?,
             rate_limit_streams: limit("APPS_RATE_LIMIT_STREAMS", 10)?,
@@ -163,5 +245,114 @@ impl Config {
                 .map(str::to_owned)
                 .collect(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn account(uuid: &str) -> Identity {
+        Identity {
+            uuid: uuid.into(),
+            id: format!("c:{uuid}"),
+            display_name: uuid.into(),
+            verified_emails: vec![],
+        }
+    }
+    fn refused(raw: &str) -> String {
+        let error = HistoricalAppIds::parse(raw).unwrap_err();
+        assert_eq!(error.code, "invalid_historical_app_ids", "{raw}");
+        error.message
+    }
+
+    #[test]
+    fn historical_app_ids_parse_and_allow_only_their_exact_owner() {
+        assert!(HistoricalAppIds::parse("").unwrap().is_empty());
+        let ids = HistoricalAppIds::parse(" dm : zQo ,, x_:Ab9,").unwrap();
+        assert_eq!(ids.ids(), ["dm", "x_"]);
+        assert!(ids.allows("dm", Some(&account("zQo"))));
+        assert!(ids.allows("x_", Some(&account("Ab9"))));
+        // Signed out, another account, another case or another ID: never.
+        assert!(!ids.allows("dm", None));
+        assert!(!ids.allows("dm", Some(&account("Ab9"))));
+        assert!(!ids.allows("dm", Some(&account("zqo"))));
+        assert!(!ids.allows("dm", Some(&account("zQo "))));
+        assert!(!ids.allows("x_", Some(&account("zQo"))));
+        assert!(!ids.allows("wf", Some(&account("zQo"))));
+        // One owner may hold several historical IDs.
+        let both = HistoricalAppIds::parse("dm:zQo,7:zQo").unwrap();
+        assert!(
+            both.allows("dm", Some(&account("zQo"))) && both.allows("7", Some(&account("zQo")))
+        );
+    }
+
+    #[test]
+    fn malformed_historical_app_ids_are_refused_with_exact_messages() {
+        assert_eq!(
+            refused("dm"),
+            "APPS_HISTORICAL_APP_IDS entry `dm` is not app_id:owner_uuid."
+        );
+        assert_eq!(
+            refused("dm:zQo,wf"),
+            "APPS_HISTORICAL_APP_IDS entry `wf` is not app_id:owner_uuid."
+        );
+        assert_eq!(
+            refused("dm:"),
+            "APPS_HISTORICAL_APP_IDS: `dm` has no owner; put the owner's Silicon Accounts UUID after the colon."
+        );
+        assert_eq!(
+            refused("dm:zQo:extra"),
+            "APPS_HISTORICAL_APP_IDS: owner `zQo:extra` of `dm` is not a Silicon Accounts UUID; a UUID is ASCII letters and digits, matched exactly."
+        );
+        assert_eq!(
+            refused("dm:c:saket"),
+            "APPS_HISTORICAL_APP_IDS: owner `c:saket` of `dm` is not a Silicon Accounts UUID; a UUID is ASCII letters and digits, matched exactly."
+        );
+        for id in ["DM", "d.m", "", "d m"] {
+            assert_eq!(
+                refused(&format!("{id}:zQo")),
+                format!(
+                    "APPS_HISTORICAL_APP_IDS: `{id}` is not an app ID; a historical app ID is 1 or 2 of a-z, 0-9, - and _."
+                )
+            );
+        }
+        assert_eq!(
+            refused(&format!("{}:zQo", "a".repeat(31))),
+            format!(
+                "APPS_HISTORICAL_APP_IDS: `{}` is not an app ID; a historical app ID is 1 or 2 of a-z, 0-9, - and _.",
+                "a".repeat(31)
+            )
+        );
+    }
+
+    #[test]
+    fn duplicate_historical_app_ids_are_refused() {
+        for raw in ["dm:zQo,dm:Ab9", "dm:zQo, dm:zQo"] {
+            assert_eq!(
+                refused(raw),
+                "APPS_HISTORICAL_APP_IDS lists `dm` more than once; give each historical app ID exactly one owner."
+            );
+        }
+    }
+
+    #[test]
+    fn ids_anyone_can_create_or_that_are_reserved_are_refused() {
+        for id in ["abc", "dm-", "briefcase"] {
+            assert_eq!(
+                refused(&format!("{id}:zQo")),
+                format!(
+                    "APPS_HISTORICAL_APP_IDS: `{id}` has 3 or more characters, so it is an ordinary new app ID; list only historical app IDs of 1 or 2 characters."
+                )
+            );
+        }
+        for id in ["apps", "accounts", "silicon-accounts", "developer"] {
+            assert_eq!(
+                refused(&format!("dm:zQo,{id}:zQo")),
+                format!(
+                    "APPS_HISTORICAL_APP_IDS: `{id}` is reserved for a built-in Silicon Accounts service."
+                )
+            );
+        }
     }
 }

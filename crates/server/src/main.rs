@@ -12,6 +12,12 @@ async fn main() {
 }
 async fn run() -> silicon_apps_server::error::Result<()> {
     let config = Config::from_env()?;
+    if !config.historical_app_ids.is_empty() {
+        eprintln!(
+            "Historical app IDs, each creatable only by its configured owner: {}.",
+            config.historical_app_ids.ids().join(", ")
+        );
+    }
     let bind = config.bind;
     let dev = config.dev_auth;
     let state = AppState::new(config)?;
