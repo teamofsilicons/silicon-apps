@@ -194,3 +194,90 @@ and `/apps/silicon-apps` still answered 200 with no `modelContext` or `webmcp`.
 
 Nothing was rolled back. `production.json` records the new identities; `PreSigningBackupKey` keeps the
 pre-signing backup from the morning.
+
+## Release of 16d900b: open source wording, the status link and store polish
+
+Source `16d900b023b410cec194672a944943fb2cdf7235` (main). Since `6870857` only `store/` changed, besides the
+records of the previous release: the footer says Silicon Apps is open source under the MIT license and links
+the GitHub code, the footer's ecosystem column links `https://developers.teamofsilicons.com/status`, the home
+FAQ answers "Is Silicon Apps open source?", and the styles were polished. The API binary is byte-identical to
+the previous release, the API still reports `0.1.2`, and the worker was not touched.
+
+### Checks before the release
+
+- `CARGO_TARGET_DIR=target/integration cargo test -p silicon-apps-server --locked`: 53 tests passed, none failed.
+- Store: `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint` and `pnpm build` passed; the build
+  output held no `modelContext` or `webmcp`.
+- Deploy tests with `/opt/homebrew/bin/python3` (3.14.6): 45 ran, 8 Caddy routing tests skipped; the 9 tests
+  in `deploy/test_caddy.py` passed against the local Caddy 2.11.4.
+- `cargo zigbuild --release --locked --target aarch64-unknown-linux-gnu.2.34 -p silicon-apps-server --bin
+  apps-server` (zig 0.15.2 from the uv `ziglang` package through `CARGO_ZIGBUILD_PYTHON_PATH`) found the binary
+  up to date: SHA-256 `6d26a415926a6090e221478b9e3ceb6146d2b95b8f921e6e2a860fc8f7aaf55f`, highest glibc
+  symbol `GLIBC_2.34`.
+
+### Archive
+
+`deploy/package.py` with the same Caddy archive and `--api` built the store and wrote:
+
+| | |
+|---|---|
+| archive SHA-256 | `a91d9c6b4a388371f13eb3c65baf06a6fc0a86bde8a8accd1735b6c089e2d261` |
+| size | 80,441,682 bytes, 1,428 files, 28 symlinks |
+| API binary SHA-256 | `6d26a415926a6090e221478b9e3ceb6146d2b95b8f921e6e2a860fc8f7aaf55f` (unchanged) |
+| Node.js | 24.21.0 (pinned checksum) |
+| store build | `d4UPOZxo7-a40pHZ7jhp5`, built by the packager |
+
+The installer's `prepare_release` verified it locally; the extracted store held no `modelContext` or `webmcp`
+outside `node_modules`, did hold the status link and the MIT wording, and both installers matched `scripts/`.
+Uploaded to `releases/16d900b023b410cec194672a944943fb2cdf7235.tar.gz` (S3 version
+`D7yFABtE4YyWY3Mrwut4QMMJu00HctZq`).
+
+### Backups and install
+
+On-demand backup first (SSM `2b525adf-eb28-40ae-8574-908fa2e3e417`): `backups/20261009T124033Z.tar.gz`,
+180,225,939 bytes, S3 version `2TWYaiGd77lKAtutcuzOR7UkurCoVUQI`, confirmed with `head-object`. No secret was
+read or changed.
+
+SSM `2adf7ef3-c27d-4d0a-8e43-e53511ba181d` checked the archive's SHA-256 (`OK`) before extracting anything,
+extracted only `deploy/install.py` and ran it with `--role api`. The candidate store rendered on
+`127.0.0.1:4321`, the installer uploaded `backups/20261009T124159Z.tar.gz` (180,225,926 bytes, S3 version
+`1ucSu0S674EECcnVg8B4SmMBaE6QCDB8`) after stopping the API, and switched `current`. The API started at
+12:42:07 UTC, the store at 12:42:08, Caddy at 12:42:10. `6870857` is retained in `previous-release`. As in the
+previous release, systemd recorded the old store's SIGTERM exit (status 143) as `Failed with result
+'exit-code'` when it was stopped; the new process started normally.
+
+Host checks, SSM `05d9bfd6-4849-4e58-94a9-cfb559c781c8`: `current` and `deployment.json` name `16d900b` and the
+archive hash; `build.json` records store build `d4UPOZxo7-a40pHZ7jhp5`; the API, the store (as
+`silicon-apps-store`), Caddy and the backup timer are active and enabled with no restarts; the preflight unit
+is inactive; the binary hash matches; `/health` is ok; the keys document lists `apps-2026-10` active with the
+pinned public key and nothing revoked; `GET /` on `127.0.0.1:4320` answered 200 with 146,754 bytes, one
+`<main>`, the status link, the MIT wording, no `modelContext` and no `webmcp`. Log watch over five minutes (SSM
+`214aa7e7-b832-44c5-80fc-f89b3f99bde2` and `4971766d-64a5-4f8a-a858-ca9822f919cd`): no API warnings or
+errors, only the store's start lines, no Caddy warnings or errors after the restart (Caddy keeps no access log),
+all restart counters 0.
+
+### Public checks
+
+All against `https://apps.teamofsilicons.com`, before and after the release:
+
+| check | before (6870857) | after (16d900b) |
+|---|---|---|
+| `/`, `/search?q=accounts`, `/apps/silicon-apps`, `/apps/silicon-accounts` | 200 | 200 (146,754, 65,659, 102,451 and 106,365 bytes) |
+| footer links `https://developers.teamofsilicons.com/status` | no | yes, inside `<footer>` on all four pages |
+| "open source under the MIT license" | absent | in the footer of all four pages, and in the home FAQ and its `FAQPage` JSON-LD |
+| home FAQ questions in JSON-LD | 7 | 8 ("Is Silicon Apps open source?") |
+| `modelContext` / `webmcp` (case-insensitive) in `/`, `/search`, `/apps/silicon-apps` | 0 / 0 | 0 / 0 |
+| `/apps/silicon-accounts`, `/apps/silicon-apps` show | 0.4.0, 0.2.0 | 0.4.0, 0.2.0 |
+
+The JSON-LD types on every page are unchanged. `https://developers.teamofsilicons.com/status` itself answers
+200. After the release, as before: `/apps/no-such-app-xyz` 404; `/llms.txt` 200 starting `# Silicon Apps`;
+`/robots.txt` 200; `/sitemap.xml` 200 with 10 URLs; `POST /mcp` initialize 200 from `silicon-apps-store`,
+protocol `2025-06-18`; `/health` 200 `{"status":"ok","version":"0.1.2"}` with the strict CSP; `/openapi.json`
+200, 61 paths; `/v1/capabilities` 200; `/.well-known/agent.json` 200; `/.well-known/silicon-apps-keys.json`
+200 with `apps-2026-10` active; `/install.sh` and `/install.ps1` byte-identical to `scripts/`, `no-cache`;
+`/developer`, `/docs` and `/store/silicon-accounts` 308; static chunks `immutable`, a missing one 404;
+`/v1/events/stream` 401 JSON; `developers.teamofsilicons.com` 200. The API lists `silicon-accounts` 0.4.0 and
+`silicon-apps` 0.2.0 in production, both signed. Five minutes later the four pages still answered 200 with the
+status link and no `modelContext` or `webmcp`.
+
+Nothing was rolled back. `production.json` records the new identities.
