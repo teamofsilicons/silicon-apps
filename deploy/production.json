@@ -74,12 +74,24 @@
   },
   "WorkerVerifiedAt": "2026-10-09T15:34:44Z",
   "ActiveUploadTargets": [
-    "linux-x86_64"
-  ],
-  "VerifiedNotYetActiveUploadTargets": [
+    "linux-x86_64",
     "linux-i686",
     "linux-aarch64",
     "linux-armv7hf"
+  ],
+  "ActiveUploadTargetsSince": "2026-10-09T15:43:17Z",
+  "RuntimeSecretVersionId": "266af4f2-991f-4200-9a0b-b29be4a4fc6f",
+  "PreviousRuntimeSecretVersionId": "b54319c7-d928-43f0-85d4-7be83dd4a5f0",
+  "UploadTargetsBackupKey": "backups/20261009T154100Z.tar.gz",
+  "UploadTargetsBackupVersionId": "S7GR4z5eC92kuam9QLzBQ8QGNZC4zeiO",
+  "UploadTargetsBackupCommandId": "999a13f8-86ea-45fc-b8aa-251c8fd334b8",
+  "UploadTargetsInstallCommandId": "013316d0-6ef0-4a28-b1b5-cdc309c4e34c",
+  "UploadTargetsInstallerBackupKey": "backups/20261009T154309Z.tar.gz",
+  "UploadTargetsInstallerBackupVersionId": "NdzIVIxab6JLHKHJQ.chlIdhboujT3IS",
+  "UploadTargetsHostCheckCommandId": "adef7b53-e0e8-4ae6-ad5a-4386cac54b32",
+  "UploadTargetsLogWatchCommandIds": [
+    "3a201a76-62e9-468f-8eb9-fef0648c2f83",
+    "ffc764c6-5546-49ed-9f6b-c4ce338c2d62"
   ],
   "OwnerPublicId": "c:saket",
   "OwnerAccountsUuid": "zQo",
@@ -152,7 +164,7 @@
   "SharedDocsPublicBrowserVerified": true,
   "InstallCommandId": "2adf7ef3-c27d-4d0a-8e43-e53511ba181d",
   "VerificationCommandId": "05d9bfd6-4849-4e58-94a9-cfb559c781c8",
-  "LatestBackupKey": "backups/20261009T124159Z.tar.gz",
+  "LatestBackupKey": "backups/20261009T154309Z.tar.gz",
   "CliCommand": "silicon-apps",
   "CliGithubVersion": "0.2.0",
   "CatalogInstallVerificationCommandId": "c41ad415-9b82-41dc-b40c-ac6d14c79d0c",

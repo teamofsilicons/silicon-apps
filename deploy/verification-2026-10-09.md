@@ -410,3 +410,131 @@ the API step in `PRODUCTION.md`: add them to `APPS_RUNNER_TARGETS` in the API se
 Nothing was rolled back. `b2a3db8` is retained in `previous-release`. `production.json` records the worker
 release; `ActiveUploadTargets` stays `linux-x86_64` and `VerifiedNotYetActiveUploadTargets` lists the three
 verified targets.
+
+## Uploads opened for linux-i686, linux-aarch64 and linux-armv7hf
+
+No source change. The API host keeps release `16d900b` (archive `a91d9c6b…2e261`, API binary `6d26a415…aaf55f`);
+only its runtime configuration changed. `APPS_RUNNER_TARGETS` in the API secret now names the four targets the
+worker release `1d92c9a` verified above: `linux-x86_64,linux-i686,linux-aarch64,linux-armv7hf`. Windows and
+macOS stay closed, because no worker validates them.
+
+### Before
+
+At 15:39:53 UTC `/v1/targets` reported `runner_available: true` for `linux-x86_64` alone, and
+`/v1/capabilities?require=target:T` answered 200 for `linux-x86_64` and 422 `capabilities_missing` ("the worker
+is not configured") for `linux-i686`, `linux-aarch64` and `linux-armv7hf`. A read-only probe of the API host
+(SSM `785116e4-917e-4ecd-a176-d5c44384356c`) found `current` and `deployment.json` on `16d900b`,
+`previous-release` on `6870857`, the API, store, Caddy and backup timer active since 12:42 UTC with no
+restarts, `api.env` byte-identical to what the installer renders from secret version `b54319c7`, and the
+worker answering 401 to the API host.
+
+### Backup and secret
+
+On-demand backup first (SSM `999a13f8-86ea-45fc-b8aa-251c8fd334b8`): `backups/20261009T154100Z.tar.gz`,
+180,226,956 bytes, S3 version `S7GR4z5eC92kuam9QLzBQ8QGNZC4zeiO`, confirmed with `head-object`.
+
+The secret was read from version `b54319c7-d928-43f0-85d4-7be83dd4a5f0`, `APPS_RUNNER_TARGETS` was set, and
+the merged object passed the `16d900b` installer's own `environment_file` and `check_api_secret` in memory
+(active signing key `apps-2026-10`) before `put-secret-value` wrote it from standard input. Version
+`266af4f2-991f-4200-9a0b-b29be4a4fc6f` is now `AWSCURRENT` and `b54319c7` is `AWSPREVIOUS`. Read back: the
+same 15 key names, every other value equal to before (compared in memory, never displayed), and
+`APPS_RUNNER_TARGETS` as intended. No secret value was printed or put in SSM command text.
+
+### Install
+
+The API reads its environment from `/etc/silicon-apps/api.env`, which only the installer writes, from the
+secret, so restarting the API alone would not have applied the change. The API install was run again for the
+current release, with the same archive and checksum.
+
+The first attempt (SSM `627dac19-bb87-4978-adbd-0772fe2a8ec6`) stopped in `prepare_release` with "Release file
+inventory differs from the verified bundle", before anything changed: the service PIDs and `api.env` were
+untouched. The cause was this operator's probe above: it loaded `current/deploy/install.py` as root to render
+`api.env` for comparison, and Python 3.9 wrote `deploy/__pycache__/install.cpython-39.pyc` into the release at
+15:40:24 UTC. SSM `5202869b-87c5-4e5d-b5f9-419f630860e0` removed that file and its directory after checking it
+was the only entry there and carried that timestamp, and SSM `ec274474-b29a-44af-8ac0-9b21ee827ae5` found the
+release's files and symlinks matching its `build.json` again, with no `__pycache__`; the second attempt's own
+check, which also hashes every file, passed. Later checks load the installer from the bootstrap copy with
+`python3 -B`. The installer's inventory check did its job.
+
+The second attempt (SSM `013316d0-6ef0-4a28-b1b5-cdc309c4e34c`) checked the archive already on the host
+(`OK`), extracted only `deploy/install.py` (SHA-256 `f28b0b8f…19f01`, the file at `16d900b`) and ran it with
+`--role api`. It took 17 seconds, 15:43:03 to 15:43:20 UTC. The candidate store rendered on `127.0.0.1:4321`;
+the API stopped at 15:43:09; the installer uploaded `backups/20261009T154309Z.tar.gz` (180,226,930 bytes, S3
+version `NdzIVIxab6JLHKHJQ.chlIdhboujT3IS`); the API started at 15:43:16 and listened at 15:43:17, the store
+restarted at 15:43:18 and Caddy at 15:43:20. The API was down for about eight seconds, while the installer
+took its backup; the store and Caddy restarted once each. As in the earlier releases, systemd recorded the old
+store's SIGTERM exit (status 143) as `Failed with result 'exit-code'`, and the new store started normally.
+
+A reinstall of the same revision makes the installer record the current release as its own previous release.
+The same command wrote `previous-release` back to `/opt/silicon-apps/releases/687085739e48c595a4a450349c1aef1c90b44820`
+(root, mode 0600, as the installer writes it), so rollback still points at `6870857`. `deployment.json` names
+`16d900b` and the same archive hash with a new install time.
+
+### Host checks
+
+SSM `adef7b53-e0e8-4ae6-ad5a-4386cac54b32` at 15:44:42 UTC: `current` and `deployment.json` name `16d900b`;
+the binary hash is still `6d26a415…aaf55f`; `api.env` is root-owned, mode 0600, holds the same 15 keys, carries
+`APPS_RUNNER_TARGETS="linux-x86_64,linux-i686,linux-aarch64,linux-armv7hf"` and is byte-identical to what the
+installer renders from version `266af4f2`; `silicon-apps-api`, `silicon-apps-store` (as `silicon-apps-store`),
+`caddy` and `silicon-apps-backup.timer` are active and enabled with no restarts; the preflight unit is
+inactive; `/health` is ok; the keys document lists `apps-2026-10` active; `GET /` on `127.0.0.1:4320` answered
+200 with 146,754 bytes; the worker answered 401 to the API host. The API journal since the restart holds only
+`Imported 0 existing Accounts apps, preserving app IDs and Accounts users.` and `Silicon Apps listening on
+127.0.0.1:4310`, the store journal only its start lines, and Caddy only its two usual start notes that HTTP/2
+and HTTP/3 are skipped on the plain-HTTP `:80` listener.
+
+### Public checks
+
+All against `https://apps.teamofsilicons.com` with `curl --max-time`, at 15:39:53 UTC before and from 15:43:29
+UTC after:
+
+| check | before | after |
+|---|---|---|
+| `/v1/targets` `runner_available` | `linux-x86_64` only | `linux-x86_64`, `linux-i686`, `linux-aarch64`, `linux-armv7hf`; the five Windows and macOS targets false |
+| `/v1/capabilities` `targets[].validation` | `linux-x86_64` `live`, the rest `not_configured` | the four Linux targets `live`, Windows and macOS `not_configured` |
+| `?require=target:linux-aarch64` | 422 `capabilities_missing` | 200, satisfied: "A validation worker for linux-aarch64 is live." |
+| `?require=target:linux-i686`, `target:linux-armv7hf` | 422 | 200 each |
+| `?require=` all four Linux targets at once | | 200 |
+| `?require=target:linux-x86_64` | 200 | 200 |
+| `?require=target:macos-aarch64` | | 422, as intended |
+| `validation_runner` | configured, reachable | configured, reachable |
+
+The released CLI 0.2.0, in a temporary home with `--server https://apps.teamofsilicons.com`, ran `silicon-apps
+capabilities --require target:linux-i686,target:linux-aarch64,target:linux-armv7hf --json`: exit 0, all three
+satisfied. No process was left behind.
+
+Unchanged after the restart: `/health` 200 `{"status":"ok","version":"0.1.2"}`; `/`, `/search?q=accounts`,
+`/apps/silicon-apps` and `/apps/silicon-accounts` 200 with the same sizes as after the `16d900b` release
+(146,754, 65,659, 102,451 and 106,365 bytes), one `<main>`, the status link, the MIT wording and no
+`modelContext`; the app pages show 0.2.0 and 0.4.0; `/apps/no-such-app-xyz` 404; `/llms.txt`, `/robots.txt`
+200 `text/plain`; `/sitemap.xml` 200 `application/xml`; `/openapi.json` and `/.well-known/agent.json` 200
+JSON; `/.well-known/silicon-apps-keys.json` lists `apps-2026-10` active with the pinned public key and nothing
+revoked; `/install.sh` and `/install.ps1` 200 `text/plain`, byte-identical to `scripts/`; `/developer`, `/docs`
+and `/store/silicon-accounts` 308; `http://` 308 to HTTPS; a static chunk named by the home page 200
+`immutable`, a missing one 404; `/v1/events/stream` 401 JSON; `POST /mcp` initialize 200 from
+`silicon-apps-store`, protocol `2025-06-18`; `developers.teamofsilicons.com` 200. `/v1/apps` lists
+`silicon-accounts` and `silicon-apps`.
+
+### Log watch
+
+SSM `3a201a76-62e9-468f-8eb9-fef0648c2f83` (15:47:36 UTC) and `ffc764c6-5546-49ed-9f6b-c4ce338c2d62` (15:48:27
+UTC, five minutes after the restart): the API, store and Caddy kept the PIDs they started with and have no
+restarts; the API journal still holds only its two start lines, with no warning, error or panic; the store
+logged nothing after its start lines; Caddy logged no warning or error after its start. The two `:80` notes
+also appeared on Caddy's 12:42 UTC restart, so they are its usual start lines. A public recheck at 15:48:11 UTC
+gave the same targets, 200 for the three new `require=target:` checks, and 200 for `/`, `/apps/silicon-apps`
+and `/health`.
+
+### Not covered here
+
+- No package was uploaded for a new target: the API has no dry-run upload, and a real upload would add a
+  release to the catalog. The worker's handling of these three targets was proven directly in the worker
+  release above with the production catalog's own packages, and the API now forwards uploads for them to that
+  same `/validate` endpoint. The first author upload for each new target is the remaining end-to-end proof.
+- Text that still says third-party uploads validate on `linux-x86_64` only: `docs/deployment-status.md` in this
+  repository, and the shared developer docs (`https://developers.teamofsilicons.com/llms-full.txt`, from
+  `silicon-accounts/developer/llms/llms-full.md`, seven places). Neither was changed in this step.
+
+Rollback, if ever needed: move `AWSCURRENT` back to secret version `b54319c7` and run the same install again.
+No catalog data changed. Nothing was rolled back. `production.json` lists the four targets in
+`ActiveUploadTargets` and drops `VerifiedNotYetActiveUploadTargets`.
