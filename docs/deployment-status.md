@@ -1,4 +1,4 @@
-# Deployment status — 8 October 2026
+# Deployment status: 8 October 2026
 
 The [Apps store and API](https://apps.teamofsilicons.com) and the [shared developer portal](https://developers.teamofsilicons.com) are deployed. A legitimate Silicon Accounts login, publication of Apps CLI 0.1.4, and a fresh native Linux installation from the production catalog have passed. After the user refreshed this Mac's local Unbound negative cache, a genuine Chrome session on the plural developer hostname showed the signed-in owner and Silicon Apps in Your apps. Authoritative/public DNS and certificate-validated HTTPS checks pass.
 
