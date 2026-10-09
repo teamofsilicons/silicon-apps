@@ -199,7 +199,7 @@ const apps = [
   app({
     app_id: "silicon-apps", name: "Silicon Apps", tags: [], authors: [people.saket],
     description: "Silicon Apps is the developer platform, app store and the only updater for every app in the Silicon ecosystem. Search, install and review apps from the terminal, and keep every installed app on its channel up to date automatically.",
-    production: "0.1.10", installs: 7, links: { website: "https://apps.teamofsilicons.com" },
+    production: "0.2.0", installs: 7, links: { website: "https://apps.teamofsilicons.com" },
     created: day(160), updated: day(8),
   }),
   app({

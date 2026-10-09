@@ -2441,7 +2441,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-apps-cli"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -2455,7 +2455,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-apps-client"
-version = "0.1.8"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -2485,7 +2485,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-apps-package"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "flate2",
