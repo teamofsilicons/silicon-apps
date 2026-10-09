@@ -281,3 +281,132 @@ protocol `2025-06-18`; `/health` 200 `{"status":"ok","version":"0.1.2"}` with th
 status link and no `modelContext` or `webmcp`.
 
 Nothing was rolled back. `production.json` records the new identities.
+
+## Worker release of 1d92c9a: four Linux validation targets
+
+Source `1d92c9a659420d4754e8f8b5de71ae16cc74a69e` (main), "Validate linux-i686, linux-aarch64 and linux-armv7hf
+uploads on the x86_64 worker". Since `16d900b` only `deploy/install.py`, `deploy/test_install.py`,
+`deploy/PRODUCTION.md`, `runner/README.md` and these records changed; `runner/server.py` is unchanged. This
+release went to the worker host only (`--role worker` on `i-0996026ca726ea516`). The API host was not touched:
+its `APPS_RUNNER_TARGETS` still names only `linux-x86_64`, so the three new targets are verified on the worker
+but not yet open for uploads.
+
+### Checks before the release
+
+- Deploy tests with `/opt/homebrew/bin/python3` (3.14.6): 59 ran, 8 Caddy routing tests skipped without
+  `APPS_TEST_CADDY`, none failed.
+- Runner tests (`python -m unittest discover -s runner`) in a scratch environment with PyYAML: 12 passed.
+
+### Archive
+
+The packager always bundles the API and the store, which the worker does not use. Neither changed since
+`16d900b`, so `deploy/package.py --caddy …/caddy_2.11.7_linux_arm64.tar.gz --api
+target/integration/aarch64-unknown-linux-gnu/release/apps-server --prebuilt-store` packaged the deployed API
+binary and the `16d900b` store build:
+
+| | |
+|---|---|
+| archive SHA-256 | `43feec5ebca4e1f9b07552e8419e95aa6ee69ccdd4349003e837d1bbea78329b` |
+| size | 80,447,138 bytes, 1,428 files, 28 symlinks |
+| API binary SHA-256 | `6d26a415926a6090e221478b9e3ceb6146d2b95b8f921e6e2a860fc8f7aaf55f` (the live API's) |
+| store build | `d4UPOZxo7-a40pHZ7jhp5`, recorded as `prebuilt` |
+
+The installer's `prepare_release` verified it locally, and its `deploy/install.py`, `runner/server.py`,
+`deploy/verify-worker.py` and `runner/requirements.txt` are byte-identical to the commit. Uploaded to
+`releases/1d92c9a659420d4754e8f8b5de71ae16cc74a69e.tar.gz` (S3 version `M5lWBb1ngoWl0J6CNkRfN1JvnqAleoHU`) in
+18 seconds.
+
+### The worker before
+
+Read-only probe, SSM `5ebce3ef-0226-4b2c-a616-ed2c95c739d2`: Amazon Linux 2023.12.20260930, kernel
+`6.18.51-120.163.amzn2023.x86_64`, 2 vCPUs, 1.9 GiB memory, 28 GB free, Docker 25.0.16 (overlay2, cgroup v2).
+The kernel has `CONFIG_IA32_EMULATION=y` (not disabled by default, nothing on the command line) and
+`binfmt_misc` was mounted with no entries. The worker ran `b2a3db8` with only `linux-x86_64` (the index digest)
+in `APPS_RUNNER_IMAGES`, had no binfmt unit, and had been up since 2026-10-08 13:00:57 UTC with no restarts.
+
+### Install
+
+SSM `3bf4e2e0-a20a-4d40-a8dc-aaf6108d9d22` downloaded the archive, checked its SHA-256 (`OK`) before
+extracting anything, extracted only `deploy/install.py` (SHA-256 `48161fec…0151e`) and ran it with
+`--role worker` and the worker secret's ARN. It took 28 seconds, 15:31:47 to 15:32:15 UTC: it pulled the
+four pinned images and the binfmt image, registered `qemu-aarch64` and `qemu-arm`, passed the self-check,
+wrote the files, switched `current`, enabled and restarted `silicon-apps-binfmt` (journal: `uninstalling:
+qemu-aarch64 OK`, `qemu-arm OK`, `installing: arm64 OK`, `arm OK`), restarted the runner, got its 401 and
+passed the self-check again. It printed `previous_release` `b2a3db8` and these `platforms`:
+
+| target | `uname -m`, pointer bits |
+|---|---|
+| `linux-x86_64` | `x86_64 64` |
+| `linux-i686` | `x86_64 32` (a 32-bit process sees the 64-bit kernel's machine name) |
+| `linux-aarch64` | `aarch64 64` |
+| `linux-armv7hf` | `armv7l 32` |
+
+Host state afterwards (SSM `792a132c-ef42-4507-9de8-4550e410d28d`): `deployment.json` names `1d92c9a` and the
+archive hash; `/etc/silicon-apps/worker-image.json` lists the four images, the index and the emulator image;
+`APPS_RUNNER_IMAGES` holds the four per-platform digests recorded in `production.json`; `qemu-aarch64` and
+`qemu-arm` are enabled with interpreters `/usr/bin/qemu-aarch64` and `/usr/bin/qemu-arm` and flags `POCF`;
+both units are enabled and active with no restarts. The `linux-x86_64` manifest resolved to image ID
+`cbe8543d6805`, the same image the index digest had pulled, so x86_64 validation runs on unchanged bytes. The
+old index reference and `ubuntu:24.04` are still on the host.
+
+### Validation with the first-party packages
+
+The eight Linux archives of Silicon Apps 0.2.0 (source `1f6c4c9`) and Silicon Accounts 0.4.0 (source `9544c01`)
+are the exact bytes of the production catalog: each SHA-256 equals its entry in `CliCatalogPackages` or
+`AccountsCliCatalogPackages`. Each binary's ELF header matches its target (ELF64 x86-64, ELF32 i386, ELF64
+AArch64, ELF32 ARM). They were uploaded to `releases/verification/`, downloaded on the worker and checked by
+SHA-256, and each was sent through the release's `deploy/verify-worker.py --target T` to
+`127.0.0.1:4312/validate` with the worker's own token, read from `worker.env` and never printed.
+
+In that run all 24 commands exited 0 and passed, every response attested `isolated: true` for the requested
+target, and every unauthenticated request got 401. `--help` printed the app's help (6,126 bytes for Silicon
+Apps, first line "Silicon Apps is the developer platform, app store and sole app updater."; 26,174 bytes for Silicon
+Accounts); `accounts --json` returned `app_id` `silicon-apps` or `silicon-accounts`; `login status --json`
+returned `authenticated: false`. No command wrote to stderr. No validation container or job directory was
+left behind. Seconds for each whole `/validate` exchange, measured on the worker (upload, digest check,
+unpack, three `docker run` and the cleanup):
+
+| package | `linux-x86_64` | `linux-i686` | `linux-aarch64` | `linux-armv7hf` |
+|---|---|---|---|---|
+| `apps-0.2.0` | 1.62 | 1.59 | 2.06 | 1.86 |
+| `silicon-accounts-0.4.0` | 1.45 | 1.44 | 2.27 | 2.10 |
+
+Over all 20 runs of this release (including the restart checks below) the range was 1.40 to 1.62 s for
+`linux-x86_64`, 1.38 to 1.59 s for `linux-i686`, 2.01 to 2.27 s for `linux-aarch64` and 1.86 to 2.10 s for
+`linux-armv7hf`. Emulation adds about half a second per package, far inside the runner's 25-second limit per
+command and the API's 100-second bound on upstream work. Evidence files with the full command output are on
+the worker under `/var/tmp/silicon-apps/verify-4t/` (mode 0600).
+
+### Isolation under emulation
+
+SSM `4d450de8-c751-4033-bb8c-0dc8e3b59b65` ran `python3` in each pinned image with the runner's container
+isolation flags. All four reported uid 65534, `NoNewPrivs` 1, an empty effective capability set, only the
+`lo` interface, a read-only root, a failed outbound connection, `pids.max` 32, `memory.max` 268435456 and
+`cpu.max` `100000 100000`. The emulated containers are as confined as the native ones; their `python3` start
+took 1.75 s (`linux-aarch64`) and 1.38 s (`linux-armv7hf`) against 0.39 s and 0.54 s natively.
+
+### Restart survival
+
+In the same SSM command:
+
+1. `systemctl restart silicon-apps-runner` at 15:34:15 UTC (pid 83120 became 85978). The runner answered 401
+   after 1.0 s; both binfmt entries were still enabled with `POCF`; the binfmt unit was not touched (active
+   since 15:32:11). All eight packages passed again.
+2. `systemctl restart silicon-apps-binfmt` at 15:34:34 UTC, the boot path. systemd stopped the runner with it
+   (the runner `Requires=` the unit) and it was running again a second later; the unit removed and
+   registered both entries again from the local pinned image and its F-flag check passed; the runner
+   answered 401 after 1.0 s; the four ARM packages passed again.
+
+The binfmt unit is enabled under `multi-user.target` and ordered before the runner. The host was not
+rebooted. Journals from 15:31 to 15:35 UTC (SSM `9ba19370-33c6-4414-8ad0-bfac2091f6c4`) hold only start and
+stop lines for the runner and the registration lines for the binfmt unit; restart counters are 0.
+
+### Public state
+
+At 15:35:11 UTC `/v1/capabilities` reported the validation runner configured and reachable, `linux-x86_64` live,
+and `linux-i686`, `linux-aarch64` and `linux-armv7hf` `not_configured`, as before the release. Opening them is
+the API step in `PRODUCTION.md`: add them to `APPS_RUNNER_TARGETS` in the API secret and restart the API.
+
+Nothing was rolled back. `b2a3db8` is retained in `previous-release`. `production.json` records the worker
+release; `ActiveUploadTargets` stays `linux-x86_64` and `VerifiedNotYetActiveUploadTargets` lists the three
+verified targets.

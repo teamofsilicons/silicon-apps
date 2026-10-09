@@ -16,10 +16,70 @@
   "ApiArchiveSha256": "a91d9c6b4a388371f13eb3c65baf06a6fc0a86bde8a8accd1735b6c089e2d261",
   "ApiBinarySha256": "6d26a415926a6090e221478b9e3ceb6146d2b95b8f921e6e2a860fc8f7aaf55f",
   "ApiVersion": "0.1.2",
-  "WorkerSourceRevision": "b2a3db8e575701575dfc283ba8bab0ed51a1cb60",
-  "WorkerImage": "python@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2",
+  "WorkerSourceRevision": "1d92c9a659420d4754e8f8b5de71ae16cc74a69e",
+  "PreviousWorkerSourceRevision": "b2a3db8e575701575dfc283ba8bab0ed51a1cb60",
+  "WorkerArchiveKey": "releases/1d92c9a659420d4754e8f8b5de71ae16cc74a69e.tar.gz",
+  "WorkerArchiveSha256": "43feec5ebca4e1f9b07552e8419e95aa6ee69ccdd4349003e837d1bbea78329b",
+  "WorkerArchiveVersionId": "M5lWBb1ngoWl0J6CNkRfN1JvnqAleoHU",
+  "WorkerInstallCommandId": "3bf4e2e0-a20a-4d40-a8dc-aaf6108d9d22",
+  "WorkerImage": "python@sha256:cfe2e24a75302a15934d37c2d86412893c0aa934dc3a97cbb439d04c01890ca9",
+  "WorkerImageIndex": "python@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2",
+  "WorkerImages": {
+    "linux-x86_64": "python@sha256:cfe2e24a75302a15934d37c2d86412893c0aa934dc3a97cbb439d04c01890ca9",
+    "linux-i686": "python@sha256:952db3a8cdafdd8c635a18f1a30e4b6a0cfb5f3e9737741e634c25f6699a908f",
+    "linux-aarch64": "python@sha256:7f47c8ffd4e70e88f7326b68e7df95109597ef66023a1052b7d1ec18390d2604",
+    "linux-armv7hf": "python@sha256:9d2a631d044769963ee27e56ed1d2de1adf64f108529e3d2de7d829cb2967806"
+  },
+  "WorkerEmulatorImage": "tonistiigi/binfmt@sha256:465d3fdd28d0f2b871ba4b4ec98bd183292e96167f00d9fd40bd249f8632d705",
+  "WorkerEmulators": {
+    "qemu-aarch64": "POCF",
+    "qemu-arm": "POCF"
+  },
+  "WorkerBinfmtService": "silicon-apps-binfmt",
+  "WorkerSelfCheck": {
+    "linux-x86_64": "x86_64 64",
+    "linux-i686": "x86_64 32",
+    "linux-aarch64": "aarch64 64",
+    "linux-armv7hf": "armv7l 32"
+  },
+  "WorkerVerifiedTargets": [
+    "linux-x86_64",
+    "linux-i686",
+    "linux-aarch64",
+    "linux-armv7hf"
+  ],
+  "WorkerVerificationCommandId": "792a132c-ef42-4507-9de8-4550e410d28d",
+  "WorkerRestartCheckCommandId": "4d450de8-c751-4033-bb8c-0dc8e3b59b65",
+  "WorkerValidationSeconds": {
+    "linux-x86_64": {
+      "min": 1.4,
+      "max": 1.62,
+      "runs": 4
+    },
+    "linux-i686": {
+      "min": 1.38,
+      "max": 1.59,
+      "runs": 4
+    },
+    "linux-aarch64": {
+      "min": 2.01,
+      "max": 2.27,
+      "runs": 6
+    },
+    "linux-armv7hf": {
+      "min": 1.86,
+      "max": 2.1,
+      "runs": 6
+    }
+  },
+  "WorkerVerifiedAt": "2026-10-09T15:34:44Z",
   "ActiveUploadTargets": [
     "linux-x86_64"
+  ],
+  "VerifiedNotYetActiveUploadTargets": [
+    "linux-i686",
+    "linux-aarch64",
+    "linux-armv7hf"
   ],
   "OwnerPublicId": "c:saket",
   "OwnerAccountsUuid": "zQo",
