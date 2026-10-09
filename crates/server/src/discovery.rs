@@ -424,7 +424,7 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
                 .collect();
             let mut error = ApiError::new(
                 StatusCode::UNPROCESSABLE_ENTITY,
-                "requirements_not_met",
+                "capabilities_missing",
                 format!("This server does not meet: {}.", names.join(", ")),
                 "Each item in details.missing says why. Drop what you can live without, or try again when a worker is live.",
             );

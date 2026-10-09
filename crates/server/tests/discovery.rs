@@ -296,7 +296,7 @@ async fn capabilities_answer_requirements_and_report_live_workers() {
     // Something missing: 422 that names it and says why.
     let r = send(&app, "GET", "/v1/capabilities?require=streaming,subscriptions,version:2026-10-09,auth:bearer,event:release.promoted,target:linux-x86_64,teleportation", None, None, None, &[]).await;
     assert_eq!(r.status, 422, "{}", r.body);
-    assert_eq!(r.body["error"]["code"], "requirements_not_met");
+    assert_eq!(r.body["error"]["code"], "capabilities_missing");
     let results = &r.body["error"]["details"];
     let missing: Vec<_> = results["missing"]
         .as_array()

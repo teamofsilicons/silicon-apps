@@ -291,7 +291,7 @@
       "get": {
         "operationId": "getCapabilities",
         "summary": "Get capabilities and negotiate requirements",
-        "description": "API versions, auth methods, targets and which validation workers are live, search parameters, streaming, subscriptions, idempotency, rate limits and links. Pass `require` to ask whether this server meets your needs: when it does, the answer is in `requirements`; when it does not, you get 422 `requirements_not_met` with what is missing in `error.details.missing`.\n\nSend `Apps-Version` on any request to choose an API version. It may list several in order of preference. The response's `Apps-Version` header names the version used. An unknown version returns 400 `unsupported_api_version`.",
+        "description": "API versions, auth methods, targets and which validation workers are live, search parameters, streaming, subscriptions, idempotency, rate limits and links. Pass `require` to ask whether this server meets your needs: when it does, the answer is in `requirements`; when it does not, you get 422 `capabilities_missing` with what is missing in `error.details.missing`.\n\nSend `Apps-Version` on any request to choose an API version. It may list several in order of preference. The response's `Apps-Version` header names the version used. An unknown version returns 400 `unsupported_api_version`.",
         "tags": [
           "Discovery"
         ],
@@ -8142,7 +8142,7 @@
               "satisfied",
               "results"
             ],
-            "description": "Present when `require` was given and everything was met. When something is missing the answer is 422 `requirements_not_met` instead."
+            "description": "Present when `require` was given and everything was met. When something is missing the answer is 422 `capabilities_missing` instead."
           }
         },
         "required": [

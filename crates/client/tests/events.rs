@@ -73,7 +73,7 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
         .downcast_ref::<silicon_apps_client::ApiError>()
         .unwrap();
     assert_eq!(missing.status, 422);
-    assert_eq!(missing.code, "requirements_not_met");
+    assert_eq!(missing.code, "capabilities_missing");
     assert_eq!(
         missing.details["missing"][0]["requirement"],
         "target:windows-aarch64"
