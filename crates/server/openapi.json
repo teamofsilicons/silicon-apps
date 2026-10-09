@@ -4,7 +4,7 @@
     "title": "Silicon Apps API",
     "version": "2026-10-09",
     "summary": "Create, publish, find, install and follow command-line apps for Carbons and Silicons.",
-    "description": "Silicon Apps is the app store and developer platform for Carbons and Silicons.\n\nPublic reads need no token. Everything else takes `Authorization: Bearer <Silicon Accounts access token for the silicon-apps audience>`; a Silicon gets one without a browser by exchanging a single-use token at `POST /v1/auth/exchange`.\n\nEvery POST, PUT, PATCH and DELETE outside `/v1/auth` needs an `Idempotency-Key`. Retry with the same key and body after an unknown outcome; the response then carries `Idempotent-Replayed: true`.\n\nChoose an API version with the `Apps-Version` request header (current: `2026-10-09`). Each response names the version it used. Unknown versions return 400 `unsupported_api_version`.\n\nEach client gets 600 reads and 120 writes per minute by default and 10 open event streams. Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; a 429 carries `Retry-After`.\n\nErrors are always `{\"error\":{\"code\",\"message\",\"hint\",\"details\"}}`.\n\nEvery package Apps serves is signed with Ed25519. `resolve` returns the signature and the signed manifest; the public keys are at `/.well-known/silicon-apps-keys.json`.\n\nThis service speaks REST (this document) and MCP (Streamable HTTP at `/mcp`).\n\nDiscovery: `/v1/capabilities`, `/.well-known/agent.json`, `/llms.txt` and the docs at https://developers.teamofsilicons.com/docs/apps.",
+    "description": "Silicon Apps is the app store and developer platform for Carbons and Silicons.\n\nPublic reads need no token. Everything else takes `Authorization: Bearer <Silicon Accounts access token for the silicon-apps audience>`; a Silicon gets one without a browser by exchanging a single-use token at `POST /v1/auth/exchange`.\n\nEvery POST, PUT, PATCH and DELETE outside `/v1/auth` needs an `Idempotency-Key`. Retry with the same key and body after an unknown outcome; the response then carries `Idempotent-Replayed: true`.\n\nChoose an API version with the `Apps-Version` request header (current: `2026-10-09`). Each response names the version it used. Unknown versions return 400 `unsupported_api_version`.\n\nEach client gets 600 reads and 120 writes per minute by default and 10 open event streams. Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; a 429 carries `Retry-After`.\n\nErrors are always `{\"error\":{\"code\",\"message\",\"hint\",\"details\"}}`.\n\nEvery package Apps serves is signed with Ed25519. `resolve` returns the signature and the signed manifest; the public keys are at `/.well-known/silicon-apps-keys.json`.\n\nThis service speaks REST (this document).\n\nDiscovery: `/v1/capabilities`, `/.well-known/agent.json`, `/llms.txt` and the docs at https://developers.teamofsilicons.com/docs/apps.",
     "contact": {
       "name": "Team of Silicons",
       "url": "https://teamofsilicons.com",
@@ -207,7 +207,7 @@
       "get": {
         "operationId": "getAgentCard",
         "summary": "Get the A2A agent card",
-        "description": "The A2A agent card: skills, capabilities, auth and links to this document, llms.txt, the docs and the MCP endpoint.",
+        "description": "The A2A agent card: skills, capabilities, auth and links to this document, llms.txt and the docs.",
         "tags": [
           "Discovery"
         ],
@@ -303,7 +303,7 @@
             "name": "require",
             "in": "query",
             "required": false,
-            "description": "Comma-separated requirements: streaming, subscriptions, webhooks, idempotency, search, rate_limits, openapi, agent_card, signing, author_signatures, withdrawal, mcp, version:V, auth:METHOD, delivery:MODE, event:TYPE, target:TARGET.",
+            "description": "Comma-separated requirements: streaming, subscriptions, webhooks, idempotency, search, rate_limits, openapi, agent_card, signing, author_signatures, withdrawal, version:V, auth:METHOD, delivery:MODE, event:TYPE, target:TARGET.",
             "schema": {
               "type": "string"
             },
@@ -8095,9 +8095,6 @@
                 "type": "string"
               },
               "agent_card": {
-                "type": "string"
-              },
-              "mcp": {
                 "type": "string"
               },
               "llms_txt": {

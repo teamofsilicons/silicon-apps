@@ -1,7 +1,7 @@
 /**
- * Who this site is and where everything else lives: the names, addresses and words the pages, the metadata, the agent
- * files (robots.txt, sitemap.xml, llms.txt) and the MCP server share. Imports nothing, so server and client code can
- * both use it. Runtime addresses that change per stack (the Apps API, this store's own origin) are in lib/config.ts.
+ * Who this site is and where everything else lives: the names, addresses and words the pages, the metadata and the
+ * agent files (robots.txt, sitemap.xml, llms.txt) share. Imports nothing, so server and client code can both use it.
+ * Runtime addresses that change per stack (the Apps API, this store's own origin) are in lib/config.ts.
  */
 
 /** The store's public origin: canonical links, Open Graph, JSON-LD and the sitemap always name it. */
@@ -42,15 +42,7 @@ export const manageAppUrl = (appId: string) => `${LINKS.developers}/apps/${encod
 /** The shared social image (1200 by 630, public/og.png). */
 export const OG_IMAGE = { url: "/og.png", width: 1200, height: 630, alt: "Silicon Apps: apps for Carbons and Silicons" } as const;
 
-/** The MCP protocol versions /mcp speaks, newest first. */
-export const MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
-
-/** Rate limits of this site's own endpoints, per client address. The Apps API has its own (see /openapi.json). */
-export const RATE_LIMITS = {
-  mcp: { limit: 60, windowSeconds: 60 },
-} as const;
-
-/** The command that installs an app, as every page and tool shows it. */
+/** The command that installs an app, as every page shows it. */
 export const installCommand = (appId: string) => `silicon-apps install ${appId}`;
 
 export const INSTALL_UNIX = `curl -fsSL https://apps.teamofsilicons.com/install.sh -o install-apps.sh &&

@@ -23,7 +23,7 @@ function etagOf(body: string): string {
 
 export const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Expose-Headers": "ETag, Retry-After, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Mcp-Session-Id",
+  "Access-Control-Expose-Headers": "ETag, Retry-After",
 };
 
 export function publicResponse(request: Request, body: string, { type, maxAge = 300, modified, status = 200, headers = {} }: PublicResponseOptions): Response {
@@ -70,7 +70,7 @@ export function preflight(methods = "GET, HEAD, OPTIONS"): Response {
     headers: {
       ...CORS_HEADERS,
       "Access-Control-Allow-Methods": methods,
-      "Access-Control-Allow-Headers": "Accept, Authorization, Content-Type, If-None-Match, Mcp-Protocol-Version, Mcp-Session-Id, Last-Event-ID",
+      "Access-Control-Allow-Headers": "Accept, Authorization, Content-Type, If-None-Match",
       "Access-Control-Max-Age": "86400",
     },
   });

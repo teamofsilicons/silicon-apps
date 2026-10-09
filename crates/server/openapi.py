@@ -130,7 +130,7 @@ schemas = {
      "search": {"type":"object"}, "streaming": {"type":"object"}, "subscriptions": {"type":"object"},
      "idempotency": {"type":"object"}, "rate_limits": {"type":"object"}, "errors": {"type":"object"},
      "signing": obj({"algorithm": S, "keys": S, "active_key_id": S}, extra=True), "withdrawal": {"type":"object"},
-     "links": obj({"openapi": S, "agent_card": S, "mcp": S, "llms_txt": S, "docs": S}),
+     "links": obj({"openapi": S, "agent_card": S, "llms_txt": S, "docs": S}),
      "requirements": obj({"satisfied": {"type":"boolean","const":True}, "results": arr(obj({"requirement": S, "satisfied": B, "reason": S}, ["requirement","satisfied","reason"]))}, ["satisfied","results"], desc="Present when `require` was given and everything was met. When something is missing the answer is 422 `capabilities_missing` instead.")},
      ["service","version","api","auth","targets","streaming","subscriptions","idempotency","rate_limits","links"], extra=True),
  "AgentCard": obj({"protocolVersion": S, "name": S, "description": S, "url": S, "version": S, "provider": obj({"organization": S, "url": S}), "capabilities": obj({"streaming": B, "pushNotifications": B, "stateTransitionHistory": B}), "skills": arr(obj({"id": S, "name": S, "description": S, "tags": arr(S), "examples": arr(S)}, ["id","name","description","tags"]))}, ["protocolVersion","name","description","url","version","capabilities","skills"], extra=True, desc="A2A agent card."),
@@ -203,12 +203,12 @@ MUT_ERR = ("BadRequest","Unauthorized","Forbidden","NotFound","Conflict","RateLi
 op("GET","/health","getHealth","Check the service is up","Discovery","Liveness and version. Not rate limited.",{"200":ok(ref("Health"))},security=PUBLIC,errors=("BadRequest",))
 op("GET","/openapi.json","getOpenApi","Get this OpenAPI document","Discovery","The OpenAPI 3.1 description of every public route.",{"200":ok({"type":"object"},"The OpenAPI document.")},security=PUBLIC,errors=("RateLimited",))
 op("GET","/v1/openapi.json","getOpenApiV1","Get this OpenAPI document under /v1","Discovery","The same document as /openapi.json.",{"200":ok({"type":"object"},"The OpenAPI document.")},security=PUBLIC,errors=("RateLimited",))
-op("GET","/.well-known/agent.json","getAgentCard","Get the A2A agent card","Discovery","The A2A agent card: skills, capabilities, auth and links to this document, llms.txt, the docs and the MCP endpoint.",{"200":ok(ref("AgentCard"))},security=PUBLIC,errors=("RateLimited",))
+op("GET","/.well-known/agent.json","getAgentCard","Get the A2A agent card","Discovery","The A2A agent card: skills, capabilities, auth and links to this document, llms.txt and the docs.",{"200":ok(ref("AgentCard"))},security=PUBLIC,errors=("RateLimited",))
 op("GET","/.well-known/agent-card.json","getAgentCardA2a","Get the A2A agent card (A2A 0.3 path)","Discovery","The same card as /.well-known/agent.json, at the path newer A2A clients read.",{"200":ok(ref("AgentCard"))},security=PUBLIC,errors=("RateLimited",))
 op("GET","/v1/capabilities","getCapabilities","Get capabilities and negotiate requirements","Discovery",
    "API versions, auth methods, targets and which validation workers are live, search parameters, streaming, subscriptions, idempotency, rate limits and links. Pass `require` to ask whether this server meets your needs: when it does, the answer is in `requirements`; when it does not, you get 422 `capabilities_missing` with what is missing in `error.details.missing`.\n\nSend `Apps-Version` on any request to choose an API version. It may list several in order of preference. The response's `Apps-Version` header names the version used. An unknown version returns 400 `unsupported_api_version`.",
    {"200":ok(ref("Capabilities"))},security=PUBLIC,
-   parameters_=[{"name":"require","in":"query","required":False,"description":"Comma-separated requirements: streaming, subscriptions, webhooks, idempotency, search, rate_limits, openapi, agent_card, signing, author_signatures, withdrawal, mcp, version:V, auth:METHOD, delivery:MODE, event:TYPE, target:TARGET.","schema":{"type":"string"},"example":"streaming,subscriptions,target:linux-x86_64"},
+   parameters_=[{"name":"require","in":"query","required":False,"description":"Comma-separated requirements: streaming, subscriptions, webhooks, idempotency, search, rate_limits, openapi, agent_card, signing, author_signatures, withdrawal, version:V, auth:METHOD, delivery:MODE, event:TYPE, target:TARGET.","schema":{"type":"string"},"example":"streaming,subscriptions,target:linux-x86_64"},
                 {"name":"Apps-Version","in":"header","required":False,"description":"API versions you accept, in order of preference.","schema":{"type":"string"},"example":"2026-10-09"}],
    errors=("BadRequest","Unprocessable","RateLimited"))
 op("GET","/.well-known/silicon-apps-keys.json","getSigningKeys","Get the release signing keys","Discovery",
@@ -385,7 +385,7 @@ doc = {
      "Each client gets 600 reads and 120 writes per minute by default and 10 open event streams. Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; a 429 carries `Retry-After`.\n\n"
      "Errors are always `{\"error\":{\"code\",\"message\",\"hint\",\"details\"}}`.\n\n"
      "Every package Apps serves is signed with Ed25519. `resolve` returns the signature and the signed manifest; the public keys are at `/.well-known/silicon-apps-keys.json`.\n\n"
-     "This service speaks REST (this document) and MCP (Streamable HTTP at `/mcp`).\n\n"
+     "This service speaks REST (this document).\n\n"
      "Discovery: `/v1/capabilities`, `/.well-known/agent.json`, `/llms.txt` and the docs at https://developers.teamofsilicons.com/docs/apps."),
    "contact": {"name": "Team of Silicons", "url": "https://teamofsilicons.com", "email": "bugs@teamofsilicons.com"},
    "license": {"name": "MIT", "url": "https://github.com/teamofsilicons/silicon-apps/blob/main/LICENSE"}

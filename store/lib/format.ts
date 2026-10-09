@@ -1,4 +1,4 @@
-/** Small formatting helpers shared by pages, JSON-LD and the MCP tools. */
+/** Small formatting helpers shared by pages and JSON-LD. */
 
 export const TARGETS = [
   "macos-aarch64",

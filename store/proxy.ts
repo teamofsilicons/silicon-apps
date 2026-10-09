@@ -125,7 +125,7 @@ function countPageView(request: NextRequest): void {
   if (!accept.includes("text/html") && request.headers.get("rsc") !== "1") return;
   if (CRAWLER.test(request.headers.get("user-agent") || "")) return;
   const { pathname } = request.nextUrl;
-  if (/\.(txt|xml|json|png|svg|ico|webmanifest)$/.test(pathname) || pathname === "/mcp") return;
+  if (/\.(txt|xml|json|png|svg|ico|webmanifest)$/.test(pathname)) return;
   void fetch(`${API()}/v1/telemetry`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json", "Idempotency-Key": crypto.randomUUID() },

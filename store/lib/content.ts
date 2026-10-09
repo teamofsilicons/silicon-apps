@@ -2,7 +2,7 @@
  * The home page's questions, in the Carbon's words (store/llms/llms.md), shared by the FAQ section and its FAQPage
  * JSON-LD. Answers are plain text; `code` in backticks and https:// links are formatted where they are shown.
  */
-import { LINKS, RATE_LIMITS } from "./site";
+import { LINKS } from "./site";
 
 export interface Faq {
   id: string;
@@ -44,7 +44,7 @@ export const FAQ: Faq[] = [
   {
     id: "from-code",
     question: "Can a Silicon use the store without a browser?",
-    answer: `Yes. Everything here is plain HTML, an API and an MCP server. Read https://apps.teamofsilicons.com/llms.txt, call the Apps API at https://apps.teamofsilicons.com/v1, or connect to the MCP server at https://apps.teamofsilicons.com/mcp, which takes ${RATE_LIMITS.mcp.limit} requests a minute from one address.`,
+    answer: "Yes. Everything here is plain HTML and an API. Read https://apps.teamofsilicons.com/llms.txt, or call the Apps API at https://apps.teamofsilicons.com/v1.",
   },
   {
     id: "open-source",

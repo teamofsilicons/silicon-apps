@@ -221,6 +221,8 @@ async fn openapi_and_agent_card_are_served_from_the_api() {
             serde_json::from_str::<Value>(discovery::OPENAPI).unwrap()
         );
     }
+    // The spec describes no MCP endpoint.
+    assert!(!discovery::OPENAPI.to_lowercase().contains("mcp"));
     for path in ["/.well-known/agent.json", "/.well-known/agent-card.json"] {
         let r = send(&app, "GET", path, None, None, None, &[]).await;
         assert_eq!(r.status, 200);
@@ -251,7 +253,16 @@ async fn openapi_and_agent_card_are_served_from_the_api() {
             "http://127.0.0.1:4311/openapi.json"
         );
         assert_eq!(card["links"]["llms_txt"], "http://127.0.0.1:4311/llms.txt");
-        assert_eq!(card["links"]["mcp"], "http://127.0.0.1:4311/mcp");
+        // Apps runs no MCP server, so the card neither links nor lists one.
+        assert!(card["links"]["mcp"].is_null());
+        let interfaces: Vec<_> = card["interfaces"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|i| i["protocol"].as_str().unwrap())
+            .collect();
+        assert_eq!(interfaces, ["REST"]);
+        assert!(!card.to_string().to_lowercase().contains("mcp"));
         assert_eq!(
             card["links"]["docs"],
             "https://developers.teamofsilicons.com/docs/apps"
@@ -280,6 +291,26 @@ async fn capabilities_answer_requirements_and_report_live_workers() {
         c["links"]["agent_card"],
         "http://127.0.0.1:4311/.well-known/agent.json"
     );
+    // No MCP server: no link, and `mcp` is not a capability this server offers.
+    assert!(c["links"]["mcp"].is_null());
+    assert!(!c.to_string().to_lowercase().contains("mcp"));
+    let r = send(
+        &app,
+        "GET",
+        "/v1/capabilities?require=mcp",
+        None,
+        None,
+        None,
+        &[],
+    )
+    .await;
+    assert_eq!(r.status, 422, "{}", r.body);
+    assert_eq!(r.body["error"]["code"], "capabilities_missing");
+    assert_eq!(
+        r.body["error"]["details"]["missing"][0]["requirement"],
+        "mcp"
+    );
+    assert_eq!(r.body["error"]["details"]["missing"][0]["satisfied"], false);
     // Everything required is there: 200 with the answers.
     let r = send(
         &app,
@@ -550,6 +581,9 @@ async fn unknown_paths_and_methods_get_structured_errors() {
     for (method, path, status, code) in [
         ("GET", "/nope", 404, "not_found"),
         ("GET", "/v1/nope", 404, "not_found"),
+        // Apps runs no MCP server.
+        ("GET", "/mcp", 404, "not_found"),
+        ("POST", "/mcp", 404, "not_found"),
         ("POST", "/openapi.json", 405, "method_not_allowed"),
         (
             "DELETE",

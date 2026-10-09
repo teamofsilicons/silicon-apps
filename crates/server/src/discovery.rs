@@ -224,7 +224,7 @@ pub async fn agent_card(State(s): State<Shared>) -> Response {
     let card = json!({
         "protocolVersion":"0.3.0",
         "name":"Silicon Apps",
-        "description":"The app store and developer platform for Carbons and Silicons. Search the catalog, read an app's page, resolve and install a signed release for your platform, publish validated releases of your own apps, withdraw a bad release, and subscribe to release events by webhook or server-sent events. This service speaks REST (JSON over HTTPS, described at /openapi.json) and MCP (Streamable HTTP at /mcp). It does not take A2A JSON-RPC messages: call the REST routes in each skill, or the MCP tools.",
+        "description":"The app store and developer platform for Carbons and Silicons. Search the catalog, read an app's page, resolve and install a signed release for your platform, publish validated releases of your own apps, withdraw a bad release, and subscribe to release events by webhook or server-sent events. This service speaks REST (JSON over HTTPS, described at /openapi.json). It does not take A2A JSON-RPC messages: call the REST routes in each skill.",
         "url":base,
         "preferredTransport":"HTTP+JSON",
         "version":env!("CARGO_PKG_VERSION"),
@@ -250,12 +250,10 @@ pub async fn agent_card(State(s): State<Shared>) -> Response {
             "capabilities":format!("{base}/v1/capabilities"),
             "llms_txt":format!("{base}/llms.txt"),
             "docs":DOCS_URL,
-            "mcp":format!("{base}/mcp"),
             "signing_keys":format!("{base}{}",crate::signing::KEYS_PATH)
         },
         "interfaces":[
-            {"protocol":"REST","transport":"HTTP+JSON","url":format!("{base}/v1"),"description":format!("{base}/openapi.json")},
-            {"protocol":"MCP","transport":"Streamable HTTP","url":format!("{base}/mcp")}
+            {"protocol":"REST","transport":"HTTP+JSON","url":format!("{base}/v1"),"description":format!("{base}/openapi.json")}
         ]
     });
     (
@@ -390,7 +388,6 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
         "links":{
             "openapi":format!("{base}/openapi.json"),
             "agent_card":format!("{base}/.well-known/agent.json"),
-            "mcp":format!("{base}/mcp"),
             "llms_txt":format!("{base}/llms.txt"),
             "docs":DOCS_URL
         }
@@ -451,7 +448,6 @@ fn requirement(document: &Value, name: &str) -> (bool, String) {
         ("signing" | "signed_releases", "") => yes(format!("Every served package is signed with Ed25519; keys at {}.", crate::signing::KEYS_PATH)),
         ("author_signatures", "") => yes("Authors register keys at /v1/keys and sign uploads.".into()),
         ("withdrawal", "") => yes("Authors withdraw a release with POST /v1/apps/{app_id}/releases/{release_id}/withdraw.".into()),
-        ("mcp", "") => yes("Streamable HTTP MCP at /mcp.".into()),
         ("version", v) => {
             let ok = API_VERSIONS.contains(&v);
             (ok, if ok { format!("API version {v} is supported.") } else { format!("Supported versions: {}.", API_VERSIONS.join(", ")) })
@@ -476,7 +472,7 @@ fn requirement(document: &Value, name: &str) -> (bool, String) {
             Some(item) => (false, format!("Uploads for {t} cannot be validated now: the worker is {}.", item["validation"].as_str().unwrap_or("unavailable").replace('_', " "))),
             None => (false, format!("{t} is not a package target.")),
         },
-        _ => (false, "Unknown capability. Known: streaming, subscriptions, webhooks, idempotency, search, rate_limits, openapi, agent_card, signing, author_signatures, withdrawal, mcp, version:V, auth:METHOD, delivery:MODE, event:TYPE, target:TARGET.".into()),
+        _ => (false, "Unknown capability. Known: streaming, subscriptions, webhooks, idempotency, search, rate_limits, openapi, agent_card, signing, author_signatures, withdrawal, version:V, auth:METHOD, delivery:MODE, event:TYPE, target:TARGET.".into()),
     }
 }
 

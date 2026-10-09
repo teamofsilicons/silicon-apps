@@ -30,10 +30,8 @@ type Options = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   idempotencyKey?: string;
-  /** Leave the visitor's session out (public reads, sitemap, MCP). */
+  /** Leave the visitor's session out (public reads, sitemap). */
   anonymous?: boolean;
-  /** A bearer token the caller supplied itself (MCP clients). Never read from cookies. */
-  bearer?: string;
   timeoutMs?: number;
 };
 
@@ -61,9 +59,8 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
   const headersOut: Record<string, string> = {
     Accept: "application/json",
     "User-Agent": "silicon-apps-store",
-    ...(await visitorHeaders(Boolean(options.anonymous || options.bearer))),
+    ...(await visitorHeaders(Boolean(options.anonymous))),
   };
-  if (options.bearer) headersOut.Authorization = `Bearer ${options.bearer}`;
   let body: string | undefined;
   if (method !== "GET") {
     headersOut.Origin = siteOrigin();

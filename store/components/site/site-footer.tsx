@@ -33,7 +33,6 @@ const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string
     links: [
       { href: "/llms.txt", label: "llms.txt" },
       { href: "/llms-full.txt", label: "llms-full.txt" },
-      { href: "/#mcp", label: "MCP server" },
       { href: "/openapi.json", label: "OpenAPI" },
       { href: "/.well-known/agent.json", label: "Agent card" },
     ],

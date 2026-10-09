@@ -1,6 +1,6 @@
 /**
- * The agent files (robots.txt, sitemap.xml, llms.txt, llms-full.txt, security.txt, manifest), the API paths, and that
- * pages register no tools in the browser (agents call the MCP server at /mcp, e2e/mcp.spec.ts).
+ * The agent files (robots.txt, sitemap.xml, llms.txt, llms-full.txt, security.txt, manifest), the API paths, that
+ * pages register no tools in the browser, and that the store runs no MCP server (/mcp answers 404).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,6 +16,7 @@ test("robots.txt welcomes crawlers and agents and names the sitemap", async ({ r
     expect(body).toContain(line);
   }
   expect(body).not.toMatch(/^Disallow: \/$/m);
+  expect(body).not.toContain("/mcp");
 });
 
 test("sitemap.xml lists the home page, every public app and their authors, with lastmod", async ({ request }) => {
@@ -87,4 +88,20 @@ test("pages register no tools in the browser: no modelContext script, and nothin
   await page.waitForLoadState("networkidle");
   const calls = await page.evaluate(() => (window as unknown as { __calls: string[] }).__calls);
   expect(calls).toEqual([]);
+});
+
+test("the store runs no MCP server: /mcp answers 404 and nothing here points at one", async ({ request }) => {
+  const get = await request.get("/mcp");
+  expect(get.status()).toBe(404);
+  const post = await request.post("/mcp", {
+    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+    data: { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "e2e", version: "1" } } },
+  });
+  expect(post.status()).toBe(404);
+  expect(await post.text()).not.toContain("jsonrpc");
+  for (const path of ["/", "/robots.txt", "/llms.txt", "/llms-full.txt"]) {
+    const body = await (await request.get(path)).text();
+    expect(body, path).not.toContain("/mcp");
+    expect(body, path).not.toMatch(/MCP server/i);
+  }
 });

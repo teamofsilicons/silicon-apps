@@ -19,7 +19,6 @@ https://developers.teamofsilicons.com/docs/accounts. There is no app authoring h
 | `/settings` | Session (sign in or out), appearance, telemetry, report a problem |
 | `/sign-in`, `/sign-out` | Sign in through Silicon Accounts with the API's browser routes (`/v1/auth/login`), sign out with a plain form post |
 | `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, `/.well-known/security.txt`, `/manifest.webmanifest` | Agent and crawler files |
-| `/mcp` | MCP server (Streamable HTTP, stateless): `search_apps`, `get_app`, `list_releases`, `get_install_command`, `list_reviews`; 60 requests a minute per address, then 429 with `Retry-After` |
 | `/og.png`, `/apps/{app_id}/og.png` | Open Graph images (the store's, and one per public app) |
 
 Every page has its own title, description, canonical link, Open Graph and Twitter tags, and JSON-LD: `Organization` and
@@ -52,7 +51,7 @@ Caddy. Never set it in production.
 
 The browser's session is the API's HttpOnly `apps_session` cookie on this origin. The store forwards it to the API with
 the visitor's own requests and never shows it to page scripts. Caddy must keep the `Host` header and set
-`X-Forwarded-For` from the connection (its default), which the MCP rate limit and the API's own limits use.
+`X-Forwarded-For` from the connection (its default), which the API's own rate limits use.
 
 ## Environment
 
@@ -127,9 +126,9 @@ node scripts/screens.mjs    # with both running: home, search and an app page, l
 The Playwright suite (`e2e/`) checks browsing, search and filters, the app page, signatures and withdrawn releases, the
 sign-in redirect through the API to Silicon Accounts, sign-out, writing, editing and removing a review with JavaScript
 off, the 600-character limit, private apps signed in and out, 404s, old addresses, no sideways scrolling at 320 pixels,
-the agent files, the API paths, that pages register no browser tools, and the MCP server (tools, errors, SSE answers,
-bearer tokens and the rate limit). It reuses servers already listening on those ports outside CI. `E2E_STORE_PORT` and `E2E_API_PORT` change the
-ports, and `E2E_DEV=1` tests `next dev` instead of the build.
+the agent files, the API paths, that pages register no browser tools, and that `/mcp` answers 404 (the store runs no
+MCP server). It reuses servers already listening on those ports outside CI. `E2E_STORE_PORT` and `E2E_API_PORT` change
+the ports, and `E2E_DEV=1` tests `next dev` instead of the build.
 
 Copy on these pages follows the Carbon's voice in `llms/llms.md`: plain words, Carbons and Silicons, and no em or en
 dashes anywhere.

@@ -4,7 +4,7 @@
  * and the questions people ask. Server-rendered; the theme switch and the copy buttons are the only script.
  */
 import type { Metadata } from "next";
-import { ArrowUpRight, Bot, Braces, FileText, Globe, KeyRound, ListTree, Package, Plug, Plus, RefreshCw, ShieldCheck, Terminal } from "lucide-react";
+import { ArrowUpRight, Bot, Braces, FileText, Globe, KeyRound, ListTree, Package, Plus, RefreshCw, ShieldCheck, Terminal } from "lucide-react";
 import { AppGrid, FeaturedCard } from "@/components/store/app-card";
 import styles from "@/components/store/home.module.css";
 import { EmptyState, Notice, SectionHead, StructuredData, styles as store } from "@/components/store/parts";
@@ -15,7 +15,7 @@ import { CodeBlock } from "@/components/site/code-block";
 import { homeSections, listAll, tagCounts } from "@/lib/catalog";
 import { FAQ, plainAnswer } from "@/lib/content";
 import { faqLd, itemListLd, pageMetadata } from "@/lib/seo";
-import { CANONICAL_ORIGIN, INSTALL_UNIX, INSTALL_WINDOWS, LINKS, RATE_LIMITS, SITE_DESCRIPTION } from "@/lib/site";
+import { CANONICAL_ORIGIN, INSTALL_UNIX, INSTALL_WINDOWS, LINKS, SITE_DESCRIPTION } from "@/lib/site";
 import type { App } from "@/lib/types";
 
 const TITLE = "Silicon Apps: apps for Carbons and Silicons";
@@ -32,13 +32,6 @@ briefcase --help
 # Sign in for private apps and reviews
 silicon-accounts login --app silicon-apps
 silicon-apps login --slt TOKEN`;
-
-const MCP_CODE = `curl -s https://apps.teamofsilicons.com/mcp \\
-  -H 'Content-Type: application/json' \\
-  -H 'Accept: application/json, text/event-stream' \\
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-       "params": {"name": "search_apps",
-                  "arguments": {"query": "notes"}}}'`;
 
 const ICON = { size: 18, strokeWidth: 1.75 } as const;
 
@@ -197,7 +190,7 @@ export default async function Home() {
         <div className={styles.inner}>
           <div className={styles.sectionHead}>
             <p className={styles.eyebrow}>For Silicons</p>
-            <h2 id="silicons-title" className={styles.sectionTitle}>Everything here is plain HTML, an API and an MCP server</h2>
+            <h2 id="silicons-title" className={styles.sectionTitle}>Everything here is plain HTML and an API</h2>
             <p className={styles.sectionLede}>
               Every app in this store was made with Silicons in mind: it installs with one command, it updates itself, and it
               answers the same three commands, so you never have to guess. You can find and install apps without a browser.
@@ -235,28 +228,6 @@ export default async function Home() {
               <p className={styles.featureText}>Crawlers and agents are named and welcome in <a href="/robots.txt">/robots.txt</a>, and <a href="/sitemap.xml">/sitemap.xml</a> lists every public app and author.</p>
             </li>
           </ul>
-
-          <div className={styles.mcp} id="mcp" data-sq="surface">
-            <div className={styles.mcpCopy}>
-              <h3 className={styles.mcpTitle}><Plug {...ICON} aria-hidden="true" />The MCP server</h3>
-              <p>
-                Connect to <code data-sq-native="">https://apps.teamofsilicons.com/mcp</code> (Streamable HTTP, stateless). Its tools are
-                read-only:
-              </p>
-              <ul className={styles.tools} role="list">
-                <li><code data-sq-native="">search_apps</code> finds apps, with exact ids and names first.</li>
-                <li><code data-sq-native="">get_app</code>, <code data-sq-native="">list_releases</code> and <code data-sq-native="">list_reviews</code> tell you about one.</li>
-                <li><code data-sq-native="">get_install_command</code> gives the exact command for a channel or version.</li>
-              </ul>
-              <p>
-                Send your own Silicon Apps token as a bearer token to include private apps shared with you. It takes{" "}
-                {RATE_LIMITS.mcp.limit} requests a minute from one address; past that it answers 429 with Retry-After.
-              </p>
-            </div>
-            <div className={styles.mcpCode}>
-              <CodeBlock code={MCP_CODE} lang="sh" title="Search from anywhere" />
-            </div>
-          </div>
         </div>
       </section>
 
