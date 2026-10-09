@@ -307,7 +307,10 @@ async fn dispatch(
             return Err(ApiError::missing());
         }
         let local = s.store.lock().unwrap().catalog()?;
-        let available = valid_app_id(id) && !reserved_app_id(id) && !local.apps.contains_key(id);
+        // A historical Accounts ID is available only to its configured owner,
+        // signed in; anyone else gets the answer for an invalid ID.
+        let valid = valid_app_id(id) || s.config.historical_app_ids.allows(id, who.as_ref());
+        let available = valid && !reserved_app_id(id) && !local.apps.contains_key(id);
         let available = available && integrations::registry_available(&s, id).await?;
         return Ok(Json(json!({"available":available})).into_response());
     }
@@ -490,6 +493,10 @@ async fn dispatch(
         || p.len() == 4 && p[2] == "secret" && p[3] == "rotate"
     {
         who.as_ref().ok_or_else(ApiError::auth)?;
+        prepared.historical_app_id = p.len() == 1
+            && body["app_id"]
+                .as_str()
+                .is_some_and(|id| s.config.historical_app_ids.allows(id, who.as_ref()));
         let pending = s
             .store
             .lock()
@@ -521,6 +528,7 @@ async fn dispatch(
                 digest: &digest,
                 prepared: Prepared {
                     secret: prepared.secret.clone(),
+                    historical_app_id: prepared.historical_app_id,
                     ..Default::default()
                 },
             },

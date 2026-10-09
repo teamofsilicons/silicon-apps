@@ -35,6 +35,9 @@ pub struct Prepared {
     pub package: Option<Package>,
     pub secret: Option<String>,
     pub webhook: Option<Value>,
+    /// The API found that this create request's author is the configured
+    /// owner of its 1–2 character historical app ID (`APPS_HISTORICAL_APP_IDS`).
+    pub historical_app_id: bool,
 }
 pub struct Mutation<'a> {
     pub method: &'a str,
@@ -331,11 +334,6 @@ impl Store {
             let w = need(who)?;
             return Ok(
                 json!({"items":c.invites.iter().filter(|i|i.status=="pending"&&invite_matches(i,w)).collect::<Vec<_>>()}),
-            );
-        }
-        if p.len() == 3 && p[..2] == ["apps", "availability"] {
-            return Ok(
-                json!({"available":valid_app_id(p[2])&&!reserved_app_id(p[2])&&!c.apps.contains_key(p[2])}),
             );
         }
         if p.len() == 2 && p[0] == "authors" {
@@ -712,7 +710,12 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
     if p == ["apps"] && m.method == "POST" {
         let w = need(who)?;
         let id = str_field(b, "app_id")?;
-        if !valid_app_id(id) {
+        // A historical Accounts ID shorter than a new ID is valid only for the
+        // owner the operator configured; to anyone else it is an invalid ID.
+        let historical = m.prepared.historical_app_id
+            && !valid_app_id(id)
+            && silicon_apps_package::valid_existing_app_id(id);
+        if !valid_app_id(id) && !historical {
             return Err(ApiError::bad(
                 "app_id must be 3–30 lowercase letters, digits, hyphens or underscores.",
             ));
@@ -764,7 +767,11 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             secret_hash: hash(secret.as_bytes()),
         };
         validate_details(&app)?;
-        app.event(actor, "app.created", json!({"name":name}));
+        let mut created = json!({"name":name});
+        if historical {
+            created["historical_app_id"] = json!(true);
+        }
+        app.event(actor, "app.created", created);
         let view = app.view(who);
         c.apps.insert(id.into(), app);
         return Ok(json!({"app":view,"app_secret":secret}));

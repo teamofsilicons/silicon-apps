@@ -66,7 +66,7 @@ schemas = {
  "CarouselItem": obj({"url": S, "kind": {"type":"string","enum":["image","video"]}, "alt": {"type":"string","maxLength":10000}}, ["url","kind"]),
  "Links": obj({"website": S, "developer_docs": S, "android": S, "ios": S, "custom": {"type":"array","maxItems":4,"items": obj({"label": S, "url": S, "logo": S}, ["label","url"])}}),
  "App": obj({
-     "app_id": {"type":"string","description":"Permanent ID: 3 to 30 of a-z, 0-9, - and _."},
+     "app_id": {"type":"string","description":"Permanent ID: 3 to 30 of a-z, 0-9, - and _. An app from before Silicon Apps may keep its historical Silicon Accounts ID of 1 or 2 characters."},
      "name": S, "description": S, "logo": S, "logo_alt": S, "banner": S, "banner_alt": S,
      "tags": arr(S), "visibility": {"type":"string","enum":["public","private"]},
      "domains": {"type":"array","items":S,"description":"Verified email domains with access. Authors only."},
@@ -237,9 +237,9 @@ op("GET","/v1/apps","searchApps","Search and list apps","Catalog",
 op("POST","/v1/apps","createApp","Create an app","Authoring",
    "Creates an unpublished app with you as its first author and returns its `app_secret` once. Registers the app with Silicon Accounts.",
    {"200":ok(obj({"app":ref("App"),"app_secret":{"type":"string","description":"Shown once. Save it now."}},["app","app_secret"]))},security=AUTH,
-   body=json_body(obj({"app_id":{"type":"string","pattern":"^[a-z0-9_-]{3,30}$"},"name":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":600},"logo":S},["app_id","name"])),
+   body=json_body(obj({"app_id":{"type":"string","pattern":"^[a-z0-9_-]{1,30}$","description":"A new ID is 3 to 30 of a-z, 0-9, - and _. A historical Silicon Accounts ID of 1 or 2 characters is accepted only from the account the operator reserved it for; anyone else gets 400, as for any invalid ID."},"name":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":600},"logo":S},["app_id","name"])),
    errors=MUT_ERR,mutation=True)
-op("GET","/v1/apps/availability/{app_id}","getAvailability","Check whether an app ID is free","Catalog","`available` is false for taken, reserved and invalid IDs.",{"200":ok(obj({"available":B},["available"]))},parameters_=[param("AppId")],errors=("RateLimited","Unavailable"))
+op("GET","/v1/apps/availability/{app_id}","getAvailability","Check whether an app ID is free","Catalog","`available` is false for taken, reserved and invalid IDs. A historical Silicon Accounts ID of 1 or 2 characters is available only to the signed-in account the operator reserved it for; to anyone else it is an invalid ID.",{"200":ok(obj({"available":B},["available"]))},parameters_=[param("AppId")],errors=("RateLimited","Unavailable"))
 op("GET","/v1/apps/{app_id}","getApp","Get an app","Catalog","An app's page. Drafts are visible only to authors; private apps only to accounts they are shared with.",{"200":ok(ref("App"))},parameters_=[param("AppId")],errors=("Unauthorized","NotFound","RateLimited"))
 op("PATCH","/v1/apps/{app_id}","updateApp","Update app details","Authoring","Change details, links, media and the saved setup step. Authors only.",{"200":ok(ref("App"))},security=AUTH,parameters_=[param("AppId")],
    body=json_body(obj({"name":S,"description":{"type":"string","maxLength":600},"tags":{"type":"array","maxItems":20,"items":{"type":"string","maxLength":60}},"logo":S,"logo_alt":S,"banner":S,"banner_alt":S,"carousel":{"type":"array","maxItems":20,"items":ref("CarouselItem")},"links":ref("Links"),"setup_step":{"type":"integer","minimum":1,"maximum":7}},extra=False)),

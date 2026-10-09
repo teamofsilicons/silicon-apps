@@ -748,7 +748,8 @@
                 "properties": {
                   "app_id": {
                     "type": "string",
-                    "pattern": "^[a-z0-9_-]{3,30}$"
+                    "pattern": "^[a-z0-9_-]{1,30}$",
+                    "description": "A new ID is 3 to 30 of a-z, 0-9, - and _. A historical Silicon Accounts ID of 1 or 2 characters is accepted only from the account the operator reserved it for; anyone else gets 400, as for any invalid ID."
                   },
                   "name": {
                     "type": "string",
@@ -840,7 +841,7 @@
       "get": {
         "operationId": "getAvailability",
         "summary": "Check whether an app ID is free",
-        "description": "`available` is false for taken, reserved and invalid IDs.",
+        "description": "`available` is false for taken, reserved and invalid IDs. A historical Silicon Accounts ID of 1 or 2 characters is available only to the signed-in account the operator reserved it for; to anyone else it is an invalid ID.",
         "tags": [
           "Catalog"
         ],
@@ -6915,7 +6916,7 @@
         "properties": {
           "app_id": {
             "type": "string",
-            "description": "Permanent ID: 3 to 30 of a-z, 0-9, - and _."
+            "description": "Permanent ID: 3 to 30 of a-z, 0-9, - and _. An app from before Silicon Apps may keep its historical Silicon Accounts ID of 1 or 2 characters."
           },
           "name": {
             "type": "string"
