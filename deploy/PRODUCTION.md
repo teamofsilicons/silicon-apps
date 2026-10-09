@@ -110,13 +110,77 @@ The worker secret contains only its runner token. Configure a dedicated Space
 Station table key for telemetry. Mail defaults to the official Accounts
 integration. The store needs no secret.
 
-Initially this installer provisions `linux-x86_64` execution only. It pulls
-the official `python:3.14-slim-trixie` runtime (including CA certificates) and
-pins its resolved immutable image digest. Set
-`APPS_RUNNER_TARGETS` only to execution environments that have actually been
-deployed and verified. Other native release archives do not imply other upload
-workers exist. Additional Linux, macOS and Windows workers follow the isolation
-and forwarding contracts in `runner/README.md`.
+Set `APPS_RUNNER_TARGETS` only to execution environments that have actually
+been deployed and verified (below). Other native release archives do not imply
+other upload workers exist. macOS and Windows workers follow the isolation and
+forwarding contracts in `runner/README.md`.
+
+## Validation worker (four Linux targets)
+
+The x86_64 worker validates `linux-x86_64`, `linux-i686`, `linux-aarch64` and
+`linux-armv7hf` uploads. `deploy/install.py` pins one immutable per-platform
+image for each (`WORKER_IMAGES`), all from the official
+`python:3.14-slim-trixie` index the worker already used for `linux-x86_64`
+(`python@sha256:f85c5697...55d2`, Python 3.14.8). The `linux-x86_64` image is
+that index's `linux/amd64` manifest, so its bytes did not change. The runtime
+includes CA certificates and a glibc compatible with Ubuntu 24.04 builds.
+
+| target | Docker platform | how it runs on the x86_64 host |
+|---|---|---|
+| `linux-x86_64` | `linux/amd64` | natively |
+| `linux-i686` | `linux/386` | natively, as a 32-bit process (the kernel needs 32-bit x86 support) |
+| `linux-aarch64` | `linux/arm64` | QEMU user-mode emulation (`qemu-aarch64`) |
+| `linux-armv7hf` | `linux/arm/v7` | QEMU user-mode emulation (`qemu-arm`) |
+
+Emulation is registered for those two architectures only, by the official
+`tonistiigi/binfmt` image pinned to the `linux/amd64` manifest of
+`qemu-v10.2.3-68` (`BINFMT_IMAGE`). It registers each entry in
+`/proc/sys/fs/binfmt_misc` with the F (fix binary) flag: the kernel opens the
+emulator once, so every validation container can use it without the emulator
+in its image, network or filesystem. Registrations are kernel state that a
+reboot clears, so the installer adds `silicon-apps-binfmt.service`, a oneshot
+unit that registers again at boot from the local pinned image
+(`--pull=never`), checks that both entries are enabled with the F flag, and
+runs before the worker. The worker unit requires it: if emulation cannot be
+registered the worker stays down, and uploads get the retryable "worker
+unavailable" answer instead of ARM packages failing validation.
+
+On the worker host the installer, in order:
+
+1. validates the runner token, extracts and verifies the archive, and prepares
+   the revision's Python environment, as before;
+2. pulls the four pinned images and the binfmt image, each with `--platform`;
+3. registers `qemu-aarch64` and `qemu-arm` by running the binfmt image once,
+   touching only those two entries, then requires both to be enabled with the
+   F flag. Entries that already are (a live worker may be using them) are left
+   until step 5;
+4. self-checks every target: `python3` in each pinned image, under its platform
+   and with the runner's container isolation, must report the expected
+   `uname -m` (`x86_64`; `i686` or `x86_64`; `aarch64`; `armv7l` or `armv8l`)
+   and word size (64, 32, 64, 32 bits). Any failure names the target, its exit
+   code and error, and stops the install before any file or service changes;
+5. writes `worker.env` with all four images in `APPS_RUNNER_IMAGES`, the worker
+   and binfmt units and `/etc/silicon-apps/worker-image.json` (the four images,
+   the index and the emulator image), switches `current`, enables and restarts
+   `silicon-apps-binfmt` (proving the boot unit and registering from the pinned
+   image; systemd stops the worker meanwhile), restarts the worker, waits
+   for its 401 readiness answer, and runs the self-check again on the
+   registrations the unit made. A failure here restores the previous files,
+   `current` and service states; the two emulator registrations stay, since
+   they only let ARM programs run under QEMU. The installer prints each
+   target's result under `platforms`.
+
+Isolation flags, limits and tokens are unchanged. Keep the pinned images on the
+host: the runner and the boot unit never pull, so `docker image prune -a` would
+make validation fail. To move to a newer runtime, resolve the new index's four
+per-platform digests (`docker buildx imagetools inspect` or the registry API),
+update `WORKER_IMAGES` and its comment, and release the worker.
+
+After a successful worker install, run `deploy/verify-worker.py --target T` on
+the worker with a checksum-verified package for each Linux target, then add the
+verified targets to the API secret's `APPS_RUNNER_TARGETS` (comma separated)
+and restart the API. A target the API lists but the worker has not verified
+must not be enabled; `production.json` records the targets actually live.
 
 ## Release signing key
 
@@ -178,8 +242,9 @@ Before accepting traffic:
   services, local API health, the store's `GET /` on `127.0.0.1:4320` and public
   HTTPS responses for both domains.
 - Run `deploy/verify-worker.py` on the worker with a checksum-verified release
-  archive. It runs all three discovery commands inside the sandbox, retains
-  their exact output and verifies unauthenticated requests return 401.
+  archive, once per enabled Linux target (`--target`). It runs all three
+  discovery commands inside the sandbox, retains their exact output and
+  verifies unauthenticated requests return 401.
 - Check the public routes: pages and agent files are served by the store with
   a nonce CSP, `/_next/static/*` is immutable and a missing file is a 404, the
   installers are byte-identical to `scripts/` as `text/plain` with `no-cache`,

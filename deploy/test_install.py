@@ -10,8 +10,10 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import sys
 import tarfile
 import tempfile
+import types
 from contextlib import redirect_stdout
 import unittest
 import unittest.mock
@@ -21,6 +23,26 @@ SPEC = importlib.util.spec_from_file_location('apps_deploy_install', Path(__file
 installer = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(installer)
 REVISION = 'a' * 40
+RUNNER_PATH = Path(__file__).resolve().parent.parent / 'runner/server.py'
+
+
+def load_runner():
+    """runner/server.py itself; a stand-in yaml module when PyYAML is absent (only its config helpers are used)."""
+    spec = importlib.util.spec_from_file_location('apps_runner_server', RUNNER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    stub = {} if importlib.util.find_spec('yaml') else {'yaml': types.ModuleType('yaml')}
+    with patch.dict(sys.modules, stub):
+        spec.loader.exec_module(module)
+    return module
+
+
+def read_environment(path):
+    """Decode the systemd EnvironmentFile lines environment_file() writes."""
+    values = {}
+    for line in path.read_text().splitlines():
+        key, value = line.split('=', 1)
+        values[key] = re.sub(r'\\(.)', r'\1', value[1:-1])
+    return values
 
 
 class InstallerTests(unittest.TestCase):
@@ -467,6 +489,325 @@ class MainTests(unittest.TestCase):
         self.assertTrue(self.states['silicon-apps-api'][1] and self.states['caddy'][1])
         self.assertLess(self.position('ready silicon-apps-store'), len(self.events) - 1)
         self.assertNotIn('systemctl restart caddy silicon-apps-backup.timer', self.events)
+
+
+LINUX_TARGETS = {'linux-x86_64', 'linux-i686', 'linux-aarch64', 'linux-armv7hf'}
+# What each platform reports on a healthy x86_64 worker (a 32-bit process may see x86_64).
+HEALTHY = {'linux/amd64': 'x86_64 64', 'linux/386': 'x86_64 32', 'linux/arm64': 'aarch64 64', 'linux/arm/v7': 'armv7l 32'}
+
+
+def binfmt_entry(name, flags='POCF', state='enabled'):
+    return '%s\ninterpreter /usr/bin/%s\nflags: %s\noffset 0\nmagic 7f454c46\n' % (state, name, flags)
+
+
+class WorkerPlatformTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.binfmt = Path(self.temporary.name)
+        patcher = patch.object(installer, 'BINFMT_MISC', self.binfmt)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.commands = []
+
+    def test_pins_cover_the_four_linux_targets_with_the_runners_platforms(self):
+        runner = load_runner()
+        self.assertEqual(set(installer.WORKER_IMAGES), LINUX_TARGETS)
+        self.assertEqual({t: p for t, (p, _) in installer.WORKER_IMAGES.items()}, runner.PLATFORMS)
+        self.assertEqual(set(installer.WORKER_SELF_CHECK), LINUX_TARGETS)
+        images = {t: image for t, (_, image) in installer.WORKER_IMAGES.items()}
+        for image in images.values():
+            self.assertRegex(image, r'^python@sha256:[0-9a-f]{64}$')
+        # Per-platform manifests: four different digests, none of them the multi-platform index.
+        self.assertEqual(len(set(images.values())), 4)
+        self.assertNotIn(installer.WORKER_IMAGE_INDEX, images.values())
+        self.assertEqual(runner.image_config(json.loads(json.dumps(images))), images)
+        self.assertRegex(installer.BINFMT_IMAGE, r'^tonistiigi/binfmt@sha256:[0-9a-f]{64}$')
+        self.assertEqual(installer.EMULATORS, ('qemu-aarch64', 'qemu-arm'))
+
+    def test_emulator_entry_needs_enabled_and_the_f_flag(self):
+        for content, expected in [(binfmt_entry('qemu-arm'), True), (binfmt_entry('qemu-arm', 'F'), True),
+                                  (binfmt_entry('qemu-arm', 'POC'), False), (binfmt_entry('qemu-arm', 'OC'), False),
+                                  (binfmt_entry('qemu-arm', state='disabled'), False), ('', False)]:
+            with self.subTest(content=content[:30]):
+                (self.binfmt / 'qemu-arm').write_text(content)
+                self.assertEqual(installer.emulator_registered('qemu-arm'), expected)
+        (self.binfmt / 'qemu-arm').unlink()
+        self.assertFalse(installer.emulator_registered('qemu-arm'))
+
+    def fake_binfmt(self, flags='POCF', register=True):
+        def fake(command, **kwargs):
+            self.commands.append(command)
+            if register:
+                for name in installer.EMULATORS:
+                    (self.binfmt / name).write_text(binfmt_entry(name, flags))
+            return subprocess.CompletedProcess(command, 0, '{}', 'installing: arm64 OK\ninstalling: arm OK\n')
+        return patch.object(installer.subprocess, 'run', side_effect=fake)
+
+    def test_registration_runs_only_the_pinned_arm_emulators(self):
+        with self.fake_binfmt(), patch.object(installer.time, 'sleep') as sleep:
+            self.assertTrue(installer.register_emulators())
+        sleep.assert_not_called()
+        self.assertEqual(self.commands, [['docker', 'run', '--rm', '--pull=never', '--privileged', '--network=none',
+                                          '--platform', 'linux/amd64', installer.BINFMT_IMAGE,
+                                          '--uninstall', 'qemu-aarch64,qemu-arm', '--install', 'arm64,arm']])
+
+    def test_registration_without_the_f_flag_or_an_entry_fails_clearly(self):
+        for flags, register in (('POC', True), ('POCF', False)):
+            with self.subTest(flags=flags, register=register):
+                for entry in self.binfmt.iterdir():
+                    entry.unlink()
+                with self.fake_binfmt(flags, register), patch.object(installer.time, 'sleep') as sleep:
+                    with self.assertRaisesRegex(RuntimeError, 'F flag for qemu-aarch64, qemu-arm .*arm64 OK') as caught:
+                        installer.register_emulators(attempts=3)
+                self.assertEqual(sleep.call_count, 2)
+                self.assertIn('worker was not changed', str(caught.exception))
+
+    def test_live_registrations_are_left_for_the_cutover_and_others_replaced(self):
+        for name in installer.EMULATORS:
+            (self.binfmt / name).write_text(binfmt_entry(name))
+        with self.fake_binfmt():
+            self.assertFalse(installer.register_emulators())
+        self.assertEqual(self.commands, [])
+        # An entry without the F flag (say, from a distribution package) is replaced.
+        (self.binfmt / 'qemu-arm').write_text(binfmt_entry('qemu-arm', 'OC'))
+        with self.fake_binfmt(), patch.object(installer.time, 'sleep'):
+            self.assertTrue(installer.register_emulators())
+        self.assertEqual(self.commands, [installer.binfmt_command()])
+        self.assertTrue(installer.emulator_registered('qemu-arm'))
+
+    def test_registration_waits_for_an_entry_the_kernel_shows_late(self):
+        def appear(_seconds):
+            for name in installer.EMULATORS:
+                (self.binfmt / name).write_text(binfmt_entry(name))
+        with self.fake_binfmt(register=False), patch.object(installer.time, 'sleep', side_effect=appear):
+            installer.register_emulators()
+
+    def test_boot_unit_reregisters_before_the_worker(self):
+        unit = installer.binfmt_unit()
+        lines = unit.splitlines()
+        for line in ('Type=oneshot', 'RemainAfterExit=yes', 'After=docker.service', 'Requires=docker.service',
+                     'Before=silicon-apps-runner.service', 'WantedBy=multi-user.target'):
+            self.assertIn(line, lines)
+        self.assertIn('ExecStart=' + ' '.join(['/usr/bin/docker'] + installer.binfmt_command()[1:]), lines)
+        check = next(line for line in lines if line.startswith('ExecStartPost=/bin/sh -c '))
+        self.assertIn('for n in qemu-aarch64 qemu-arm;', check)
+        self.assertIn('^flags: [A-Z]*F', check)
+        # systemd expands $NAME and %x: every dollar is escaped and no specifier is used.
+        self.assertNotIn('$', unit.replace('$$', ''))
+        self.assertNotIn('%', unit)
+
+    def fake_containers(self, outputs):
+        def fake(command, **kwargs):
+            self.commands.append(command)
+            platform = command[command.index('--platform') + 1]
+            result = outputs.get(platform, HEALTHY[platform])
+            if isinstance(result, Exception):
+                raise result
+            if isinstance(result, tuple):
+                return subprocess.CompletedProcess(command, result[0], result[1], result[2])
+            return subprocess.CompletedProcess(command, 0, result + '\n', '')
+        return patch.object(installer.subprocess, 'run', side_effect=fake)
+
+    def test_self_check_runs_each_image_under_its_platform_with_the_runners_isolation(self):
+        with self.fake_containers({'linux/386': 'i686 32', 'linux/arm/v7': 'armv8l 32'}):
+            results = installer.self_check()
+        self.assertEqual(results, {'linux-x86_64': 'x86_64 64', 'linux-i686': 'i686 32',
+                                   'linux-aarch64': 'aarch64 64', 'linux-armv7hf': 'armv8l 32'})
+        runner = load_runner()
+        with tempfile.TemporaryDirectory() as folder:
+            images = {t: image for t, (_, image) in installer.WORKER_IMAGES.items()}
+            for target, command in zip(installer.WORKER_IMAGES, self.commands):
+                launched = []
+                with patch.object(runner, 'bounded_run', side_effect=lambda c, *a, **k: launched.append(c) or (0, '', '')), \
+                        patch.object(runner.subprocess, 'run'), patch.object(runner, 'native_target', return_value=None):
+                    runner.execute(Path(folder), 'bin/app', ['version'], target, images)
+                runner_command = launched[0]
+                isolation = [a for a in runner_command if a.startswith('--') and not a.startswith(('--env=', '--workdir=', '--name', '--mount', '--entrypoint', '--platform'))]
+                self.assertTrue(isolation)
+                for flag in isolation:
+                    self.assertIn(flag, command)
+                platform = runner_command[runner_command.index('--platform') + 1]
+                self.assertEqual(command[command.index('--platform') + 1], platform)
+                self.assertEqual(command[command.index('--entrypoint') + 2], runner_command[runner_command.index('--entrypoint') + 2])
+                self.assertEqual(command[-3:], ['-I', '-c', installer.SELF_CHECK_CODE])
+
+    def test_self_check_names_every_platform_that_does_not_run(self):
+        outputs = {'linux/386': 'x86_64 64',  # a 64-bit userland is not linux-i686
+                   'linux/arm64': (126, '', 'exec /usr/local/bin/python3: exec format error\n'),
+                   'linux/arm/v7': subprocess.TimeoutExpired(['docker'], 120)}
+        with self.fake_containers(outputs):
+            with self.assertRaises(RuntimeError) as caught:
+                installer.self_check()
+        message = str(caught.exception)
+        self.assertNotIn('linux-x86_64', message)
+        for text in ("linux-i686 (linux/386) exited 0 and reported 'x86_64 64'", 'linux-aarch64 (linux/arm64) exited 126',
+                     'exec format error', 'linux-armv7hf (linux/arm/v7) did not finish', 'ia32_emulation',
+                     'qemu-aarch64 binfmt_misc entry with the F flag', 'qemu-arm binfmt_misc entry'):
+            self.assertIn(text, message)
+        self.assertEqual(len(self.commands), 4)
+
+
+OLD_RUNNER_UNIT = '[Unit]\nDescription=old worker\n[Service]\nExecStart=/old\n'
+
+
+class WorkerMainTests(unittest.TestCase):
+    """main() for the worker with every host effect replaced, from pulls to the post-ready self-check."""
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        base = Path(self.temporary.name).resolve()
+        self.root, self.etc, self.state, self.binfmt = base / 'opt', base / 'etc', base / 'state', base / 'binfmt_misc'
+        self.binfmt.mkdir()
+        self.previous = self.root / 'releases' / ('b' * 40)
+        self.previous.mkdir(parents=True)
+        (self.root / 'current').symlink_to(self.previous)
+        self.release = self.root / 'releases' / REVISION
+        (self.release / 'runner').mkdir(parents=True)
+        requirements = b'PyYAML==6.0.2\n'
+        (self.release / 'runner/requirements.txt').write_bytes(requirements)
+        venv = self.root / 'venvs' / REVISION
+        venv.mkdir(parents=True)
+        (venv / '.ready').write_text(hashlib.sha256(requirements).hexdigest())
+        self.unit_path = self.etc / 'systemd/system/silicon-apps-runner.service'
+        self.unit_path.parent.mkdir(parents=True)
+        self.unit_path.write_text(OLD_RUNNER_UNIT)
+        self.env_path = self.etc / 'silicon-apps/worker.env'
+        self.env_path.parent.mkdir(parents=True)
+        self.env_path.write_text('APPS_RUNNER_TOKEN="old"\n')
+        self.secret = {'APPS_RUNNER_TOKEN': 'r' * 40}
+        self.states = {'silicon-apps-runner': ('enabled', True), 'docker': ('enabled', True)}
+        self.events, self.outputs, self.broken_after_restart, self.flags = [], {}, {}, 'POCF'
+
+    def fake_run(self, command, **kwargs):
+        self.events.append(' '.join(str(c) for c in command))
+        if command[0] == 'systemctl':
+            action, service = command[1], command[-1]
+            enabled, active = self.states.get(service, ('not-found', False))
+            if action == 'is-enabled':
+                return subprocess.CompletedProcess(command, 0 if enabled == 'enabled' else 1, enabled + '\n')
+            if action == 'is-active':
+                return subprocess.CompletedProcess(command, 0 if active else 3)
+            if action in ('start', 'restart', 'stop'):
+                self.states[service] = (enabled, action != 'stop')
+            if action in ('enable', 'disable'):
+                self.states[service] = ('enabled' if action == 'enable' else 'disabled', active)
+            return subprocess.CompletedProcess(command, 0)
+        if command[:2] == ['docker', 'run'] and installer.BINFMT_IMAGE in command:
+            for name in installer.EMULATORS:
+                (self.binfmt / name).write_text(binfmt_entry(name, self.flags))
+            return subprocess.CompletedProcess(command, 0, '{}', 'installing: arm64 OK\n')
+        if command[:2] == ['docker', 'run']:
+            platform = command[command.index('--platform') + 1]
+            outputs = self.outputs
+            if 'systemctl restart silicon-apps-runner' in self.events:
+                outputs = dict(outputs, **self.broken_after_restart)
+            code, out, err = outputs.get(platform, (0, HEALTHY[platform] + '\n', ''))
+            return subprocess.CompletedProcess(command, code, out, err)
+        return subprocess.CompletedProcess(command, 0, '', '')
+
+    def install(self):
+        record = lambda name: (lambda *args, **kwargs: self.events.append(name + ' ' + ' '.join(str(a) for a in args)))
+        argv = ['install.py', '--archive', 'release.tar.gz', '--sha256', '0' * 64, '--revision', REVISION,
+                '--role', 'worker', '--secret', 'arn:aws:secretsmanager:us-east-2:1:secret:worker', '--bucket', 'apps-artifacts']
+        output = io.StringIO()
+        with patch.multiple(installer, ROOT=self.root, ETC=self.etc, STATE=self.state, BINFMT_MISC=self.binfmt,
+                            account=record('account'), directory=record('directory'),
+                            wait_ready=lambda service, role, timeout=60: self.events.append('ready ' + service),
+                            prepare_release=unittest.mock.Mock(return_value=self.release),
+                            capture=unittest.mock.Mock(return_value=json.dumps({'SecretString': json.dumps(self.secret)}))), \
+                patch.object(installer.os, 'geteuid', return_value=0), patch.object(installer.os, 'chown'), \
+                patch.object(installer.subprocess, 'run', side_effect=self.fake_run), \
+                patch.object(installer.time, 'sleep'), patch('sys.argv', argv), redirect_stdout(output):
+            installer.main()
+        return json.loads(output.getvalue())
+
+    def positions(self, prefix):
+        return [i for i, event in enumerate(self.events) if event.startswith(prefix)]
+
+    def checks(self):
+        return self.positions('docker run --rm --pull=never --platform')
+
+    def test_pins_registers_and_checks_every_platform(self):
+        summary = self.install()
+        self.assertEqual(summary['platforms'], {'linux-x86_64': 'x86_64 64', 'linux-i686': 'x86_64 32',
+                                                'linux-aarch64': 'aarch64 64', 'linux-armv7hf': 'armv7l 32'})
+        pulls = [' '.join(['docker pull --platform', platform, image])
+                 for platform, image in [*installer.WORKER_IMAGES.values(), ('linux/amd64', installer.BINFMT_IMAGE)]]
+        self.assertEqual([e for e in self.events if e.startswith('docker pull')], pulls)
+        self.assertFalse([e for e in self.events if 'slim-trixie' in e or 'docker image inspect' in e])
+        checks = self.checks()
+        self.assertEqual(len(checks), 8)
+        order = [max(self.positions('docker pull')), self.positions('docker run --rm --pull=never --privileged')[0],
+                 checks[0], checks[3], self.positions('systemctl daemon-reload')[0],
+                 self.positions('systemctl enable silicon-apps-binfmt')[0], self.positions('systemctl restart silicon-apps-binfmt')[0],
+                 self.positions('systemctl restart silicon-apps-runner')[0], self.positions('ready silicon-apps-runner')[0], checks[4]]
+        self.assertEqual(order, sorted(order))
+        environment = read_environment(self.env_path)
+        images = {target: image for target, (_, image) in installer.WORKER_IMAGES.items()}
+        self.assertEqual(json.loads(environment.pop('APPS_RUNNER_IMAGES')), images)
+        self.assertEqual(environment, {'APPS_RUNNER_TOKEN': 'r' * 40, 'APPS_RUNNER_HOST': '0.0.0.0', 'APPS_RUNNER_PORT': '4312',
+                                       'TMPDIR': str(self.state / 'silicon-apps-runner/jobs')})
+        self.assertEqual(stat.S_IMODE(self.env_path.stat().st_mode), 0o600)
+        venv_python = self.root / 'venvs' / REVISION / 'bin/python'
+        self.assertEqual(self.unit_path.read_text(), (
+            '[Unit]\nDescription=Silicon Apps isolated Linux validator\n'
+            'After=network-online.target docker.service silicon-apps-binfmt.service\n'
+            'Requires=docker.service silicon-apps-binfmt.service\n[Service]\nUser=silicon-apps-runner\n'
+            'Group=silicon-apps-runner\nSupplementaryGroups=docker\nWorkingDirectory=/opt/silicon-apps/current\n'
+            'EnvironmentFile=/etc/silicon-apps/worker.env\nExecStart=%s /opt/silicon-apps/current/runner/server.py\n'
+            'Restart=on-failure\nRestartSec=3\nUMask=0077\nNoNewPrivileges=true\nProtectHome=true\nProtectSystem=strict\n'
+            'ReadWritePaths=/var/lib/silicon-apps-runner\n[Install]\nWantedBy=multi-user.target\n') % venv_python)
+        with patch.object(installer, 'BINFMT_MISC', self.binfmt):
+            boot_unit = installer.binfmt_unit()
+        self.assertEqual((self.etc / 'systemd/system/silicon-apps-binfmt.service').read_text(), boot_unit)
+        record = json.loads((self.etc / 'silicon-apps/worker-image.json').read_text())
+        self.assertEqual(record, {'image': images['linux-x86_64'], 'images': images,
+                                  'index': installer.WORKER_IMAGE_INDEX, 'emulator': installer.BINFMT_IMAGE})
+        self.assertEqual(self.states['silicon-apps-binfmt'], ('enabled', True))
+        self.assertEqual((self.root / 'current').resolve(), self.release)
+        self.assertEqual(json.loads((self.root / 'deployment.json').read_text())['role'], 'worker')
+
+    def assert_unchanged(self):
+        self.assertEqual((self.root / 'current').resolve(), self.previous)
+        self.assertEqual(self.unit_path.read_text(), OLD_RUNNER_UNIT)
+        self.assertEqual(self.env_path.read_text(), 'APPS_RUNNER_TOKEN="old"\n')
+        self.assertFalse((self.etc / 'systemd/system/silicon-apps-binfmt.service').exists())
+        self.assertFalse((self.etc / 'silicon-apps/worker-image.json').exists())
+        self.assertFalse((self.root / 'deployment.json').exists())
+
+    def test_a_platform_that_does_not_run_stops_before_any_live_change(self):
+        self.outputs = {'linux/arm/v7': (126, '', 'exec /usr/local/bin/python3: exec format error\n')}
+        with self.assertRaisesRegex(RuntimeError, r'linux-armv7hf \(linux/arm/v7\) exited 126.*exec format error'):
+            self.install()
+        self.assert_unchanged()
+        self.assertFalse([e for e in self.events if e.startswith(('systemctl daemon-reload', 'systemctl restart', 'systemctl stop'))])
+        self.assertEqual(self.states['silicon-apps-runner'], ('enabled', True))
+
+    def test_emulation_without_the_f_flag_stops_before_the_self_check(self):
+        self.flags = 'POC'
+        with self.assertRaisesRegex(RuntimeError, 'F flag for qemu-aarch64, qemu-arm'):
+            self.install()
+        self.assert_unchanged()
+        self.assertEqual(self.checks(), [])
+
+    def test_an_upgrade_leaves_live_emulation_alone_until_the_unit_restart(self):
+        for name in installer.EMULATORS:
+            (self.binfmt / name).write_text(binfmt_entry(name))
+        self.install()
+        self.assertEqual(self.positions('docker run --rm --pull=never --privileged'), [])
+        self.assertLess(self.checks()[3], self.positions('systemctl restart silicon-apps-binfmt')[0])
+        self.assertLess(self.positions('systemctl restart silicon-apps-binfmt')[0], self.checks()[4])
+
+    def test_a_failed_check_after_the_restart_rolls_everything_back(self):
+        self.broken_after_restart = {'linux/arm64': (1, '', 'exec format error\n')}
+        with self.assertRaisesRegex(RuntimeError, 'linux-aarch64'):
+            self.install()
+        self.assert_unchanged()
+        self.assertEqual(len(self.checks()), 8)
+        self.assertEqual(self.states['silicon-apps-runner'], ('enabled', True))
+        self.assertEqual(self.states['silicon-apps-binfmt'], ('disabled', False))
+        self.assertGreater(self.positions('systemctl start silicon-apps-runner')[-1], self.checks()[-1])
 
 
 if __name__ == '__main__':

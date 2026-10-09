@@ -62,7 +62,27 @@ Set `APPS_RUNNER_IMAGES` to immutable image references, for example:
 The placeholder above must be replaced before startup; floating tags are rejected. Pull the
 operator-approved image before starting the worker. The mapping also accepts `linux-i686`,
 `linux-aarch64` and `linux-armv7hf`; the selected Docker platform must be available natively
-or through an explicitly configured emulator.
+or through an explicitly configured emulator. Containers run with `--platform` set to
+`linux/amd64`, `linux/386`, `linux/arm64` or `linux/arm/v7` respectively, and with
+`--pull=never`, so every image must already be on the host.
+
+The production x86_64 worker serves all four. `deploy/install.py` pins one per-platform
+`python:3.14-slim-trixie` manifest digest per target, pulls each with `--platform`, and writes
+all four into `APPS_RUNNER_IMAGES`. `linux-i686` runs natively as a 32-bit process.
+`linux-aarch64` and `linux-armv7hf` run under QEMU user-mode emulation: the installer
+registers `qemu-aarch64` and `qemu-arm` (only those two) in binfmt_misc with the F flag
+through a digest-pinned `tonistiigi/binfmt` image, and a oneshot unit,
+`silicon-apps-binfmt.service`, registers them again at every boot before the worker starts.
+With the F flag the kernel holds the emulator open, so nothing is added to the validation
+containers. The binfmt entries also carry the C flag; the containers' `no-new-privileges`
+setting means that never grants credentials to an emulated program. Emulation is slower than
+native execution, but every command keeps the same 25 second wall-clock limit.
+
+Before the worker is declared ready, the installer runs `python3` in each pinned image under
+its platform, with the isolation flags below, and requires the expected `uname -m` and word
+size: `x86_64` and 64-bit; `i686` (or the host's `x86_64`) and 32-bit; `aarch64` and 64-bit;
+`armv7l` (or `armv8l`) and 32-bit. A target that does not run fails the install by name.
+`deploy/PRODUCTION.md` describes the full worker install and rollback.
 
 Containers have no network, read-only root and package mounts, dropped capabilities,
 no-new-privileges, a non-root user, 256 MiB memory, one CPU, 32 processes, and a bounded
@@ -86,7 +106,9 @@ Windows runtime and image. Windows CPU/isolation options follow the
 
 Linux and Windows command construction and routing are covered by tests. No native Linux
 Docker or Windows Hyper-V engine was available in the implementation environment; live
-validation on those targets remains an operator deployment check.
+validation on those targets remains an operator deployment check. For the four Linux
+targets, the worker installer's per-platform self-check and `deploy/verify-worker.py
+--target` are that check.
 
 ## Protocol and validation
 

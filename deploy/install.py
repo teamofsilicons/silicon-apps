@@ -38,6 +38,43 @@ STORE_READY_TEXT = ('<main', 'Silicon Apps')
 # trusts only these keys and keys they endorse, so a wrong seed here breaks every install.
 PINNED_SIGNING_KEYS = {'apps-2026-10': '5WC06dtS61w+mPv3E0xNVz5ZoNQNMpX5/8YutuLZ3DU='}
 
+# Linux validation images, one immutable per-platform manifest per target. All four come from
+# the official python:3.14-slim-trixie multi-platform index the worker has pinned for
+# linux-x86_64 since its first install (WORKER_IMAGE_INDEX, Python 3.14.8), resolved through
+# the registry API on 2026-10-09; linux-x86_64 is that index's linux/amd64 manifest, so its bytes
+# are unchanged. The minimal Ubuntu image has no CA store, and even an offline Rust TLS client
+# constructor can need one; this runtime includes CA certificates and a glibc compatible with
+# Ubuntu 24.04 release builds. Platforms are the runner's PLATFORMS (a test keeps them equal).
+WORKER_IMAGE_INDEX = 'python@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2'
+WORKER_IMAGES = {
+    'linux-x86_64': ('linux/amd64', 'python@sha256:cfe2e24a75302a15934d37c2d86412893c0aa934dc3a97cbb439d04c01890ca9'),
+    'linux-i686': ('linux/386', 'python@sha256:952db3a8cdafdd8c635a18f1a30e4b6a0cfb5f3e9737741e634c25f6699a908f'),
+    'linux-aarch64': ('linux/arm64', 'python@sha256:7f47c8ffd4e70e88f7326b68e7df95109597ef66023a1052b7d1ec18390d2604'),
+    'linux-armv7hf': ('linux/arm/v7', 'python@sha256:9d2a631d044769963ee27e56ed1d2de1adf64f108529e3d2de7d829cb2967806'),
+}
+# What `uname -m` and the pointer width must report inside each image on the x86_64 worker.
+# linux-i686 runs natively as a 32-bit process, which may see the 64-bit kernel's machine name;
+# qemu-arm reports armv7l, or armv8l for a CPU model that runs 32-bit code on ARMv8.
+WORKER_SELF_CHECK = {
+    'linux-x86_64': (('x86_64',), 64),
+    'linux-i686': (('i386', 'i486', 'i586', 'i686', 'x86_64'), 32),
+    'linux-aarch64': (('aarch64',), 64),
+    'linux-armv7hf': (('armv7l', 'armv8l'), 32),
+}
+SELF_CHECK_CODE = "import os,struct;print(os.uname().machine,struct.calcsize('P')*8)"
+# QEMU user-mode emulation for the two ARM targets only, registered by the official
+# tonistiigi/binfmt image (tag qemu-v10.2.3-68, source e29e7d72c967): the linux/amd64 manifest
+# of index sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0. It
+# registers with the F (fix binary) flag, so the kernel opens the interpreter once and every
+# container can use it without the emulator in its image. It exits 0 even when a registration
+# fails, so the entries are checked after every run.
+BINFMT_IMAGE = 'tonistiigi/binfmt@sha256:465d3fdd28d0f2b871ba4b4ec98bd183292e96167f00d9fd40bd249f8632d705'
+BINFMT_PLATFORM = 'linux/amd64'
+EMULATORS = ('qemu-aarch64', 'qemu-arm')  # binfmt_misc entries for linux/arm64 and linux/arm/v7
+BINFMT_MISC = pathlib.Path('/proc/sys/fs/binfmt_misc')
+BINFMT_SERVICE = 'silicon-apps-binfmt'
+RUNNER_SERVICE = 'silicon-apps-runner'
+
 # Ed25519 public key derivation (RFC 8032, section 5.1.5), so the seed in the runtime
 # secret can be checked against the pinned public key without third-party modules.
 _P = 2 ** 255 - 19
@@ -436,6 +473,111 @@ def verify_signing(active_key_id):
             raise RuntimeError('The API publishes signing key ' + key_id + ' with a different public key than the CLI pins.')
 
 
+def pull_worker_images():
+    """Pull every pinned image for its own platform; the runner and the boot unit use --pull=never."""
+    for platform, image in [*WORKER_IMAGES.values(), (BINFMT_PLATFORM, BINFMT_IMAGE)]:
+        run(['docker', 'pull', '--platform', platform, image], stdout=subprocess.DEVNULL, timeout=900)
+
+
+def binfmt_command(docker='docker'):
+    """Replace only our two entries, then register arm64 and arm (nothing else) from the pinned image."""
+    return [docker, 'run', '--rm', '--pull=never', '--privileged', '--network=none', '--platform', BINFMT_PLATFORM,
+            BINFMT_IMAGE, '--uninstall', ','.join(EMULATORS), '--install', 'arm64,arm']
+
+
+def emulator_registered(name):
+    """The binfmt_misc entry is enabled and carries the F flag (for example `flags: POCF`)."""
+    try:
+        lines = (BINFMT_MISC / name).read_text().splitlines()
+    except OSError:
+        return False
+    flags = [line.split(':', 1)[1].strip() for line in lines if line.startswith('flags:')]
+    return bool(lines) and lines[0].strip() == 'enabled' and bool(flags) and 'F' in flags[0]
+
+
+def register_emulators(attempts=10):
+    """Register QEMU for linux-aarch64 and linux-armv7hf now, as the boot unit does at every boot.
+    Entries that are already enabled with the F flag may be serving a live worker, so they are
+    left alone; the cutover registers again through the unit while the worker is stopped.
+    Returns whether the binfmt image ran."""
+    if all(emulator_registered(name) for name in EMULATORS):
+        return False
+    try:
+        result = subprocess.run(binfmt_command(), capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError('The pinned binfmt image did not finish within 120 seconds; the worker was not changed.')
+    # Some kernels expose a new entry only after a short delay.
+    for attempt in range(attempts):
+        missing = [name for name in EMULATORS if not emulator_registered(name)]
+        if not missing:
+            return True
+        if attempt + 1 < attempts:
+            time.sleep(1)
+    log = ' '.join(line.strip() for line in (result.stderr or '').splitlines() if line.strip())[-600:]
+    raise RuntimeError('QEMU emulation is not registered with the F flag for %s (docker exit %d; binfmt said: %s). '
+                       'Check %s; the worker was not changed.' % (', '.join(missing), result.returncode,
+                                                                  log or 'nothing', BINFMT_MISC))
+
+
+def binfmt_unit():
+    """Oneshot unit that re-registers ARM emulation at boot, before the worker starts. Registrations
+    are kernel state that a reboot clears. `$$` is systemd's escape for a literal dollar sign."""
+    check = ('for n in %s; do i=0; until head -n 1 %s/$$n 2>/dev/null | grep -qx enabled && '
+             'grep -Eq "^flags: [A-Z]*F" %s/$$n; do i=$$((i+1)); if [ $$i -ge 10 ]; then '
+             'echo "$$n is not registered with the F flag" >&2; exit 1; fi; sleep 1; done; done'
+             % (' '.join(EMULATORS), BINFMT_MISC, BINFMT_MISC))
+    return ('[Unit]\nDescription=Silicon Apps QEMU emulation for linux-aarch64 and linux-armv7hf validation\n'
+            'After=docker.service\nRequires=docker.service\nBefore=' + RUNNER_SERVICE + '.service\n'
+            '[Service]\nType=oneshot\nRemainAfterExit=yes\nTimeoutStartSec=180\n'
+            'ExecStart=' + ' '.join(binfmt_command('/usr/bin/docker')) + '\n'
+            "ExecStartPost=/bin/sh -c '" + check + "'\n"
+            '[Install]\nWantedBy=multi-user.target\n')
+
+
+def self_check_command(target):
+    """The runner's container isolation, with python3 in the image instead of a package binary."""
+    platform, image = WORKER_IMAGES[target]
+    return ['docker', 'run', '--rm', '--pull=never', '--platform', platform, '--network=none', '--read-only',
+            '--cap-drop=ALL', '--security-opt=no-new-privileges', '--pids-limit=32', '--memory=256m', '--cpus=1',
+            '--user=65534:65534', '--tmpfs=/tmp:rw,noexec,nosuid,size=16m', '--entrypoint', '/usr/local/bin/python3',
+            image, '-I', '-c', SELF_CHECK_CODE]
+
+
+SELF_CHECK_HINTS = {
+    'linux-i686': 'linux-i686 runs natively and needs a kernel with 32-bit x86 support (ia32_emulation)',
+    'linux-aarch64': 'linux-aarch64 needs the qemu-aarch64 binfmt_misc entry with the F flag',
+    'linux-armv7hf': 'linux-armv7hf needs the qemu-arm binfmt_misc entry with the F flag',
+}
+
+
+def self_check():
+    """Every pinned image starts under its platform and reports the expected machine and word
+    size. Returns {target: 'machine bits'}; raises once, naming every target that does not run."""
+    results, failures = {}, []
+    for target in WORKER_IMAGES:
+        machines, bits = WORKER_SELF_CHECK[target]
+        platform = WORKER_IMAGES[target][0]
+        try:
+            result = subprocess.run(self_check_command(target), capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            failures.append('%s (%s) did not finish within 120 seconds' % (target, platform))
+            continue
+        lines = (result.stdout or '').strip().splitlines()
+        words = lines[-1].split() if lines else []
+        if result.returncode == 0 and len(words) == 2 and words[0] in machines and words[1] == str(bits):
+            results[target] = ' '.join(words)
+            continue
+        errors = [line.strip() for line in (result.stderr or '').splitlines() if line.strip()]
+        failures.append('%s (%s) exited %d and reported %r, expected %s and %d-bit (%s)' % (
+            target, platform, result.returncode, ' '.join(words), ' or '.join(machines), bits,
+            errors[-1][:300] if errors else 'no error output'))
+    if failures:
+        hints = [SELF_CHECK_HINTS[t] for t in WORKER_IMAGES if t in SELF_CHECK_HINTS and t not in results]
+        raise RuntimeError('Worker platform self-check failed: ' + '; '.join(failures) + '. '
+                           + ('; '.join(hints) + '.' if hints else ''))
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ('archive', 'sha256', 'revision', 'secret', 'bucket'):
@@ -487,19 +629,22 @@ def main():
             except BaseException:
                 shutil.rmtree(venv, ignore_errors=True)
                 raise
-        # The minimal Ubuntu image has no CA store; even an offline Rust TLS
-        # client constructor can need one. This official runtime includes CA
-        # certificates and a glibc compatible with Ubuntu 24.04 release builds.
-        image = 'python:3.14-slim-trixie'
-        run(['docker', 'pull', image], stdout=subprocess.DEVNULL)
-        digest = json.loads(capture(['docker', 'image', 'inspect', image]))[0]['RepoDigests'][0]
+        # Pull the four pinned images and the emulator image, register ARM emulation where it is
+        # missing, and prove every platform runs before anything live changes. Registration only
+        # touches the two binfmt_misc entries this worker owns.
+        pull_worker_images()
+        register_emulators()
+        self_check()
+        images = {target: image for target, (_, image) in WORKER_IMAGES.items()}
         env = {'APPS_RUNNER_TOKEN': token, 'APPS_RUNNER_HOST': '0.0.0.0', 'APPS_RUNNER_PORT': '4312',
-               'TMPDIR': str(STATE / name / 'jobs'), 'APPS_RUNNER_IMAGES': json.dumps({'linux-x86_64': digest}, separators=(',', ':'))}
-        unit = '''[Unit]\nDescription=Silicon Apps isolated Linux validator\nAfter=network-online.target docker.service\nRequires=docker.service\n[Service]\nUser=silicon-apps-runner\nGroup=silicon-apps-runner\nSupplementaryGroups=docker\nWorkingDirectory=/opt/silicon-apps/current\nEnvironmentFile=/etc/silicon-apps/worker.env\nExecStart=VENVPYTHON /opt/silicon-apps/current/runner/server.py\nRestart=on-failure\nRestartSec=3\nUMask=0077\nNoNewPrivileges=true\nProtectHome=true\nProtectSystem=strict\nReadWritePaths=/var/lib/silicon-apps-runner\n[Install]\nWantedBy=multi-user.target\n'''.replace('VENVPYTHON', str(venv / 'bin/python'))
-        service = 'silicon-apps-runner'
-        services = [service]
+               'TMPDIR': str(STATE / name / 'jobs'), 'APPS_RUNNER_IMAGES': json.dumps(images, separators=(',', ':'))}
+        unit = '''[Unit]\nDescription=Silicon Apps isolated Linux validator\nAfter=network-online.target docker.service BINFMT.service\nRequires=docker.service BINFMT.service\n[Service]\nUser=silicon-apps-runner\nGroup=silicon-apps-runner\nSupplementaryGroups=docker\nWorkingDirectory=/opt/silicon-apps/current\nEnvironmentFile=/etc/silicon-apps/worker.env\nExecStart=VENVPYTHON /opt/silicon-apps/current/runner/server.py\nRestart=on-failure\nRestartSec=3\nUMask=0077\nNoNewPrivileges=true\nProtectHome=true\nProtectSystem=strict\nReadWritePaths=/var/lib/silicon-apps-runner\n[Install]\nWantedBy=multi-user.target\n'''.replace('VENVPYTHON', str(venv / 'bin/python')).replace('BINFMT', BINFMT_SERVICE)
+        service = RUNNER_SERVICE
+        services = [service, BINFMT_SERVICE]
         files[ETC / 'systemd/system/silicon-apps-runner.service'] = (unit, 0o644)
-        files[ETC / 'silicon-apps/worker-image.json'] = (json.dumps({'image': digest}), 0o600)
+        files[ETC / 'systemd/system' / (BINFMT_SERVICE + '.service')] = (binfmt_unit(), 0o644)
+        files[ETC / 'silicon-apps/worker-image.json'] = (json.dumps({'image': images['linux-x86_64'], 'images': images,
+                                                                     'index': WORKER_IMAGE_INDEX, 'emulator': BINFMT_IMAGE}), 0o600)
     else:
         name = 'silicon-apps'
         account(name, STATE / name)
@@ -536,10 +681,18 @@ def main():
             atomic(ROOT / 'previous-release', str(transaction.previous) + '\n')
         point_current(current, release)
         run(['systemctl', 'daemon-reload'])
+        if args.role == 'worker':
+            # Register again from the pinned image through the boot unit itself, so the next reboot
+            # runs a proven unit. The worker requires the unit, so systemd stops it meanwhile.
+            run(['systemctl', 'enable', BINFMT_SERVICE], stdout=subprocess.DEVNULL)
+            run(['systemctl', 'restart', BINFMT_SERVICE])
         run(['systemctl', 'enable', service], stdout=subprocess.DEVNULL)
         run(['systemctl', 'restart', service])
         # The API listens only after reading and signing every stored package, which can take a while once.
         wait_ready(service, args.role, timeout=300 if args.role == 'api' else 60)
+        if args.role == 'worker':
+            # The worker is ready only once every platform runs on the registrations the unit made.
+            platforms = self_check()
         if args.role == 'api':
             # The first start with a signing key signs every existing release (backed up above).
             verify_signing(active_key)
@@ -555,8 +708,11 @@ def main():
     except BaseException:
         transaction.rollback()
         raise
-    print(json.dumps({'role': args.role, 'revision': args.revision, 'service': 'active',
-        'previous_release': str(transaction.previous) if transaction.previous else None}))
+    summary = {'role': args.role, 'revision': args.revision, 'service': 'active',
+               'previous_release': str(transaction.previous) if transaction.previous else None}
+    if args.role == 'worker':
+        summary['platforms'] = platforms
+    print(json.dumps(summary))
 
 
 if __name__ == '__main__':
