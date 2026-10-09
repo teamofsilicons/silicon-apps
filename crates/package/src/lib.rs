@@ -726,6 +726,24 @@ mod tests {
         assert!(safe_path(Path::new("bin/cli")));
     }
     #[test]
+    fn historical_short_app_ids_are_valid_in_manifests_but_not_as_new_ids() {
+        for id in ["dm", "x", "7_"] {
+            assert!(valid_existing_app_id(id), "{id}");
+            assert!(!valid_app_id(id), "{id}");
+        }
+        for id in ["", "DM", "d.m", &"a".repeat(31)] {
+            assert!(!valid_existing_app_id(id), "{id}");
+        }
+        assert!(valid_app_id("abc") && valid_existing_app_id("abc"));
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("apps.yaml"), "schema_version: 1\napp_id: dm\nversion: 1.0.0\ncommand: dm\ntargets:\n  linux-x86_64:\n    binary: dm\n").unwrap();
+        fs::write(dir.path().join("dm"), "hello").unwrap();
+        let report = validate_directory(dir.path());
+        assert!(report.valid, "{:?}", report.errors);
+        let archive = pack_directory(dir.path()).unwrap();
+        assert_eq!(inspect_archive(&archive).unwrap().app_id, "dm");
+    }
+    #[test]
     fn deterministic_roundtrip_and_missing_binary() {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("apps.yaml"), "schema_version: 1\napp_id: example\nversion: 1.2.3\ncommand: example\ntargets:\n  linux-x86_64:\n    binary: example\n").unwrap();

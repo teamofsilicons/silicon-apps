@@ -843,6 +843,31 @@ mod tests {
         }
     }
     #[test]
+    fn historical_short_app_ids_install_and_uninstall_like_any_other() {
+        for (input, id, channel, version) in [
+            ("dm", "dm", "production", None),
+            ("dm>dev", "dm", "development", None),
+            ("dm@1.2.3", "dm", "production", Some("1.2.3")),
+            ("x>dev@0.1.0", "x", "development", Some("0.1.0")),
+        ] {
+            let s: InstallSpec = input.parse().unwrap();
+            assert_eq!(
+                (s.app_id.as_str(), s.channel.as_str()),
+                (id, channel),
+                "{input}"
+            );
+            assert_eq!(s.version.as_deref(), version);
+            assert_eq!(s.to_string(), input);
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let state = LocalState::new(tmp.path()).unwrap();
+        // The ID is accepted; there is just nothing installed under it.
+        assert_eq!(
+            uninstall(&state, "dm").unwrap_err().to_string(),
+            "dm is not installed"
+        );
+    }
+    #[test]
     fn home_must_be_a_directory() {
         let tmp = tempfile::tempdir().unwrap();
         let file = tmp.path().join("file");
