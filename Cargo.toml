@@ -31,7 +31,7 @@ serde_json = "1"
 serde_yaml = "0.9"
 sha2 = "0.10"
 silicon-accounts-client = { path = "vendor/silicon-accounts-client", version = "0.3.0" }
-silicon-apps-client = { path = "crates/client", version = "0.2.1" }
+silicon-apps-client = { path = "crates/client", version = "0.2.2" }
 silicon-apps-package = { path = "crates/package", version = "0.2.1" }
 space-station = "0.3"
 tar = "0.4"
