@@ -75,6 +75,7 @@ async fn signed_installs_show_scripts_and_leave_withdrawn_releases() {
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "alice".into(),
+        pfp_url: None,
         verified_emails: vec![],
     };
     let target = package::current_target().unwrap();

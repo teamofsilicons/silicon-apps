@@ -94,6 +94,7 @@ async fn cli_subscribes_follows_events_and_negotiates_capabilities() {
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "alice".into(),
+        pfp_url: None,
         verified_emails: vec![],
     };
     let bytes = b"cli package";
