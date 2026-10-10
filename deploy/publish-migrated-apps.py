@@ -22,6 +22,8 @@ NAMES = {app: 'Silicon ' + name for app, name in {
 }.items()}
 # Existing Browser author/admin from the production UUID-map rehearsal; never transfer it.
 BROWSER_OWNER_UUID = '0080c488-a9e9-4c22-aa91-1c7a639f1d7b'
+API_ORIGINS = {'browser': 'https://backend.browser.teamofsilicons.com',
+               'briefcase': 'https://api.briefcase.teamofsilicons.com/api/v1/'}
 
 TARGETS = {system + '-' + arch for system in ('linux', 'macos', 'windows')
            for arch in ('x86_64', 'aarch64')}
@@ -109,8 +111,7 @@ def verified_packages(folder, metadata):
                 discovery = json.loads(result['stdout'])
                 if discovery.get('app_id') != app or discovery.get('version') != version:
                     raise ValueError('Native account discovery identity differs')
-                expected_api = ('https://backend.browser.teamofsilicons.com' if app == 'browser'
-                                else 'https://api.' + app + '.teamofsilicons.com')
+                expected_api = API_ORIGINS.get(app, 'https://api.' + app + '.teamofsilicons.com')
                 if discovery.get('api_url') != expected_api:
                     raise ValueError('Package still targets a legacy API origin')
             if command == 'login status --json' and json.loads(result['stdout']).get('authenticated') is not False:

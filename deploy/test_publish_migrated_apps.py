@@ -135,6 +135,28 @@ class PublicationTests(unittest.TestCase):
         self.assertFalse(self.publish()['changed'])
         self.assertEqual(self.catalog(), after)
 
+    def test_briefcase_exact_api_path_passes_and_legacy_fails(self):
+        self.meta.update(app_id='briefcase', workflow='https://github.com/teamofsilicons/silicon-briefcase/actions/runs/1')
+        for filename in self.meta['reports']:
+            path = self.bundle / filename; report = json.loads(path.read_text())
+            report.update(app_id='briefcase', version='briefcase 0.5.0')
+            archive = self.bundle / report['archive']
+            with tarfile.open(archive, 'w:gz') as tar:
+                raw = b'app_id: briefcase\nversion: 0.5.0\ncommand: briefcase\n'
+                info = tarfile.TarInfo('apps.yaml'); info.size = len(raw); tar.addfile(info, io.BytesIO(raw))
+            report.update(sha256=p.sha(archive.read_bytes()), size=archive.stat().st_size)
+            report['command_results'][1]['stdout'] = json.dumps({'app_id': 'briefcase', 'version': '0.5.0', 'api_url': p.API_ORIGINS['briefcase']})
+            report['command_results'][3]['stdout'] = 'briefcase 0.5.0\n'
+            path.write_text(json.dumps(report))
+        self.save()
+        self.assertEqual(len(p.verified_packages(self.bundle, self.meta)[0]), 6)
+        path = self.bundle / self.meta['reports'][0]; report = json.loads(path.read_text())
+        original = report['command_results'][1]['stdout']
+        for invalid in ['https://backend.briefcase.teamofsilicons.com/api/v1/', 'https://api.briefcase.teamofsilicons.com', 'https://api.briefcase.teamofsilicons.com/api/v1/other']:
+            report['command_results'][1]['stdout'] = original.replace(p.API_ORIGINS['briefcase'], invalid)
+            path.write_text(json.dumps(report))
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError): p.verified_packages(self.bundle, self.meta)
+
     def test_browser_cannot_be_reassigned_to_apps_owner(self):
         before = self.browser_bundle()
         before['apps']['browser']['admin_uuid'] = before['apps']['silicon-apps']['admin_uuid']
