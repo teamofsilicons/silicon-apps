@@ -44,5 +44,7 @@
     "total": 10,
     "matching_current_handle": 9,
     "kind_mismatch": 1
-  }
+  },
+  "native_candidate_build_profile": "unoptimized development profile; debug information disabled",
+  "task_owned_development_processes": "stopped after final state backup"
 }
