@@ -1008,3 +1008,123 @@ async fn ambiguous_accounts_registration_recovers_same_secret_after_restart() {
     assert_eq!(pending, 0);
     task.abort();
 }
+
+#[tokio::test]
+async fn account_uuid_backfill_preserves_signed_private_catalog_and_denies_old_jwt() {
+    let key = SigningKey::from_bytes(&[42u8; 32]);
+    let x = URL_SAFE_NO_PAD.encode(key.verifying_key().to_bytes());
+    let provider = Router::new()
+        .route("/.well-known/jwks.json", get(move || {let x=x.clone();async move {Json(json!({"keys":[{"kty":"OKP","crv":"Ed25519","alg":"EdDSA","kid":"test-key","x":x}]}))}}))
+        .route("/v1/userinfo", get(|headers: axum::http::HeaderMap| async move {
+            let token=headers["authorization"].to_str().unwrap().trim_start_matches("Bearer ");
+            let claims:Value=serde_json::from_slice(&URL_SAFE_NO_PAD.decode(token.split('.').nth(1).unwrap()).unwrap()).unwrap();
+            Json(json!({"uuid":claims["sub"],"kind":"carbon","id":"c:alice","display_name":"Alice"}))
+        }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let issuer = format!("http://{}", listener.local_addr().unwrap());
+    let task = tokio::spawn(async move { axum::serve(listener, provider).await.unwrap() });
+    let dir = tempfile::tempdir().unwrap();
+    let mut cfg = config(dir.path());
+    cfg.dev_auth = false;
+    cfg.accounts_url = issuer.clone();
+    let state = AppState::new(cfg).unwrap();
+    seed_private(&state);
+    let app = router(state.clone());
+    let old = signed(
+        &key,
+        &issuer,
+        "silicon-apps",
+        chrono::Utc::now().timestamp() + 600,
+    );
+    assert_eq!(
+        call(
+            &app,
+            "GET",
+            "/v1/apps/secret-app",
+            Some(&old),
+            json!({}),
+            None
+        )
+        .await
+        .0,
+        200
+    );
+    let original = state
+        .store
+        .lock()
+        .unwrap()
+        .catalog()
+        .unwrap()
+        .apps
+        .remove("secret-app")
+        .unwrap();
+    let package_path = dir
+        .path()
+        .join("packages")
+        .join(&original.packages[0].sha256);
+    let bytes = std::fs::read(&package_path).unwrap();
+    let new = "f858d0b5-98ba-4a4d-8ce5-114e93136f23";
+    let mapping = dir.path().join("mapping.csv");
+    std::fs::write(
+        &mapping,
+        format!("old_uuid,new_uuid,kind\nalice,{new},carbon\n"),
+    )
+    .unwrap();
+    let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/migrate_account_uuids.py");
+    let output = std::process::Command::new("python3")
+        .arg(script)
+        .arg(&mapping)
+        .arg("--database")
+        .arg(dir.path().join("apps.sqlite"))
+        .arg("--apply")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        call(&app, "GET", "/v1/me", Some(&old), json!({}), None)
+            .await
+            .0,
+        401
+    );
+    let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"EdDSA","kid":"test-key","typ":"JWT"}"#);
+    let payload=URL_SAFE_NO_PAD.encode(json!({"iss":issuer,"sub":new,"aud":"silicon-apps","exp":chrono::Utc::now().timestamp()+600,"id":"c:alice","kind":"carbon"}).to_string());
+    let message = format!("{header}.{payload}");
+    let fresh = format!(
+        "{message}.{}",
+        URL_SAFE_NO_PAD.encode(key.sign(message.as_bytes()).to_bytes())
+    );
+    let (status, body) = call(
+        &app,
+        "GET",
+        "/v1/apps/secret-app",
+        Some(&fresh),
+        json!({}),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["authors"][0]["uuid"], new);
+    let migrated = state
+        .store
+        .lock()
+        .unwrap()
+        .catalog()
+        .unwrap()
+        .apps
+        .remove("secret-app")
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&migrated.releases).unwrap(),
+        serde_json::to_value(&original.releases).unwrap()
+    );
+    assert_eq!(std::fs::read(&package_path).unwrap(), bytes);
+    assert_eq!(migrated.secret_hash, original.secret_hash);
+    assert_eq!(migrated.app_id, original.app_id);
+    assert!(migrated.history.iter().all(|e| e.actor_uuid == new));
+    task.abort();
+}
