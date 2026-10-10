@@ -29,6 +29,7 @@ class Backfill(unittest.TestCase):
         self.db.execute('UPDATE catalog SET document=?', (compact(self.catalog),))
         self.db.execute("INSERT INTO events(id,type,app_id,actor_uuid,visibility,recipient_uuids,data,occurred_at) VALUES('event-id','author.invited','test','Ada','authors','[\"Bot\"]','{\"account_uuid\":\"Bot\"}','time')")
         self.db.execute("INSERT INTO subscriptions(id,owner_uuid,owner_id,delivery,url,secret,types,status,created_at,updated_at) VALUES('sub','Ada','c:ada','webhook','https://example.test/hook','private-webhook-secret','[]','active','time','time')")
+        self.db.execute("INSERT INTO subscription_deliveries(id,subscription_id,event_seq,status,next_attempt_ms,created_ms,created_at) VALUES('delivery','sub',1,'pending',0,0,'time')")
         self.db.execute("INSERT INTO author_keys(key_id,owner_uuid,owner_id,public_key,created_at) VALUES('key-id','Ada','c:ada','unchanged-author-public','time')")
         self.db.execute('INSERT INTO idempotency VALUES(?,?,?,?,?)', ('Ada', 'retry-key', 'fingerprint', compact({'app': self.catalog['apps']['test'], 'app_secret': 'one-time-private-secret'}), 'time'))
         self.db.execute("INSERT INTO pending_secrets VALUES('Ada','pending','fingerprint','new-app','private-app-secret','time')")
@@ -46,6 +47,7 @@ class Backfill(unittest.TestCase):
 
     def test_dry_apply_replay_and_preservation(self):
         before = self.dump()
+        original_events = self.db.execute('SELECT * FROM events').fetchall()
         self.assertEqual(migrate(self.database, self.mapping)['new_mappings'], 2)
         self.assertEqual(self.dump(), before)
         result = migrate(self.database, self.mapping, True)
@@ -65,7 +67,11 @@ class Backfill(unittest.TestCase):
         self.assertEqual(app['releases'][0]['signatures'], self.catalog['apps']['test']['releases'][0]['signatures'])
         self.assertEqual(app['releases'][0]['withdrawn']['by_uuid'], A)
         self.assertEqual(value['platforms'], {A: ['macos-aarch64']})
-        self.assertEqual(self.db.execute('SELECT actor_uuid,recipient_uuids,data FROM events').fetchone(), (A, compact([B]), compact({'account_uuid': B})))
+        self.assertEqual(self.db.execute('SELECT * FROM events').fetchall(), original_events)
+        self.assertEqual(result['retired_events'], 1)
+        self.assertEqual(result['cancelled_deliveries'], 1)
+        self.assertEqual(self.db.execute('SELECT event_seq,reason FROM event_identity_retirements').fetchall(), [(1, 'account_uuid_migrated')])
+        self.assertEqual(self.db.execute('SELECT status FROM subscription_deliveries').fetchone()[0], 'failed')
         self.assertEqual(self.db.execute('SELECT owner_uuid,secret FROM subscriptions').fetchone(), (A, 'private-webhook-secret'))
         self.assertEqual(self.db.execute('SELECT owner_uuid,public_key FROM author_keys').fetchone(), (A, 'unchanged-author-public'))
         self.assertEqual(self.db.execute('SELECT actor,secret FROM pending_secrets').fetchone(), (A, 'private-app-secret'))
@@ -91,6 +97,18 @@ class Backfill(unittest.TestCase):
         self.db.execute("DELETE FROM author_keys WHERE key_id='other'")
         with self.assertRaises(ValueError):
             migrate(self.database, parse_mapping(CSV.replace('carbon', 'silicon')), True)
+
+    def test_partial_export_fails_and_unrelated_canonical_events_stay_deliverable(self):
+        before = self.dump()
+        with self.assertRaisesRegex(ValueError, 'absent'):
+            migrate(self.database, {'Ada': self.mapping['Ada']}, True)
+        self.assertEqual(self.dump(), before)
+        current = '16e8f0c1-425c-4e76-bb05-17a13579233c'
+        self.db.execute("INSERT INTO events(id,type,app_id,actor_uuid,visibility,data,occurred_at) VALUES('current','app.details_changed','test',?,'authors','{\"text\":\"Ada\"}','time')", (current,))
+        events = self.db.execute('SELECT * FROM events').fetchall()
+        migrate(self.database, self.mapping, True)
+        self.assertEqual(self.db.execute('SELECT * FROM events').fetchall(), events)
+        self.assertEqual(self.db.execute('SELECT event_seq FROM event_identity_retirements').fetchall(), [(1,)])
 
     def test_cli_keeps_signing_seeds_installations_and_new_sign_in(self):
         root = self.root / '.apps'

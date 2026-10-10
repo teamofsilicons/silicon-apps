@@ -161,6 +161,18 @@ pub fn webhook_targets(conn: &Connection) -> Result<Vec<Subscription>> {
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 pub fn queue_delivery(conn: &Connection, subscription_id: &str, seq: i64) -> Result<String> {
+    if conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM event_identity_retirements WHERE event_seq=?1)",
+        [seq],
+        |r| r.get::<_, bool>(0),
+    )? {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "account_uuid_migrated",
+            "This historical event contains a retired account identity.",
+            "Refresh the current app catalog instead of replaying this event.",
+        ));
+    }
     let id = format!("dlv_{}", uuid::Uuid::new_v4().simple());
     let now = now_ms();
     conn.execute(
@@ -848,7 +860,7 @@ fn claim(s: &Shared) -> Result<Vec<Due>> {
         [now - RETRY_WINDOW_HOURS * 3600 * 1000],
     )?;
     let mut statement = conn.prepare(
-        "SELECT d.id,d.subscription_id,d.event_seq,d.attempts FROM subscription_deliveries d JOIN subscriptions s ON s.id=d.subscription_id WHERE d.status='pending' AND d.next_attempt_ms<=?1 AND s.status='active' AND s.delivery='webhook' ORDER BY d.next_attempt_ms LIMIT ?2",
+        "SELECT d.id,d.subscription_id,d.event_seq,d.attempts FROM subscription_deliveries d JOIN subscriptions s ON s.id=d.subscription_id WHERE d.status='pending' AND d.next_attempt_ms<=?1 AND s.status='active' AND s.delivery='webhook' AND NOT EXISTS(SELECT 1 FROM event_identity_retirements r WHERE r.event_seq=d.event_seq) ORDER BY d.next_attempt_ms LIMIT ?2",
     )?;
     let due: Vec<Due> = statement
         .query_map(params![now, WORKER_BATCH as i64], |r| {

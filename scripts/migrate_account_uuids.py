@@ -51,6 +51,14 @@ def compact(value):
     return json.dumps(value, separators=(',', ':'), ensure_ascii=False)
 
 
+def canonical_account(value):
+    try:
+        parsed = uuid.UUID(value)
+        return str(parsed) == value and parsed.variant == uuid.RFC_4122
+    except ValueError:
+        return False
+
+
 class Rewriter:
     """Only declared identity fields; user strings, provider payloads and signatures stay exact."""
     def __init__(self, mapping):
@@ -168,12 +176,15 @@ def migrate(database, mapping, apply=False):
         catalog = json.loads(db.execute('SELECT document FROM catalog WHERE id=1').fetchone()[0])
         rewrite.catalog(catalog)
         blobs = []
-        for rowid, kind, data in db.execute('SELECT rowid,type,data FROM events'):
+        retired_events = []
+        for seq, kind, actor, recipients, data in db.execute('SELECT seq,type,actor_uuid,recipient_uuids,data FROM events'):
             value = json.loads(data)
+            original = compact(value)
             rewrite.event_data(kind, value)
-            blobs.append(('events', rowid, 'data', compact(value)))
-        for rowid, recipients in db.execute('SELECT rowid,recipient_uuids FROM events'):
-            blobs.append(('events', rowid, 'recipient_uuids', compact([rewrite.account(x) for x in json.loads(recipients)])))
+            audience = json.loads(recipients)
+            rewritten_audience = [rewrite.account(x) for x in audience]
+            if rewrite.account(actor) != actor or rewritten_audience != audience or compact(value) != original:
+                retired_events.append(seq)
         for rowid, kind, body in db.execute('SELECT rowid,kind,body FROM outbox'):
             value = json.loads(body)
             if kind == 'mail.invite':
@@ -185,7 +196,7 @@ def migrate(database, mapping, apply=False):
             value = json.loads(response)
             rewrite.response(value)
             blobs.append(('idempotency', rowid, 'response', compact(value)))
-        columns = [('idempotency', 'actor'), ('pending_secrets', 'actor'), ('events', 'actor_uuid'), ('subscriptions', 'owner_uuid'), ('author_keys', 'owner_uuid')]
+        columns = [('idempotency', 'actor'), ('pending_secrets', 'actor'), ('subscriptions', 'owner_uuid'), ('author_keys', 'owner_uuid')]
         for table, column in columns:
             for (value,) in db.execute(f'SELECT {column} FROM {table}'):
                 rewrite.account(value)
@@ -196,10 +207,13 @@ def migrate(database, mapping, apply=False):
             raise ValueError('A target already owns or is referenced by data; refusing merge')
         if any(rewrite.kinds.get(old, {kind}) != {kind} for old, (_new, kind) in fresh.items()):
             raise ValueError('Mapping kind conflicts with stored account identity')
-        # The append-only guard is suspended only inside this offline transaction and restored verbatim.
-        trigger = db.execute("SELECT sql FROM sqlite_master WHERE type='trigger' AND name='events_are_append_only_update'").fetchone()
-        if trigger:
-            db.execute('DROP TRIGGER events_are_append_only_update')
+        # These two actor literals are written by the platform, never resolved as users.
+        if mapping.keys() & {'system', 'anonymous'}:
+            raise ValueError('Mapping collides with a reserved actor; inspect provenance')
+        missing = rewrite.references - mapping.keys() - ledger.keys() - {'system', 'anonymous'}
+        if any(not canonical_account(value) for value in missing):
+            raise ValueError('An existing legacy account reference is absent from the Accounts export')
+        cancelled = 0
         if fresh:
             db.execute('UPDATE catalog SET document=? WHERE id=1', (compact(catalog),))
             for table, rowid, column, value in blobs:
@@ -208,8 +222,9 @@ def migrate(database, mapping, apply=False):
                 for table, column in columns:
                     db.execute(f'UPDATE {table} SET {column}=? WHERE {column}=?', (new, old))
                 db.execute('INSERT INTO account_uuid_migrations VALUES(?,?,?,?)', (old, new, kind, datetime.datetime.now(datetime.timezone.utc).isoformat()))
-        if trigger:
-            db.execute(trigger[0])
+            for seq in retired_events:
+                db.execute("INSERT OR IGNORE INTO event_identity_retirements VALUES(?,?,'account_uuid_migrated')", (seq, datetime.datetime.now(datetime.timezone.utc).isoformat()))
+            cancelled = db.execute("UPDATE subscription_deliveries SET status='failed',last_error='account_uuid_migrated: refresh the current app catalog' WHERE status='pending' AND event_seq IN (SELECT event_seq FROM event_identity_retirements)").rowcount
         tables = {name for (name,) in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         expired = 0
         if fresh and 'sessions' in tables:
@@ -219,7 +234,7 @@ def migrate(database, mapping, apply=False):
                     db.execute('DELETE FROM sessions WHERE id=?', (session,))
                     expired += 1
         pending = db.execute('DELETE FROM oauth_pending').rowcount if fresh and 'oauth_pending' in tables else 0
-        result = {'apply': apply, 'mapping_rows': len(mapping), 'new_mappings': len(fresh), 'already_applied': len(mapping) - len(fresh), 'browser_sessions_expired': expired, 'oauth_attempts_expired': pending, 'linked_accounts_seen': len(rewrite.references)}
+        result = {'apply': apply, 'mapping_rows': len(mapping), 'new_mappings': len(fresh), 'already_applied': len(mapping) - len(fresh), 'browser_sessions_expired': expired, 'oauth_attempts_expired': pending, 'linked_accounts_seen': len(rewrite.references), 'retired_events': len(retired_events), 'cancelled_deliveries': cancelled}
         db.execute('COMMIT' if apply else 'ROLLBACK')
         return result
     except Exception:

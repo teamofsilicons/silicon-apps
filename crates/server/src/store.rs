@@ -24,11 +24,12 @@ pub const SORTS: [&str; 6] = [
     "updated",
     "newest",
 ];
-const MIGRATIONS: [&str; 4] = [
+const MIGRATIONS: [&str; 5] = [
     include_str!("../../../migrations/001_catalog.sql"),
     include_str!("../../../migrations/002_events.sql"),
     include_str!("../../../migrations/003_signing.sql"),
     include_str!("../../../migrations/004_account_uuid_backfill.sql"),
+    include_str!("../../../migrations/005_retired_identity_events.sql"),
 ];
 #[derive(Default)]
 pub struct Prepared {

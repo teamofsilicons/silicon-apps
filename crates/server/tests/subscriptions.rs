@@ -384,6 +384,182 @@ fn verify(secret: &str, headers: &HeaderMap, body: &[u8]) {
 }
 
 #[tokio::test]
+async fn uuid_cutover_keeps_event_bytes_but_fences_webhook_and_feed_replay() {
+    let (dir, state, app) = fresh();
+    seed_app(&state, "alice", "briefcase", &[], "linux-x86_64", true);
+    let (url, hook, receiver_task) = receiver().await;
+    let created = send(
+        &app,
+        "POST",
+        "/v1/subscriptions",
+        Some(BOB),
+        Some(json!({"app_id":"briefcase","delivery":{"mode":"webhook","url":url}})),
+        Some("before-cutover-sub"),
+        &[],
+    )
+    .await;
+    assert_eq!(created.status, 201, "{}", created.body);
+    let id = created.body["subscription"]["id"].as_str().unwrap();
+    let secret = created.body["secret"].as_str().unwrap();
+    let ping = send(
+        &app,
+        "POST",
+        &format!("/v1/subscriptions/{id}/ping"),
+        Some(BOB),
+        Some(json!({})),
+        Some("before-cutover-ping"),
+        &[],
+    )
+    .await;
+    assert_eq!(ping.status, 200, "{}", ping.body);
+    let original = || {
+        state.store.lock().unwrap().connection.query_row(
+        "SELECT json_group_array(json_array(seq,id,type,app_id,actor_uuid,visibility,recipient_uuids,recipient_emails,data,idempotency_key,occurred_at)) FROM events",
+        [], |r| r.get::<_, String>(0)).unwrap()
+    };
+    let bytes = original();
+    let alice = "f858d0b5-98ba-4a4d-8ce5-114e93136f23";
+    let bob = "9ab26444-1f74-46bb-a734-235e98cb6f2d";
+    let csv = dir.path().join("account-map.csv");
+    std::fs::write(
+        &csv,
+        format!("old_uuid,new_uuid,kind\nalice,{alice},carbon\nbob,{bob},carbon\n"),
+    )
+    .unwrap();
+    let result = std::process::Command::new("python3")
+        .arg(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../scripts/migrate_account_uuids.py"),
+        )
+        .arg(&csv)
+        .arg("--database")
+        .arg(dir.path().join("apps.sqlite"))
+        .arg("--apply")
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert_eq!(original(), bytes);
+    let fresh_alice = format!("dev:{alice}:c:alice");
+    let fresh_bob = format!("dev:{bob}:c:bob");
+    let feed = send(
+        &app,
+        "GET",
+        "/v1/apps/briefcase/events?after=0",
+        Some(&fresh_alice),
+        None,
+        None,
+        &[],
+    )
+    .await;
+    assert_eq!(feed.status, 200, "{}", feed.body);
+    assert_eq!(feed.body["items"], json!([]));
+    assert_eq!(feed.body["has_more"], false);
+    {
+        let store = state.store.lock().unwrap();
+        let seq: i64 = store
+            .connection
+            .query_row(
+                "SELECT event_seq FROM subscription_deliveries WHERE id=?1",
+                [ping.body["delivery_id"].as_str().unwrap()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            silicon_apps_server::events::get(&store.connection, seq)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            silicon_apps_server::subscriptions::queue_delivery(&store.connection, id, seq).is_err()
+        );
+        assert_eq!(
+            store
+                .connection
+                .query_row(
+                    "SELECT status FROM subscription_deliveries WHERE event_seq=?1",
+                    [seq],
+                    |r| r.get::<_, String>(0)
+                )
+                .unwrap(),
+            "failed"
+        );
+        // Even an operator resetting the queue cannot bypass the retirement fence.
+        store
+            .connection
+            .execute(
+                "UPDATE subscription_deliveries SET status='pending',next_attempt_ms=0",
+                [],
+            )
+            .unwrap();
+    }
+    let fresh_ping = send(
+        &app,
+        "POST",
+        &format!("/v1/subscriptions/{id}/ping"),
+        Some(&fresh_bob),
+        Some(json!({})),
+        Some("after-cutover-ping"),
+        &[],
+    )
+    .await;
+    assert_eq!(fresh_ping.status, 200, "{}", fresh_ping.body);
+    let worker = tokio::spawn(silicon_apps_server::subscriptions::delivery_worker(
+        state.clone(),
+    ));
+    assert!(wait_until(|| hook.seen.lock().unwrap().len() == 1, 10).await);
+    {
+        let seen = hook.seen.lock().unwrap();
+        verify(secret, &seen[0].0, &seen[0].1);
+        let event: Value = serde_json::from_slice(&seen[0].1).unwrap();
+        assert_eq!(event["actor_uuid"], bob);
+        assert_eq!(event["event_id"], fresh_ping.body["event_id"]);
+    }
+    assert_eq!(
+        state
+            .store
+            .lock()
+            .unwrap()
+            .connection
+            .query_row(
+                "SELECT attempts FROM subscription_deliveries WHERE id=?1",
+                [ping.body["delivery_id"].as_str().unwrap()],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+        0
+    );
+    worker.abort();
+    receiver_task.abort();
+    mutate(
+        &state,
+        alice,
+        "PATCH",
+        "apps/briefcase",
+        "after-cutover-details",
+        json!({"name":"Updated Briefcase"}),
+        Default::default(),
+    );
+    let (base, server_task) = serve(state.clone()).await;
+    let mut stream = Sse::open(
+        &base,
+        "/v1/apps/briefcase/events/stream",
+        &fresh_alice,
+        Some("0"),
+    )
+    .await;
+    let event = stream.next(Duration::from_secs(5)).await.unwrap();
+    assert_eq!(event.data["actor_uuid"], alice);
+    assert_eq!(event.data["type"], "app.details_changed");
+    assert!(stream.next(Duration::from_millis(200)).await.is_none());
+    drop(stream);
+    server_task.abort();
+}
+
+#[tokio::test]
 async fn webhook_deliveries_are_signed_retried_held_while_paused_and_expire() {
     let (_dir, state, app) = fresh();
     let (_package, release) = seed_app(&state, "alice", "briefcase", &[], "linux-x86_64", true);

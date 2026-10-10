@@ -25,10 +25,12 @@ Repeat the CLI command for each actual configured home; it does not discover or 
 The consumer changes declared account references in:
 
 - Catalog authors/admin, private account access, reviews, invitations, per-account platform registrations, reports, package signer metadata, release withdrawal metadata, history actors and identity-specific history data.
-- Event actors/recipient UUIDs/identity-specific event data; subscription owners; author signing-key owners.
+- Subscription owners and author signing-key owners.
 - Idempotency owners and identity-bearing response objects, pending-secret owners, and invitation/report outbox references.
 
-The immutable event update trigger is temporarily suspended **inside the migration transaction**, then restored from its original SQL before commit. Event IDs, sequence numbers, timestamps, delivery IDs/cursors, user text, arbitrary details/links and operation history remain intact. The mapping ledger records the historical identity relation. Fingerprints are retained; if a retried request contains a changed account UUID in its path/body, use a new logical operation only after inspecting the old result, since the original idempotency key correctly detects the changed input.
+Every stored event field and its append-only guard remain unchanged. Events containing mapped actors, recipients or declared identity fields are marked in `event_identity_retirements`; their pending deliveries fail with `account_uuid_migrated`. Event lookup, webhook queue/worker and all JSON/SSE replay feeds exclude them, including after a manual delivery reset. Delivery history, IDs, sequence numbers, timestamps, cursors, attempt counts and original payload bytes remain available for audit. Unrelated canonical-identity events remain deliverable. Consumers refresh the current app catalog after the coordinated restart. The mapping ledger records the historical identity relation. Fingerprints are retained; if a retried request contains a changed account UUID in its path/body, use a new logical operation only after inspecting the old result, since the original idempotency key correctly detects the changed input.
+
+Every declared legacy account reference must occur in the shared export or an already persisted mapping. Unmapped references fail the preview before any data is changed; already canonical accounts are allowed. The platform's `system` and `anonymous` actor literals are preserved, and a mapping that collides with either requires explicit provenance review.
 
 Package and media files, object keys, package/release/app IDs, private signing seeds, public signing keys, author/release signature bytes, webhook signing secrets, application secrets and private secret hashes are unchanged. Account UUIDs are not part of the package/release signature messages. Local installed binaries/manifests, trusted key pins and `.apps/keys` remain unchanged.
 
