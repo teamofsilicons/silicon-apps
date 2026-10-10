@@ -42,7 +42,8 @@ class PublicationTests(unittest.TestCase):
                           command_results=[{'argv': args, 'exit_code': 0, 'stdout': out, 'stderr': ''} for args, out in [
                               (['--help'], 'Synthetic test help'),
                               (['accounts', '--json'], json.dumps({'app_id': 'commit', 'version': '0.5.0', 'api_url': 'https://api.commit.teamofsilicons.com'})),
-                              (['login', 'status', '--json'], '{"authenticated":false}')]])
+                              (['login', 'status', '--json'], '{"authenticated":false}'),
+                              (['--version'], 'commit 0.5.0\n')]])
             name = target + '.json'; (self.bundle / name).write_text(json.dumps(report)); self.meta['reports'].append(name)
         self.save()
 
@@ -78,11 +79,15 @@ class PublicationTests(unittest.TestCase):
             with self.subTest(patch=patch), self.assertRaises(ValueError): self.publish()
             self.assertEqual(self.catalog(), self.before)
         for index, output in [(1, '{"app_id":"commit","version":"0.5.0","api_url":"https://backend.commit.teamofsilicons.com"}'),
-                              (2, '{"authenticated":true}')]:
+                              (2, '{"authenticated":true}'), (3, 'commit 0.4.0')]:
             report = copy.deepcopy(original); report['command_results'][index]['stdout'] = output
             path.write_text(json.dumps(report))
             with self.subTest(index=index), self.assertRaises(ValueError): self.publish()
             self.assertEqual(self.catalog(), self.before)
+        report = copy.deepcopy(original); report['command_results'].pop()
+        path.write_text(json.dumps(report))
+        with self.assertRaises(ValueError): self.publish()
+        self.assertEqual(self.catalog(), self.before)
 
     def test_registration_and_repository_are_required(self):
         self.meta['workflow'] = self.meta['workflow'].replace('teamofsilicons', 'third-party'); self.save()

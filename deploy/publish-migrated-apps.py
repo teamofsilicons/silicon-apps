@@ -23,7 +23,7 @@ NAMES = {app: 'Silicon ' + name for app, name in {
 TARGETS = {system + '-' + arch for system in ('linux', 'macos', 'windows')
            for arch in ('x86_64', 'aarch64')}
 COMMANDS = [('--help', ['--help']), ('accounts --json', ['accounts', '--json']),
-            ('login status --json', ['login', 'status', '--json'])]
+            ('login status --json', ['login', 'status', '--json']), ('--version', ['--version'])]
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -99,6 +99,8 @@ def verified_packages(folder, metadata):
             result = found[0]
             if command == '--help' and not result['stdout'].strip():
                 raise ValueError('Native help output is empty')
+            if command == '--version' and result['stdout'].strip() != actual_version:
+                raise ValueError('Native version command does not support the report version')
             if command == 'accounts --json':
                 discovery = json.loads(result['stdout'])
                 if discovery.get('app_id') != app or discovery.get('version') != version:
