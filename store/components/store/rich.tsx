@@ -14,7 +14,7 @@ export function Rich({ text }: { text: string }) {
           const url = part.replace(/\.$/, "");
           return (
             <Fragment key={index}>
-              <a href={url} rel="noopener">{url.replace(/^https:\/\//, "")}</a>
+              <a href={url} target="_blank" rel="noopener noreferrer">{url.replace(/^https:\/\//, "")}</a>
               {part.endsWith(".") ? "." : ""}
             </Fragment>
           );

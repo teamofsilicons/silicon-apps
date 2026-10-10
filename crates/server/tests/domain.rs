@@ -9,6 +9,7 @@ fn who(id: &str) -> Identity {
         uuid: id.into(),
         id: format!("c:{id}"),
         display_name: id.into(),
+        pfp_url: None,
         verified_emails: vec![],
     }
 }

@@ -8,8 +8,8 @@ For developer tokens, invitation matching uses currently verified contacts from 
 Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys are scoped to account, method/path and request digest; conflicting reuse is HTTP 409. Replays have `Idempotent-Replayed: true`. JSON response always directly contains the object described. Errors: `{ "error": {"code":"…", "message":"…", "hint":"…", "details":null} }`.
 
 ## Accounts / discovery
-- `GET /health` → `{status:"ok",service:"silicon-apps",version:"0.1.2"}`.
-- `GET /me` → `{uuid,id,display_name,verified_emails:[]}`.
+- `GET /health` → `{status:"ok",service:"silicon-apps",version:"0.1.4"}`.
+- `GET /me` → `{uuid,id,display_name,pfp_url:string|null,verified_emails:[]}`. `pfp_url` comes from the consented Accounts profile and is nullable when unavailable.
 - `GET /targets?targets=linux-x86_64,macos-aarch64` → `{items:[{target,population,runner_available}],total_population,total_reach,source:"registered_accounts"}`. Populations count observed authenticated accounts; total reach deduplicates accounts across selected targets.
 - `GET /apps/availability/{app_id}` → `{available:boolean}` (invalid IDs false). A historical 1–2 character Accounts ID reserved by `APPS_HISTORICAL_APP_IDS` is true only for its signed-in owner, while free; for anyone else it is an invalid ID.
 - `GET /apps?q=&visibility=public|private&mine=true&limit=50&offset=0` → `{items:[App],total:n}`. `mine` requires auth and includes drafts. Otherwise published accessible apps only. Search exact ID/name ranks ahead of prefixes, substrings, then typo matches across IDs, names, tags and description words; rating breaks equal scores.
@@ -22,8 +22,8 @@ Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys a
 - `POST /apps/{app_id}/secret/rotate` body `{}` → `{app_secret:"…"}`. All authors.
 
 ## Ownership and history
-- `GET /authors/{uuid}?limit=24&offset=0` → `{uuid,id,display_name,items:[App],total:n}`. The stable profile URL uses the Accounts UUID; public ID and display name are refreshed from Accounts. Lists published apps the caller may see, ordered by name then app ID, with a maximum page size of 100. Drafts never appear, even for their authors. Unknown authors and authors with no visible published apps return 404.
-- `GET /apps/{app_id}/authors` → `{items:[{uuid,id,display_name,joined_at}]}`; admin isn't marked publicly.
+- `GET /authors/{uuid}?limit=24&offset=0` → `{uuid,id,display_name,pfp_url:string|null,items:[App],total:n}`. The stable profile URL uses the Accounts UUID; public ID, display name and consented profile photo are refreshed from Accounts. `pfp_url` is nullable; confirmed profile access removal or account deletion clears the saved photo. Lists published apps the caller may see, ordered by name then app ID, with a maximum page size of 100. Drafts never appear, even for their authors. Unknown authors and authors with no visible published apps return 404.
+- `GET /apps/{app_id}/authors` → `{items:[{uuid,id,display_name,pfp_url:string|null,joined_at}]}`; admin isn't marked publicly. Embedded `App.authors` use the same author shape and consented photo semantics.
 - `POST /apps/{app_id}/invites` body `{to:"c:alice"|"si:bot"|"alice@example.com"}` → Invite; author only.
 - `GET /apps/{app_id}/invites` → `{items:[Invite]}`; author only.
 - `GET /invites` → `{items:[Invite]}`; only invitations matching your UUID or verified email.
@@ -57,7 +57,7 @@ Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys a
 
 ## Browser authentication, telemetry and media
 
-- `GET /session` returns `{authenticated,account:Identity|null}` from a secure server-side session.
+- `GET /session` returns `{authenticated,account:Identity|null}` from a secure server-side session. `Identity` is `{uuid,id,display_name,pfp_url:string|null,verified_emails:[]}`; its nullable `pfp_url` comes from the consented Accounts profile.
 - `GET /auth/login?return_to=/developer` redirects to Silicon Accounts with PKCE and a browser-bound one-use state. `GET /auth/callback` verifies state, exchanges the code and sets an opaque HttpOnly SameSite=Lax cookie. `APPS_ALLOWED_ORIGINS` supports both developer and store origins; each registered callback must match Accounts configuration.
 - `POST /auth/exchange {slt}` and `POST /auth/refresh {refresh_token}` return the official Accounts `TokenResponse`. `POST /auth/logout {token?}` revokes the app token and clears the browser session. Auth endpoints follow Accounts one-use token semantics and are exempt from the catalog Idempotency-Key requirement; do not automatically retry consumed SLTs/codes/refresh tokens.
 - Browser mutations require an `Origin` from `APPS_ALLOWED_ORIGINS` whenever an Apps session cookie is present. Bearer-only CLI requests need no Origin.

@@ -1,7 +1,6 @@
 /*
  * An app's page: the banner, the header (logo, name, authors, app id and the install command), the numbers at a
- * glance, then the description, pictures and reviews beside a column of quiet cards (releases, platforms, authors,
- * links). The developer site's language: squircle cards on the page, BDO Grotesk headings, brand blue where you act.
+ * glance, then the description, pictures and reviews beside a column of quiet cards (releases, platforms and authors). The developer site's language: squircle cards on the page, BDO Grotesk headings, brand blue where you act.
  */
 .page { padding-top: clamp(20px, 3vw, 32px); }
 .article { display: grid; gap: clamp(20px, 3vw, 28px); margin-top: var(--space-5); }
@@ -10,6 +9,7 @@
 
 /* Header -------------------------------------------------------------------------------------------------------- */
 .header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); align-items: start; gap: var(--space-6) var(--space-10); }
+.overview { display: grid; gap: var(--space-6); min-width: 0; }
 .identityRow { display: flex; align-items: center; gap: var(--space-5); min-width: 0; }
 .identity { display: grid; gap: var(--space-2); min-width: 0; }
 .name { margin: 0; color: var(--foreground); font-family: var(--font-display); font-size: clamp(2rem, 1.5rem + 2vw, 2.75rem); font-weight: 600; letter-spacing: -.035em; line-height: 1.04; overflow-wrap: anywhere; }
@@ -183,6 +183,7 @@
 .platformArchs { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .people, .links { display: grid; gap: 2px; margin: 0 calc(var(--space-2) * -1); padding: 0; list-style: none; }
+.headerLinks { grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); column-gap: var(--space-3); }
 .person, .link {
   --sq-r: 12px;
   --sq-fill: transparent;

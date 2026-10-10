@@ -119,6 +119,7 @@ pub fn mutate(
         uuid: who.into(),
         id: format!("c:{who}"),
         display_name: who.into(),
+        pfp_url: None,
         verified_emails: vec![],
     };
     let digest = hash(body.to_string().as_bytes());

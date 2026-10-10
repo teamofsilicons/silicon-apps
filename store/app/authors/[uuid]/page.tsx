@@ -58,7 +58,7 @@ export default async function AuthorPage({ params, searchParams }: Props) {
       <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "All apps", href: "/search" }, { name }]} />
       <article aria-labelledby="author-name">
         <header className={pageStyles.header}>
-          <Avatar name={name} id={author.id} size={88} />
+          <Avatar name={name} id={author.id} photo={author.pfp_url} size={88} />
           <div className={pageStyles.identity}>
             <p className={styles.eyebrow}>Author</p>
             <h1 id="author-name" className={styles.pageTitle}>{name}</h1>

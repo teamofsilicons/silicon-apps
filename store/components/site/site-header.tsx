@@ -5,6 +5,7 @@
  * and keeps focus without any script of ours. Links are plain links: every page is a full HTML document.
  */
 import { ArrowUpRight, Menu, Search, X } from "lucide-react";
+import { Avatar } from "@/components/store/parts";
 import type { Account } from "@/lib/types";
 import { signInHref as signInPath } from "@/lib/session";
 import { LINKS } from "@/lib/site";
@@ -39,11 +40,6 @@ export interface SiteHeaderProps {
 }
 
 
-function initial(account: Account): string {
-  const letter = [...(account.display_name || account.id).replace(/^(c|si):/, "")].find(char => /\p{L}|\p{N}/u.test(char));
-  return (letter ?? "?").toUpperCase();
-}
-
 export function SiteHeader({ path, account }: SiteHeaderProps) {
   return (
     <header className={styles.header}>
@@ -57,7 +53,7 @@ export function SiteHeader({ path, account }: SiteHeaderProps) {
           <ul role="list" className={styles.navList}>
             {NAV.map(item => (
               <li key={item.href}>
-                <a href={item.href} className={styles.navLink} data-sq="surface" aria-current={currentOf(item.href, path)} rel={item.external ? "noopener" : undefined}>
+                <a href={item.href} className={styles.navLink} data-sq="surface" aria-current={currentOf(item.href, path)} target={item.external ? "_blank" : undefined} rel={item.external ? "noopener noreferrer" : undefined}>
                   {item.label}
                   {item.external ? <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" className={styles.navExternal} /> : null}
                 </a>
@@ -72,7 +68,7 @@ export function SiteHeader({ path, account }: SiteHeaderProps) {
           <ThemeToggle />
           {account ? (
             <a href="/settings" className={`${styles.accountChip} ${styles.account}`} data-sq="surface" aria-label={`Settings, signed in as ${account.id}`}>
-              <span className={styles.accountAvatar} data-sq="surface" aria-hidden="true">{initial(account)}</span>
+              <Avatar name={account.display_name || account.id} id={account.id} photo={account.pfp_url} size={26} />
               <span className={styles.accountId}>{account.id}</span>
             </a>
           ) : (
@@ -95,7 +91,7 @@ export function SiteHeader({ path, account }: SiteHeaderProps) {
             <li><a href="/" className={styles.menuLink} data-sq="surface" aria-current={path.split("?")[0] === "/" ? "page" : undefined}>Home</a></li>
             {NAV.map(item => (
               <li key={item.href}>
-                <a href={item.href} className={styles.menuLink} data-sq="surface" aria-current={currentOf(item.href, path)} rel={item.external ? "noopener" : undefined}>
+                <a href={item.href} className={styles.menuLink} data-sq="surface" aria-current={currentOf(item.href, path)} target={item.external ? "_blank" : undefined} rel={item.external ? "noopener noreferrer" : undefined}>
                   {item.label}
                   {item.external ? <ArrowUpRight size={15} strokeWidth={1.75} aria-hidden="true" className={styles.navExternal} /> : null}
                 </a>

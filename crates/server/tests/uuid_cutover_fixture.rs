@@ -57,6 +57,7 @@ async fn prepare_real_accounts_cutover_fixture() {
         uuid: author.uuid.clone(),
         id: author.id.clone(),
         display_name: author.display_name.clone(),
+        pfp_url: None,
         verified_emails: vec![],
     };
     let bytes = package_bytes("uuid-retention", "macos-aarch64");

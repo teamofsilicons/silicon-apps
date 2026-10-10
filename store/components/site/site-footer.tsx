@@ -70,7 +70,7 @@ export function SiteFooter() {
                 <ul role="list">
                   {column.links.map(link => (
                     <li key={link.href}>
-                      <a href={link.href} className={styles.footerLink} rel={link.external ? "noopener" : undefined}>
+                      <a href={link.href} className={styles.footerLink} target={link.external ? "_blank" : undefined} rel={link.external ? "noopener noreferrer" : undefined}>
                         {link.label}
                         {link.external ? <ArrowUpRight size={13} strokeWidth={1.75} aria-hidden="true" className={styles.externalIcon} /> : null}
                       </a>
@@ -84,7 +84,7 @@ export function SiteFooter() {
         <div className={styles.footerBottom}>
           <p className={styles.copyright}>
             © {new Date().getFullYear()} Team of Silicons. Silicon Apps is open source under the MIT license, so we have
-            nothing to hide: <a href={LINKS.appsGithub} rel="noopener">read the code on GitHub</a>.
+            nothing to hide: <a href={LINKS.appsGithub} target="_blank" rel="noopener noreferrer">read the code on GitHub</a>.
           </p>
           <ThemePicker />
         </div>

@@ -29,6 +29,10 @@ pub struct Identity {
     pub id: String,
     #[serde(default)]
     pub display_name: String,
+    /// A granted photo; omitted refresh fields preserve the last known value.
+    /// An explicit empty value clears it.
+    #[serde(default)]
+    pub pfp_url: Option<String>,
     #[serde(default)]
     pub verified_emails: Vec<String>,
 }
@@ -37,6 +41,8 @@ pub struct Author {
     pub uuid: String,
     pub id: String,
     pub display_name: String,
+    #[serde(default)]
+    pub pfp_url: Option<String>,
     pub joined_at: String,
 }
 impl Author {
@@ -45,6 +51,7 @@ impl Author {
             uuid: i.uuid.clone(),
             id: i.id.clone(),
             display_name: i.display_name.clone(),
+            pfp_url: i.pfp_url.clone().filter(|url| !url.trim().is_empty()),
             joined_at: now(),
         }
     }
