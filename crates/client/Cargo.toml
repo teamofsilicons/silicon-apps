@@ -1,6 +1,6 @@
 [package]
 name = "silicon-apps-client"
-version = "0.2.0"
+version = "0.2.1"
 edition.workspace = true
 license.workspace = true
 description = "Stateless primary Silicon Apps API, authentication and local installation library"

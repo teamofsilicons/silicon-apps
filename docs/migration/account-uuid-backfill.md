@@ -20,6 +20,13 @@ python3 scripts/migrate_account_uuids.py accounts-uuid-export.csv --cli-home /ab
 
 Repeat the CLI command for each actual configured home; it does not discover or follow a home pointer. Each database transaction and local mapping write is atomic. A replay reports zero new mappings. A changed mapping, duplicate target, chain/cycle, existing target reference, or stored kind mismatch fails without merging. Additive SQL migrations are included in the same transaction, so previews on older schemas also roll back their DDL. Restart the matching candidate service only after all dependent stores have applied the coordinated mapping.
 
+Update every owner UUID in the runtime secret's `APPS_HISTORICAL_APP_IDS` with
+that same mapping before restart. For example, `dm:<old-owner>` becomes
+`dm:<mapped-owner>` while the app ID stays `dm`. This setting is configuration,
+not part of the SQLite backfill. Preserve unrelated secret fields. The server
+accepts canonical lowercase UUIDs and legacy IDs during preparation, but never
+aliases an old configured owner to a new signed-in identity automatically.
+
 ## What moves and what stays
 
 The consumer changes declared account references in:
