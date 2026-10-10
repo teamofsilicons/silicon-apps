@@ -35,7 +35,7 @@ yarn dlx shadcn@latest add @uiarc/textarea
 bunx --bun shadcn@latest add @uiarc/textarea
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/textarea.json
@@ -58,7 +58,7 @@ npm install motion
 ## Usage
 
 ```tsx
-import { Textarea } from "@/components/arc/textarea/textarea";
+import { Textarea } from "@/components/silicon-ui/textarea/textarea";
 
 export function BioField() {
   const [bio, setBio] = useState("");

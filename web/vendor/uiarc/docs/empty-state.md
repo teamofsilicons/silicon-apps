@@ -35,7 +35,7 @@ yarn dlx shadcn@latest add @uiarc/empty-state
 bunx --bun shadcn@latest add @uiarc/empty-state
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/empty-state.json
@@ -59,8 +59,8 @@ npm install motion lucide-react
 
 ```tsx
 import { Search } from "lucide-react";
-import { Button } from "@/components/arc/button/button";
-import { EmptyState } from "@/components/arc/empty-state/empty-state";
+import { Button } from "@/components/silicon-ui/button/button";
+import { EmptyState } from "@/components/silicon-ui/empty-state/empty-state";
 
 export function NoResults({ onClear }: { onClear: () => void }) {
   return (

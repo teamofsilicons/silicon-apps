@@ -35,7 +35,7 @@ yarn dlx shadcn@latest add @uiarc/segmented-control
 bunx --bun shadcn@latest add @uiarc/segmented-control
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/segmented-control.json
@@ -58,7 +58,7 @@ npm install motion
 ## Usage
 
 ```tsx
-import SegmentedControl from "@/components/arc/segmented-control/segmented-control";
+import SegmentedControl from "@/components/silicon-ui/segmented-control/segmented-control";
 
 export function RangeToggle() {
   const [range, setRange] = useState("week");

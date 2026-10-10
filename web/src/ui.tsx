@@ -12,20 +12,20 @@ import {
 } from "lucide-react";
 import { ApiError, login } from "./api";
 import type { App } from "./types";
-export { Button } from "./components/arc/button/button";
-export { Input } from "./components/arc/input/input";
-export { Textarea } from "./components/arc/textarea/textarea";
-export { Badge } from "./components/arc/badge/badge";
-export { EmptyState } from "./components/arc/empty-state/empty-state";
-export { Switch } from "./components/arc/switch/switch";
-export { CopyButton } from "./components/arc/copy-button/copy-button";
-export { SearchField } from "./components/arc/search-field/search-field";
-export { default as SegmentedControl } from "./components/arc/segmented-control/segmented-control";
-import { Button } from "./components/arc/button/button";
-import { Badge } from "./components/arc/badge/badge";
-import { CopyButton } from "./components/arc/copy-button/copy-button";
-import { EmptyState } from "./components/arc/empty-state/empty-state";
-import { Dialog, DialogContent } from "./components/arc/dialog/dialog";
+export { Button } from "./components/silicon-ui/button/button";
+export { Input } from "./components/silicon-ui/input/input";
+export { Textarea } from "./components/silicon-ui/textarea/textarea";
+export { Badge } from "./components/silicon-ui/badge/badge";
+export { EmptyState } from "./components/silicon-ui/empty-state/empty-state";
+export { Switch } from "./components/silicon-ui/switch/switch";
+export { CopyButton } from "./components/silicon-ui/copy-button/copy-button";
+export { SearchField } from "./components/silicon-ui/search-field/search-field";
+export { default as SegmentedControl } from "./components/silicon-ui/segmented-control/segmented-control";
+import { Button } from "./components/silicon-ui/button/button";
+import { Badge } from "./components/silicon-ui/badge/badge";
+import { CopyButton } from "./components/silicon-ui/copy-button/copy-button";
+import { EmptyState } from "./components/silicon-ui/empty-state/empty-state";
+import { Dialog, DialogContent } from "./components/silicon-ui/dialog/dialog";
 export function IconLogo({ size = 28 }: { size?: number }) {
   return (
     <svg

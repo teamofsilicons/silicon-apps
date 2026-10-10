@@ -6,7 +6,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Bug, LogOut } from "lucide-react";
-import buttonStyles from "@/components/arc/button/button.module.css";
+import buttonStyles from "@/components/silicon-ui/button/button.module.css";
 import pageStyles from "@/components/store/settings.module.css";
 import { Avatar, Breadcrumbs, Notice, accountKind, styles } from "@/components/store/parts";
 import { Action } from "@/components/site/action";

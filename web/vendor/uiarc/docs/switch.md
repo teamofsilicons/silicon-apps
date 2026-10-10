@@ -35,7 +35,7 @@ yarn dlx shadcn@latest add @uiarc/switch
 bunx --bun shadcn@latest add @uiarc/switch
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/switch.json
@@ -58,7 +58,7 @@ npm install @radix-ui/react-switch motion
 ## Usage
 
 ```tsx
-import { Switch } from "@/components/arc/switch/switch";
+import { Switch } from "@/components/silicon-ui/switch/switch";
 
 export function NotificationsToggle() {
   const [enabled, setEnabled] = useState(true);

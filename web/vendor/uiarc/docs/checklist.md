@@ -59,7 +59,7 @@ States
 - [ ] Long names and values wrap or truncate with the full value reachable
 
 Motion
-- [ ] Tokens from components/arc/lib/motion-tokens; no hand-tuned durations without reason
+- [ ] Tokens from components/silicon-ui/lib/motion-tokens; no hand-tuned durations without reason
 - [ ] Only transform and opacity animate (size only on a spring when it is the information)
 - [ ] State indicators land without overshoot; bounce only for playful moments
 - [ ] One continuous movement per interaction; exits faster than entrances

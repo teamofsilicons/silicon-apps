@@ -1,0 +1,51 @@
+{
+  "registry": "https://ui.teamofsilicons.com/r/{name}.json",
+  "retrieved": "2026-10-10",
+  "files": [
+    {
+      "file": "foundation.css",
+      "registry": "https://ui.teamofsilicons.com/r/silicon-foundation.json",
+      "sha256": "28e3780a68f2caa28f7b961ba4c7825f681db45bb2f421828b9a4983388451d0"
+    },
+    {
+      "file": "motion-tokens.ts",
+      "registry": "https://ui.teamofsilicons.com/r/silicon-motion-tokens.json",
+      "sha256": "13af43b57ed38e5b72cfc06ff0ccc39b0593721f04840e73532893593cc61491"
+    },
+    {
+      "file": "lib/motion-tokens.ts",
+      "registry": "https://ui.teamofsilicons.com/r/silicon-motion-tokens.json",
+      "sha256": "bec65d2e1b180dd3c574edc60cf84e0fa336e7ff8640eba0c70bcf0ae765fb8a"
+    },
+    {
+      "file": "button/button.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/button.json",
+      "sha256": "6a56d78cb75a6fd5f5cfdd03be8b02bf96f0bc96790d3c81abeee10e089fecec"
+    },
+    {
+      "file": "button/button.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/button.json",
+      "sha256": "a3145c8c73560ac8ec6c793601c709f0744d33a6acf724eb8c6b74fb5067c43a"
+    },
+    {
+      "file": "copy-button/copy-button.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/copy-button.json",
+      "sha256": "a6faac2922a48cc05ec72650ed63aee9b3871446df683cb7de6790f9bb19744a"
+    },
+    {
+      "file": "copy-button/copy-button.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/copy-button.json",
+      "sha256": "ad6821f03dd1b3bd76f688a2f80fb3f0e64362da54bdf2aeec599f0d5db55c0c"
+    },
+    {
+      "file": "lib/use-copy-feedback.ts",
+      "registry": "https://ui.teamofsilicons.com/r/copy-button.json",
+      "sha256": "88d0ae55bb3e241f529912a4802bbf014e4ba437025acc90ab13e012702273c5"
+    }
+  ],
+  "adapted_behavior": [],
+  "application_helpers": [],
+  "style_adaptations": [
+    "primary action branding"
+  ]
+}

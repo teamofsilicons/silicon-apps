@@ -36,7 +36,7 @@ yarn dlx shadcn@latest add @uiarc/dialog
 bunx --bun shadcn@latest add @uiarc/dialog
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/dialog.json
@@ -59,8 +59,8 @@ npm install @radix-ui/react-dialog motion lucide-react
 ## Usage
 
 ```tsx
-import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/arc/dialog/dialog";
-import { Button } from "@/components/arc/button/button";
+import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/silicon-ui/dialog/dialog";
+import { Button } from "@/components/silicon-ui/button/button";
 
 export function RenameProject() {
   return (

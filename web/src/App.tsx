@@ -17,7 +17,7 @@ import { SessionContext } from "./context";
 import type { Account } from "./types";
 import { developerUrl, legacyDeveloperUrl, docsUrl } from "./portal";
 import { AppDetail, AuthorProfile, Store } from "./Store";
-import { ThemeSwitch } from "./components/arc/theme-switch/theme-switch";
+import { ThemeSwitch } from "./components/silicon-ui/theme-switch/theme-switch";
 import { useTheme } from "./use-theme";
 import { Settings, telemetry } from "./Settings";
 import { Button, Empty, ErrorNotice, IconLogo } from "./ui";

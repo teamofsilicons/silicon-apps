@@ -36,7 +36,7 @@ yarn dlx shadcn@latest add @uiarc/stepper
 bunx --bun shadcn@latest add @uiarc/stepper
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/stepper.json
@@ -59,7 +59,7 @@ npm install motion
 ## Usage
 
 ```tsx
-import { Stepper } from "@/components/arc/stepper/stepper";
+import { Stepper } from "@/components/silicon-ui/stepper/stepper";
 
 export function CheckoutSteps({ step, goTo }: { step: number; goTo: (index: number) => void }) {
   return (

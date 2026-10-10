@@ -43,3 +43,7 @@ This requires the development dependencies and Chrome used by Playwright. It ver
 ## Telemetry
 
 Telemetry is enabled by default and posts context to `/v1/telemetry`, where the service delivers to the configured Space Station integration. Events include source, step, progress and route context, with no app form values or secrets. Opting out in Settings prevents subsequent browser telemetry requests.
+
+## Silicon UI registry (2026-10-10)
+
+Components and their CSS now come from https://ui.teamofsilicons.com/r/{name}.json, with `silicon-foundation` imported once at the root. `components/silicon-ui/registry-manifest.json` records every upstream source checksum. The registry supplies native squircle geometry, semantic spacing and visible keyboard focus. Application tokens retain the configured brand colors. Local adaptations retain dialog focus return and nested Escape priority, combobox keyboard behavior, whole international phone-number entry, and timeline pagination announcements; they live beside the registry source and must survive future updates. Existing custom application surfaces retain their squircle fallback. Historical Arc notes above describe these original application adaptations.

@@ -132,3 +132,7 @@ the ports, and `E2E_DEV=1` tests `next dev` instead of the build.
 
 Copy on these pages follows the Carbon's voice in `llms/llms.md`: plain words, Carbons and Silicons, and no em or en
 dashes anywhere.
+
+## Silicon UI registry (2026-10-10)
+
+Components and their CSS now come from https://ui.teamofsilicons.com/r/{name}.json, with `silicon-foundation` imported once at the root. `components/silicon-ui/registry-manifest.json` records every upstream source checksum. The registry supplies native squircle geometry, semantic spacing and visible keyboard focus. Application tokens retain the configured brand colors. Local adaptations retain dialog focus return and nested Escape priority, combobox keyboard behavior, whole international phone-number entry, and timeline pagination announcements; they live beside the registry source and must survive future updates. Existing custom application surfaces retain their squircle fallback. Historical Arc notes above describe these original application adaptations.

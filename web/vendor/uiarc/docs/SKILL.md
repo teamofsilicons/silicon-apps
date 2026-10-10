@@ -1,6 +1,6 @@
 ---
 name: arc
-description: Builds and reviews React interfaces with the Arc UI library (uiarc.dev) so they match Arc's design bar, choosing the right Arc component or block, installing it with the shadcn CLI, and applying Arc's rules for tokens, type, copy, layout, motion, accessibility, and responsive behavior. Use when the user mentions Arc or uiarc, when the project contains components/arc/foundation.css (or the older registry/foundation.css) or imports from @/components/arc (or the older @/registry/components and @/registry/blocks), or when asked to build or polish UI such as a settings page, pricing section, dashboard, landing page, sign-in, form, table, chart, dialog, or command palette.
+description: Builds and reviews React interfaces with the Arc UI library (uiarc.dev) so they match Arc's design bar, choosing the right Arc component or block, installing it with the shadcn CLI, and applying Arc's rules for tokens, type, copy, layout, motion, accessibility, and responsive behavior. Use when the user mentions Arc or uiarc, when the project contains components/silicon-ui/foundation.css (or the older registry/foundation.css) or imports from @/components/silicon-ui (or the older @/registry/components and @/registry/blocks), or when asked to build or polish UI such as a settings page, pricing section, dashboard, landing page, sign-in, form, table, chart, dialog, or command palette.
 ---
 
 # Arc
@@ -29,7 +29,7 @@ Arc task:
 npx shadcn@latest add @uiarc/button @uiarc/input @uiarc/switch
 ```
 
-This needs `{ "registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" } }` in `components.json`; without it use full URLs (`https://uiarc.dev/r/button.json`). Once per project: `import "@/components/arc/foundation.css";` in the root layout (Arc installs into an `arc/` folder under the `components` alias from `components.json`, for example `src/components/arc/`, and its files import each other with relative paths, so no `tsconfig.json` change is needed), and load Geist and Inter as `--font-geist` and `--font-inter`. Pro members install `@uiarc-pro/<id>` with a Pro token (`https://uiarc.dev/docs/ai#pro-access`).
+This needs `{ "registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" } }` in `components.json`; without it use full URLs (`https://uiarc.dev/r/button.json`). Once per project: `import "@/components/silicon-ui/foundation.css";` in the root layout (Arc installs into an `arc/` folder under the `components` alias from `components.json`, for example `src/components/silicon-ui/`, and its files import each other with relative paths, so no `tsconfig.json` change is needed), and load Geist and Inter as `--font-geist` and `--font-inter`. Pro members install `@uiarc-pro/<id>` with a Pro token (`https://uiarc.dev/docs/ai#pro-access`).
 
 **Wire.** Copy the import line from the item's usage example (a few use a default export, such as `segmented-control`). Selection components take `value` and `onValueChange`; pickers and editors (`date-picker`, `calendar`, `time-picker`) take `value` and `onChange`. When a callback is typed `void | Promise<…>`, return the promise: the item shows its own pending, success, and error states.
 

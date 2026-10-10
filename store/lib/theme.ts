@@ -7,7 +7,7 @@
  * (components/site/theme-controls.tsx), so the server snapshot ("light", "system") renders first and the client value
  * follows after hydration.
  */
-import { motionTokens } from "@/components/arc/lib/motion-tokens";
+import { motionTokens } from "@/components/silicon-ui/lib/motion-tokens";
 
 export type Theme = "light" | "dark";
 export type ThemePreference = Theme | "system";

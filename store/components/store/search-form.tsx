@@ -3,7 +3,7 @@
  * is Arc's search field; the filters are Arc's select and segmented control, as native controls.
  */
 import { Search } from "lucide-react";
-import buttonStyles from "@/components/arc/button/button.module.css";
+import buttonStyles from "@/components/silicon-ui/button/button.module.css";
 import type { SearchInput } from "@/lib/catalog";
 import { TARGETS, targetLabel } from "@/lib/format";
 import { styles } from "./parts";
@@ -15,7 +15,7 @@ export function SearchBox({ q = "", large = false, id = "search-q", label = "Sea
       <div className={styles.searchShell} data-sq="surface">
         <Search size={large ? 20 : 18} strokeWidth={1.75} aria-hidden="true" />
         <input id={id} name="q" type="search" className={styles.searchInput} defaultValue={q} placeholder="Search apps" autoComplete="off" spellCheck={false} enterKeyHint="search" maxLength={200} />
-        <button type="submit" className={`${buttonStyles.button} ${buttonStyles.primary} ${large ? buttonStyles.lg : buttonStyles.md} ${styles.searchButton}`} data-sq="surface">Search</button>
+        <button type="submit" className={`${buttonStyles.button} ${buttonStyles.primary} ${large ? buttonStyles.lg : buttonStyles.md} ${styles.searchButton}`}>Search</button>
       </div>
     </form>
   );
@@ -62,7 +62,7 @@ export function SearchFilters({ input, tags }: { input: SearchInput; tags: strin
             ))}
           </div>
         </fieldset>
-        <button type="submit" className={`${buttonStyles.button} ${buttonStyles.primary} ${buttonStyles.md} ${styles.filterSubmit}`} data-sq="surface">Show apps</button>
+        <button type="submit" className={`${buttonStyles.button} ${buttonStyles.primary} ${buttonStyles.md} ${styles.filterSubmit}`}>Show apps</button>
       </div>
     </form>
   );

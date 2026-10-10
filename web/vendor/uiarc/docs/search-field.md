@@ -35,7 +35,7 @@ yarn dlx shadcn@latest add @uiarc/search-field
 bunx --bun shadcn@latest add @uiarc/search-field
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/search-field.json
@@ -58,7 +58,7 @@ npm install motion lucide-react
 ## Usage
 
 ```tsx
-import { SearchField } from "@/components/arc/search-field/search-field";
+import { SearchField } from "@/components/silicon-ui/search-field/search-field";
 
 export function MemberFilter() {
   const [query, setQuery] = useState("");

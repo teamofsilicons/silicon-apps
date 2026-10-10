@@ -7,7 +7,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, ExternalLink, Globe, Layers, Lock, Package, ShieldCheck, Smartphone, Star, Users } from "lucide-react";
-import buttonStyles from "@/components/arc/button/button.module.css";
+import buttonStyles from "@/components/silicon-ui/button/button.module.css";
 import pageStyles from "@/components/store/app-page.module.css";
 import { AppLogo, Avatar, Breadcrumbs, Command, Notice, Stars, StructuredData, TagList, accountKind, styles } from "@/components/store/parts";
 import { Action } from "@/components/site/action";
