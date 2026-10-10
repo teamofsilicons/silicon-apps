@@ -831,19 +831,22 @@ mod tests {
         let state = LocalState::new(&home).unwrap();
         state.initialize().unwrap();
         let binary = state.root.join("installed/fixture.exe");
-        let shell = PathBuf::from(std::env::var_os("SystemRoot").unwrap()).join("System32/cmd.exe");
-        fs::copy(&shell, &binary).unwrap();
+        let shell = PathBuf::from(std::env::var_os("SystemRoot").unwrap())
+            .join("System32")
+            .join("cmd.exe");
+        fs::copy(std::env::current_exe().unwrap(), &binary).unwrap();
         let command = state.root.join("bin/fixture.cmd");
         link_command(&binary, &command).unwrap();
-        let status = std::process::Command::new(&shell)
+        let result = std::process::Command::new(&shell)
             .args(["/D", "/S", "/C"])
             .raw_arg(format!(
-                "\"\"{}\" /D /C exit 17\"",
+                "\"\"{}\" --exact install::tests::parses_channels_and_exact_versions --nocapture\"",
                 crate::state::windows_shell_path(&command)
             ))
-            .status()
+            .output()
             .unwrap();
-        assert_eq!(status.code(), Some(17));
+        assert!(result.status.success(), "{:?}", result);
+        assert!(String::from_utf8_lossy(&result.stdout).contains("1 passed"));
     }
     #[test]
     fn parses_channels_and_exact_versions() {

@@ -438,7 +438,8 @@ fn windows_service_document(state: &LocalState, executable: &Path) -> String {
     let shell = std::path::PathBuf::from(
         std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into()),
     )
-    .join("System32/cmd.exe");
+    .join("System32")
+    .join("cmd.exe");
     let arguments = format!(
         "/D /S /C \"\"{}\" --home \"{}\" daemon run --detached\"",
         state::windows_shell_path(&launcher),
