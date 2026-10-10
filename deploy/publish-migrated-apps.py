@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline publication of the eight official Accounts migration releases.
+"""Offline publication of the eight official Accounts migrations and Browser UUID compatibility release.
 
 Stop the Apps API and take a consistent backup before applying. Native CI reports
 must be reviewed against their exact successful workflow and source revisions.
@@ -18,8 +18,11 @@ from datetime import datetime, timezone
 NAMES = {app: 'Silicon ' + name for app, name in {
     'briefcase': 'Briefcase', 'remind': 'Remind', 'dm': 'DM',
     'extend': 'Extend', 'commit': 'Commit', 'hook': 'Hook',
-    'waveform': 'Waveform', 'mcport': 'MCPort',
+    'waveform': 'Waveform', 'mcport': 'MCPort', 'browser': 'Browser',
 }.items()}
+# Existing Browser author/admin from the production UUID-map rehearsal; never transfer it.
+BROWSER_OWNER_UUID = '0080c488-a9e9-4c22-aa91-1c7a639f1d7b'
+
 TARGETS = {system + '-' + arch for system in ('linux', 'macos', 'windows')
            for arch in ('x86_64', 'aarch64')}
 COMMANDS = [('--help', ['--help']), ('accounts --json', ['accounts', '--json']),
@@ -48,7 +51,8 @@ def verified_packages(folder, metadata):
         raise ValueError('Unknown official app or invalid release version')
     if not all(re.fullmatch('[a-f0-9]{40}', value) for value in (source, verifier)):
         raise ValueError('Exact source and verifier commits are required')
-    if not re.fullmatch(r'https://github.com/teamofsilicons/silicon-' + re.escape(app)
+    repository = 'unlikefraction/silicon-browser' if app == 'browser' else 'teamofsilicons/silicon-' + app
+    if not re.fullmatch(r'https://github.com/' + re.escape(repository)
                         + r'/actions/runs/[0-9]+', metadata['workflow']):
         raise ValueError('Native workflow must belong to this official app repository')
     reports = metadata['reports']
@@ -105,7 +109,9 @@ def verified_packages(folder, metadata):
                 discovery = json.loads(result['stdout'])
                 if discovery.get('app_id') != app or discovery.get('version') != version:
                     raise ValueError('Native account discovery identity differs')
-                if discovery.get('api_url') != 'https://api.' + app + '.teamofsilicons.com':
+                expected_api = ('https://backend.browser.teamofsilicons.com' if app == 'browser'
+                                else 'https://api.' + app + '.teamofsilicons.com')
+                if discovery.get('api_url') != expected_api:
                     raise ValueError('Package still targets a legacy API origin')
             if command == 'login status --json' and json.loads(result['stdout']).get('authenticated') is not False:
                 raise ValueError('Native verification must use a signed-out home')
@@ -133,7 +139,8 @@ def publish(root, folder, expected):
         catalog=json.loads(db.execute('select document from catalog where id=1').fetchone()[0])
         original=catalog['apps'].get(app_id)
         owner=catalog['apps']['silicon-apps']
-        if original and (original['name']!=NAMES[app_id] or original['admin_uuid']!=owner['admin_uuid']): raise ValueError('Existing identity belongs to another app or admin')
+        expected_owner = BROWSER_OWNER_UUID if app_id == 'browser' else owner['admin_uuid']
+        if original and (original['name']!=NAMES[app_id] or original['admin_uuid']!=expected_owner): raise ValueError('Existing identity belongs to another app or admin')
         if original is None: raise ValueError('Register the official app through Apps before importing a release')
         app=original
         if not 200 <= len(app['description']) <= 600: raise ValueError('App description does not satisfy publishing readiness')

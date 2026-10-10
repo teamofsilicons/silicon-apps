@@ -101,5 +101,58 @@ class PublicationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Immutable release'): self.publish()
         self.assertEqual(self.catalog(), changed)
 
+
+    def browser_bundle(self):
+        self.meta.update(app_id='browser', version='1.1.1', workflow='https://github.com/unlikefraction/silicon-browser/actions/runs/1')
+        catalog = self.catalog()
+        browser = catalog['apps'].pop('commit')
+        browser.update(app_id='browser', name='Silicon Browser', admin_uuid=p.BROWSER_OWNER_UUID,
+                       authors=[{'uuid': p.BROWSER_OWNER_UUID, 'id': 'si:tos'}])
+        catalog['apps']['browser'] = browser
+        with sqlite3.connect(self.root / 'apps.sqlite') as db:
+            db.execute('UPDATE catalog SET document=?', (json.dumps(catalog),))
+        for filename in self.meta['reports']:
+            path = self.bundle / filename; report = json.loads(path.read_text())
+            report.update(app_id='browser', version='browser 1.1.1')
+            archive = self.bundle / report['archive']
+            with tarfile.open(archive, 'w:gz') as tar:
+                raw = b'app_id: browser\nversion: 1.1.1\ncommand: browser\n'
+                info = tarfile.TarInfo('apps.yaml'); info.size = len(raw); tar.addfile(info, io.BytesIO(raw))
+            report.update(sha256=p.sha(archive.read_bytes()), size=archive.stat().st_size)
+            report['command_results'][1]['stdout'] = json.dumps({'app_id': 'browser', 'version': '1.1.1', 'api_url': 'https://backend.browser.teamofsilicons.com'})
+            report['command_results'][3]['stdout'] = 'browser 1.1.1\n'
+            path.write_text(json.dumps(report))
+        self.save()
+        return catalog
+
+    def test_browser_preserves_existing_owner_and_replay(self):
+        before = self.browser_bundle()
+        self.assertTrue(self.publish()['changed'])
+        after = self.catalog()
+        self.assertEqual(after['apps']['silicon-apps'], before['apps']['silicon-apps'])
+        for key in ['authors', 'admin_uuid', 'description', 'name', 'installs']:
+            self.assertEqual(after['apps']['browser'][key], before['apps']['browser'][key])
+        self.assertFalse(self.publish()['changed'])
+        self.assertEqual(self.catalog(), after)
+
+    def test_browser_cannot_be_reassigned_to_apps_owner(self):
+        before = self.browser_bundle()
+        before['apps']['browser']['admin_uuid'] = before['apps']['silicon-apps']['admin_uuid']
+        with sqlite3.connect(self.root / 'apps.sqlite') as db:
+            db.execute('UPDATE catalog SET document=?', (json.dumps(before),))
+        with self.assertRaisesRegex(ValueError, 'another app or admin'): self.publish()
+        self.assertEqual(self.catalog(), before)
+
+    def test_browser_repository_and_origin_are_exact(self):
+        before = self.browser_bundle()
+        self.meta['workflow'] = self.meta['workflow'].replace('unlikefraction', 'teamofsilicons'); self.save()
+        with self.assertRaises(ValueError): self.publish()
+        self.meta['workflow'] = self.meta['workflow'].replace('teamofsilicons', 'unlikefraction'); self.save()
+        path = self.bundle / self.meta['reports'][0]; report = json.loads(path.read_text())
+        report['command_results'][1]['stdout'] = report['command_results'][1]['stdout'].replace('backend.browser', 'api.browser')
+        path.write_text(json.dumps(report))
+        with self.assertRaises(ValueError): self.publish()
+        self.assertEqual(self.catalog(), before)
+
 if __name__ == '__main__':
     unittest.main()
