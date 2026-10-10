@@ -63,9 +63,15 @@ enum Command {
         target: Option<String>,
     },
     /// Check whether an immutable app ID (3–30 characters, a-z 0-9 - _) is available.
+    ///
+    /// A 1–2 character historical Silicon Accounts ID is sent to the server as well:
+    /// it is available only to the signed-in account the operator reserved it for.
     Availability { app: String },
     /// Create an app and show its secret once. Next: setup, upload, release, publish.
     Create {
+        /// Permanent app ID: 3–30 of a-z, 0-9, - and _. A 1–2 character historical
+        /// Silicon Accounts ID is sent to the server unchanged; the server accepts it
+        /// only from the account the operator reserved it for.
         app: String,
         #[arg(long)]
         name: String,

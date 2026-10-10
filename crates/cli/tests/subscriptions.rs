@@ -30,6 +30,7 @@ fn config(dir: &std::path::Path) -> Config {
         telemetry_enabled: false,
         telemetry_table_key: None,
         import_accounts: false,
+        historical_app_ids: Default::default(),
         rate_limit_reads_per_minute: 600,
         rate_limit_writes_per_minute: 120,
         rate_limit_streams: 10,

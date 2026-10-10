@@ -11,10 +11,10 @@ Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys a
 - `GET /health` → `{status:"ok",service:"silicon-apps",version:"0.1.2"}`.
 - `GET /me` → `{uuid,id,display_name,verified_emails:[]}`.
 - `GET /targets?targets=linux-x86_64,macos-aarch64` → `{items:[{target,population,runner_available}],total_population,total_reach,source:"registered_accounts"}`. Populations count observed authenticated accounts; total reach deduplicates accounts across selected targets.
-- `GET /apps/availability/{app_id}` → `{available:boolean}` (invalid IDs false).
+- `GET /apps/availability/{app_id}` → `{available:boolean}` (invalid IDs false). A historical 1–2 character Accounts ID reserved by `APPS_HISTORICAL_APP_IDS` is true only for its signed-in owner, while free; for anyone else it is an invalid ID.
 - `GET /apps?q=&visibility=public|private&mine=true&limit=50&offset=0` → `{items:[App],total:n}`. `mine` requires auth and includes drafts. Otherwise published accessible apps only. Search exact ID/name ranks ahead of prefixes, substrings, then typo matches across IDs, names, tags and description words; rating breaks equal scores.
 - `GET /apps/{app_id}` → App (drafts only visible to authors).
-- `POST /apps` body `{app_id,name,description?:"",logo?:""}` → `{app:App,app_secret:"…"}`.
+- `POST /apps` body `{app_id,name,description?:"",logo?:""}` → `{app:App,app_secret:"…"}`. `app_id` is a new 3–30 character ID, or a historical 1–2 character Accounts ID that `APPS_HISTORICAL_APP_IDS` reserves for the caller; anyone else gets 400 `invalid_input`, as for any invalid ID. Its `app.created` history then includes `historical_app_id:true`.
 - `PATCH /apps/{app_id}` body any `{name,description,tags:[],logo,banner,carousel:[{url,kind:"image"|"video",alt}],links:{website,developer_docs,android,ios,custom:[{label,url,logo}]},setup_step:1..7}` → App.
 - `PUT /apps/{app_id}/access` body `{visibility:"public"|"private",domains:["example.com"],account_ids:["c:alice","si:bot"]}` → App. Admin only; identities are resolved to immutable UUIDs.
 - `GET /apps/{app_id}/readiness` → `{ready:boolean,errors:[{field,message}],required_commands:["--help","accounts --json","login status --json"]}`.

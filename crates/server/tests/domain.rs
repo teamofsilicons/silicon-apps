@@ -867,6 +867,73 @@ fn immutable_id_limits_and_readiness_cannot_be_bypassed() {
     assert_eq!(version_tuple("1.20.3"), Some((1, 20, 3)));
 }
 #[test]
+fn only_a_create_the_api_found_historical_may_use_a_short_id() {
+    let mut s = Store::memory().unwrap();
+    let a = who("alice");
+    let body = |id: &str| json!({"app_id":id,"name":"DM"});
+    let prepared = |historical_app_id| Prepared {
+        secret: Some("sa_app_test_secret".into()),
+        historical_app_id,
+        ..Default::default()
+    };
+    // Without the API's finding, a two-character ID is invalid.
+    let error = change(
+        &mut s,
+        Some(&a),
+        "POST",
+        "apps",
+        "create-dm-plain",
+        body("dm"),
+        prepared(false),
+    )
+    .unwrap_err();
+    assert_eq!(error.status, 400);
+    // The finding never makes an invalid ID valid.
+    for id in ["", "DM", "d.m", "dm/x"] {
+        let error = change(
+            &mut s,
+            Some(&a),
+            "POST",
+            "apps",
+            &format!("create-invalid-{id}"),
+            body(id),
+            prepared(true),
+        )
+        .unwrap_err();
+        assert_eq!(error.status, 400, "{id}");
+    }
+    assert!(s.catalog().unwrap().apps.is_empty());
+    // With it, dm is created and its history says why.
+    change(
+        &mut s,
+        Some(&a),
+        "POST",
+        "apps",
+        "create-dm",
+        body("dm"),
+        prepared(true),
+    )
+    .unwrap();
+    let dm = s.app("dm").unwrap();
+    assert_eq!(dm.history[0].kind, "app.created");
+    assert_eq!(
+        dm.history[0].data,
+        json!({"name":"DM","historical_app_id":true})
+    );
+    // On an ordinary ID the finding changes nothing.
+    change(
+        &mut s,
+        Some(&a),
+        "POST",
+        "apps",
+        "create-ring",
+        body("ring"),
+        prepared(true),
+    )
+    .unwrap();
+    assert_eq!(s.app("ring").unwrap().history[0].data, json!({"name":"DM"}));
+}
+#[test]
 fn one_time_secret_replay_expires_and_plaintext_is_removed_from_storage() {
     let mut s = Store::memory().unwrap();
     let a = who("alice");
