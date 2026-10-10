@@ -36,7 +36,7 @@ yarn dlx shadcn@latest add @uiarc/input
 bunx --bun shadcn@latest add @uiarc/input
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/input.json
@@ -59,7 +59,7 @@ npm install motion
 ## Usage
 
 ```tsx
-import { Input } from "@/components/arc/input/input";
+import { Input } from "@/components/silicon-ui/input/input";
 
 export function EmailField() {
   const [email, setEmail] = useState("");

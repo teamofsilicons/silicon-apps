@@ -25,8 +25,11 @@ try {
         $Archive = Join-Path $temp $name
         $url = "https://github.com/teamofsilicons/silicon-apps/releases/download/v$Version/$name"
         Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $Archive
-        $checksum = Invoke-WebRequest -UseBasicParsing -Uri "$url.sha256"
-        $Sha256 = ($checksum.Content.Trim() -split '\s+')[0]
+        # GitHub may serve checksums as application/octet-stream; Windows PowerShell then returns byte[].
+        $checksumPath = Join-Path $temp ($name + ".sha256")
+        Invoke-WebRequest -UseBasicParsing -Uri "$url.sha256" -OutFile $checksumPath
+        $checksumText = [System.IO.File]::ReadAllText($checksumPath, [System.Text.Encoding]::UTF8)
+        $Sha256 = ($checksumText.Trim() -split '\s+')[0]
     }
     if (-not (Test-Path -LiteralPath $Archive -PathType Leaf)) { throw "Archive does not exist: $Archive" }
     if ($Sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw "-Archive requires a trusted 64-character -Sha256 digest" }

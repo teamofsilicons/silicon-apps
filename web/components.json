@@ -6,14 +6,14 @@
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",
-    "ui": "@/components/arc",
+    "ui": "@/components/silicon-ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
-  "registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" },
+  "registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" },
   "tailwind": {
     "config": "",
-    "css": "src/components/arc/foundation.css",
+    "css": "src/components/silicon-ui/foundation.css",
     "baseColor": "neutral",
     "cssVariables": true
   }

@@ -1,0 +1,163 @@
+{
+  "registry": "https://ui.teamofsilicons.com/r/{name}.json",
+  "retrieved": "2026-10-10",
+  "files": [
+    {
+      "file": "foundation.css",
+      "registry": "https://ui.teamofsilicons.com/r/silicon-foundation.json",
+      "sha256": "28e3780a68f2caa28f7b961ba4c7825f681db45bb2f421828b9a4983388451d0"
+    },
+    {
+      "file": "motion-tokens.ts",
+      "registry": "https://ui.teamofsilicons.com/r/silicon-motion-tokens.json",
+      "sha256": "13af43b57ed38e5b72cfc06ff0ccc39b0593721f04840e73532893593cc61491"
+    },
+    {
+      "file": "lib/motion-tokens.ts",
+      "registry": "https://ui.teamofsilicons.com/r/silicon-motion-tokens.json",
+      "sha256": "bec65d2e1b180dd3c574edc60cf84e0fa336e7ff8640eba0c70bcf0ae765fb8a"
+    },
+    {
+      "file": "badge/badge.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/badge.json",
+      "sha256": "3c55d03480156cd7636e171ce8649ddc9616db7484dea50063d8b589810c4aad"
+    },
+    {
+      "file": "badge/badge.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/badge.json",
+      "sha256": "a609ce19faf31ce4624cbd1aad5b2d8a771f3087a074152c876c2a8a25c7e14d"
+    },
+    {
+      "file": "theme-switch/theme-switch.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/theme-switch.json",
+      "sha256": "ab77cf084065de4d4ad6a25d972c5242e39a704142b285f1ce56b7d82c22dafd"
+    },
+    {
+      "file": "theme-switch/theme-switch.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/theme-switch.json",
+      "sha256": "06a1dae8e1608c3c1077ada74b8632a868fdf398e017b3589b429b747fa0a2c5"
+    },
+    {
+      "file": "button/button.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/theme-switch.json",
+      "sha256": "6a56d78cb75a6fd5f5cfdd03be8b02bf96f0bc96790d3c81abeee10e089fecec"
+    },
+    {
+      "file": "button/button.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/theme-switch.json",
+      "sha256": "a3145c8c73560ac8ec6c793601c709f0744d33a6acf724eb8c6b74fb5067c43a"
+    },
+    {
+      "file": "button/button.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/button.json",
+      "sha256": "6a56d78cb75a6fd5f5cfdd03be8b02bf96f0bc96790d3c81abeee10e089fecec"
+    },
+    {
+      "file": "button/button.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/button.json",
+      "sha256": "a3145c8c73560ac8ec6c793601c709f0744d33a6acf724eb8c6b74fb5067c43a"
+    },
+    {
+      "file": "search-field/search-field.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/search-field.json",
+      "sha256": "d93a8d0778c83d33793bf3fe7e5b206a5d0c6e50948b83f39777b89899392d93"
+    },
+    {
+      "file": "search-field/search-field.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/search-field.json",
+      "sha256": "f4c18a35d6c2c7cc8fb9dd9600a18916ac0ea327d61e9dac0b6c5ad4d36715e2"
+    },
+    {
+      "file": "switch/switch.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/switch.json",
+      "sha256": "6ab95cb9c0aaa80599cdc0605abf959a20f5030fe4ecdf57f6894274a9c5d73b"
+    },
+    {
+      "file": "switch/switch.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/switch.json",
+      "sha256": "a0b31dafda3a33e36172e7c74599e152299df3e39b8d87d791e2acb7e5d5f45e"
+    },
+    {
+      "file": "textarea/textarea.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/textarea.json",
+      "sha256": "1ed43b87e45b04180f1c6b8b3b7543e071bed3a6fcb2033e98015c77a8b7135a"
+    },
+    {
+      "file": "textarea/textarea.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/textarea.json",
+      "sha256": "b501f42dec62067fbf5e492d5e40164315e1d97460c8f5908da963be05cbdf14"
+    },
+    {
+      "file": "dialog/dialog.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/dialog.json",
+      "sha256": "eb84a7eb2ac864dc07f2825eab252eac78e9c6b889d0e9f00bf6b2b799975ade"
+    },
+    {
+      "file": "dialog/dialog.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/dialog.json",
+      "sha256": "40ac3ebefc883a04e4c5249026f1fd1eedf1e97baeac3954ad8b2a34b9cc74c0"
+    },
+    {
+      "file": "empty-state/empty-state.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/empty-state.json",
+      "sha256": "e99e39c02b03e77738e8e8a69d12f24b6e9d5b3b66f12f1425cec32700fa69ef"
+    },
+    {
+      "file": "empty-state/empty-state.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/empty-state.json",
+      "sha256": "dd71c2b16a7b14eabce882e92cd6b2d43af4caf8875201f137408fd0cf0a0912"
+    },
+    {
+      "file": "stepper/stepper.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/stepper.json",
+      "sha256": "7b4034915b0902b16e6dd2e54dfae4ce40fd9b2d4fd09e736f9e196d97fc6c17"
+    },
+    {
+      "file": "stepper/stepper.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/stepper.json",
+      "sha256": "17585812e74d539084c96f816c74f5d699372144daba3c9c30d3780263cdd741"
+    },
+    {
+      "file": "input/input.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/input.json",
+      "sha256": "16a4e761b51482e9c066f284a38171085e71ae390e4b26f9f0c18dd8af21c8f2"
+    },
+    {
+      "file": "input/input.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/input.json",
+      "sha256": "da9aa5e0863ccaa5377aa4307f6063b542a5da201ef6653a37c4f7e46f2cce01"
+    },
+    {
+      "file": "segmented-control/segmented-control.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/segmented-control.json",
+      "sha256": "9e1a4bc135246c86ed2d8875a3a1266490aa38a3d7800759db630e700188e840"
+    },
+    {
+      "file": "segmented-control/segmented-control.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/segmented-control.json",
+      "sha256": "a24527f19d8dc8036c24bfbd6208eeeff74f307ac6776bfcdb5b1a15d4cd9fd2"
+    },
+    {
+      "file": "copy-button/copy-button.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/copy-button.json",
+      "sha256": "a6faac2922a48cc05ec72650ed63aee9b3871446df683cb7de6790f9bb19744a"
+    },
+    {
+      "file": "copy-button/copy-button.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/copy-button.json",
+      "sha256": "ad6821f03dd1b3bd76f688a2f80fb3f0e64362da54bdf2aeec599f0d5db55c0c"
+    },
+    {
+      "file": "lib/use-copy-feedback.ts",
+      "registry": "https://ui.teamofsilicons.com/r/copy-button.json",
+      "sha256": "88d0ae55bb3e241f529912a4802bbf014e4ba437025acc90ab13e012702273c5"
+    }
+  ],
+  "adapted_behavior": [
+    "dialog/dialog.tsx"
+  ],
+  "application_helpers": [],
+  "style_adaptations": [
+    "primary action branding"
+  ]
+}

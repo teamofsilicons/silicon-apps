@@ -49,9 +49,14 @@ impl HistoricalAppIds {
                     "APPS_HISTORICAL_APP_IDS: `{id}` has no owner; put the owner's Silicon Accounts UUID after the colon."
                 )));
             }
-            if !owner.bytes().all(|b| b.is_ascii_alphanumeric()) {
+            let canonical_uuid = uuid::Uuid::parse_str(owner).is_ok_and(|value| {
+                value.get_variant() == uuid::Variant::RFC4122 && value.to_string() == owner
+            });
+            let legacy_uuid =
+                (3..=12).contains(&owner.len()) && owner.bytes().all(|b| b.is_ascii_alphanumeric());
+            if !canonical_uuid && !legacy_uuid {
                 return Err(bad(format!(
-                    "APPS_HISTORICAL_APP_IDS: owner `{owner}` of `{id}` is not a Silicon Accounts UUID; a UUID is ASCII letters and digits, matched exactly."
+                    "APPS_HISTORICAL_APP_IDS: owner `{owner}` of `{id}` is not a Silicon Accounts UUID; use a canonical lowercase UUID or an existing 3–12 character legacy ID."
                 )));
             }
             if ids.insert(id.to_owned(), owner.to_owned()).is_some() {
@@ -303,11 +308,11 @@ mod tests {
         );
         assert_eq!(
             refused("dm:zQo:extra"),
-            "APPS_HISTORICAL_APP_IDS: owner `zQo:extra` of `dm` is not a Silicon Accounts UUID; a UUID is ASCII letters and digits, matched exactly."
+            "APPS_HISTORICAL_APP_IDS: owner `zQo:extra` of `dm` is not a Silicon Accounts UUID; use a canonical lowercase UUID or an existing 3–12 character legacy ID."
         );
         assert_eq!(
             refused("dm:c:saket"),
-            "APPS_HISTORICAL_APP_IDS: owner `c:saket` of `dm` is not a Silicon Accounts UUID; a UUID is ASCII letters and digits, matched exactly."
+            "APPS_HISTORICAL_APP_IDS: owner `c:saket` of `dm` is not a Silicon Accounts UUID; use a canonical lowercase UUID or an existing 3–12 character legacy ID."
         );
         for id in ["DM", "d.m", "", "d m"] {
             assert_eq!(
@@ -324,6 +329,24 @@ mod tests {
                 "a".repeat(31)
             )
         );
+    }
+
+    #[test]
+    fn historical_app_owner_survives_the_standard_uuid_cutover_without_aliases() {
+        let owner = "d7ce239a-7b3e-4e0b-9236-b936405c1fda";
+        let ids = HistoricalAppIds::parse(&format!("dm:{owner}")).unwrap();
+        assert!(ids.allows("dm", Some(&account(owner))));
+        assert!(!ids.allows("dm", Some(&account("zQo"))));
+        assert!(!ids.allows("dm", Some(&account(&owner.to_uppercase()))));
+        assert!(!ids.allows("dm", None));
+        for bad in [
+            owner.to_uppercase(),
+            owner.replace('-', ""),
+            "x".into(),
+            "x".repeat(13),
+        ] {
+            assert!(HistoricalAppIds::parse(&format!("dm:{bad}")).is_err());
+        }
     }
 
     #[test]

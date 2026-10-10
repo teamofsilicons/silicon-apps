@@ -228,6 +228,9 @@ async fn verified_identity(
         {
             return Err(ApiError::auth());
         }
+        if s.store.lock().unwrap().account_uuid_retired(parts[1])? {
+            return Err(ApiError::auth());
+        }
         return Ok(Some(Identity {
             uuid: parts[1].into(),
             id: parts[2].into(),
@@ -249,6 +252,9 @@ async fn verified_identity(
             "Sign in to Silicon Apps again.",
         )
     })?;
+    if s.store.lock().unwrap().account_uuid_retired(&claims.sub)? {
+        return Err(ApiError::auth());
+    }
     // First-party reuse is deliberately one exact audience, not a general
     // multi-audience fallback. Existing Apps token validation stays unchanged.
     if !claims.aud.iter().any(|aud| aud == APP_ID) && claims.aud != ["developer"] {

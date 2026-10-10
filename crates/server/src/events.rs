@@ -294,7 +294,7 @@ pub fn head(conn: &Connection) -> Result<i64> {
 pub fn get(conn: &Connection, seq: i64) -> Result<Option<Event>> {
     Ok(conn
         .query_row(
-            &format!("SELECT {EVENT_COLUMNS} FROM events WHERE seq=?1"),
+            &format!("SELECT {EVENT_COLUMNS} FROM events WHERE seq=?1 AND NOT EXISTS(SELECT 1 FROM event_identity_retirements r WHERE r.event_seq=events.seq)"),
             [seq],
             from_row,
         )
@@ -307,7 +307,7 @@ fn read_after(
     limit: usize,
 ) -> Result<Vec<Event>> {
     let mut statement = conn.prepare(&format!(
-        "SELECT {EVENT_COLUMNS} FROM events WHERE seq>?1 AND (?2 IS NULL OR app_id=?2) ORDER BY seq LIMIT ?3"
+        "SELECT {EVENT_COLUMNS} FROM events WHERE seq>?1 AND (?2 IS NULL OR app_id=?2) AND NOT EXISTS(SELECT 1 FROM event_identity_retirements r WHERE r.event_seq=events.seq) ORDER BY seq LIMIT ?3"
     ))?;
     let rows = statement.query_map(params![after, app_id, limit as i64], from_row)?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -451,6 +451,9 @@ fn collect(
     loop {
         let rows = read_after(&store.connection, cursor, app_filter, 500)?;
         if rows.is_empty() {
+            // Retired events and events outside this app still consume sequence
+            // numbers. Advance past them so replay cannot loop on an empty page.
+            cursor = cursor.max(head(&store.connection)?);
             break;
         }
         scanned += rows.len();

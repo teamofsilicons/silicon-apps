@@ -36,7 +36,7 @@ yarn dlx shadcn@latest add @uiarc/badge
 bunx --bun shadcn@latest add @uiarc/badge
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/badge.json
@@ -60,7 +60,7 @@ npm install motion
 
 ```tsx
 import { Check } from "lucide-react";
-import { Badge } from "@/components/arc/badge/badge";
+import { Badge } from "@/components/silicon-ui/badge/badge";
 
 export function DeployStatus({ live }: { live: boolean }) {
   return (

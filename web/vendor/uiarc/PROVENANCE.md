@@ -1,6 +1,6 @@
 # Arc UI provenance
 
-The source under `src/components/arc/` was downloaded verbatim from the public Arc UI free registry on 2026-10-08. It is MIT licensed, copyright 2026 Elia Kuratli. The accompanying LICENSE is retained here. No Pro source or imitation of Pro components is included.
+The source under `src/components/silicon-ui/` was downloaded verbatim from the public Arc UI free registry on 2026-10-08. It is MIT licensed, copyright 2026 Elia Kuratli. The accompanying LICENSE is retained here. No Pro source or imitation of Pro components is included.
 
 Source index: https://uiarc.dev/llms.txt
 License: https://uiarc.dev/license

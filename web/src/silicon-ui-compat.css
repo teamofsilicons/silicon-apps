@@ -1,0 +1,8 @@
+
+/* Existing application layouts use this numeric spacing scale. Silicon UI components use semantic tokens. */
+:root {
+  --space-1: var(--space-tight); --space-2: var(--space-related); --space-3: var(--space-group);
+  --space-4: var(--space-inset); --space-5: var(--space-comfort); --space-6: 1.5rem;
+  --space-8: 2rem; --space-10: 2.5rem; --space-12: 3rem; --space-16: 4rem; --space-20: 5rem; --space-24: 6rem;
+  --radius-panel: 1.625rem; --radius-surface: 2.125rem; --radius-pill: 9999px;
+}

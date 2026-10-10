@@ -35,7 +35,7 @@ yarn dlx shadcn@latest add @uiarc/copy-button
 bunx --bun shadcn@latest add @uiarc/copy-button
 ```
 
-The `@uiarc` name needs `"registries": { "@uiarc": "https://uiarc.dev/r/{name}.json" }` in `components.json`. Without it, use the full URL:
+The `@uiarc` name needs `"registries": { "@silicon-ui": "https://ui.teamofsilicons.com/r/{name}.json" }` in `components.json`. Without it, use the full URL:
 
 ```bash
 npx shadcn@latest add https://uiarc.dev/r/copy-button.json
@@ -58,7 +58,7 @@ npm install motion lucide-react
 ## Usage
 
 ```tsx
-import { CopyButton } from "@/components/arc/copy-button/copy-button";
+import { CopyButton } from "@/components/silicon-ui/copy-button/copy-button";
 
 export function ApiKeyRow({ apiKey }: { apiKey: string }) {
   return (

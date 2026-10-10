@@ -1,6 +1,6 @@
 [package]
 name = "silicon-apps-package"
-version = "0.2.0"
+version = "0.2.1"
 edition.workspace = true
 description = "Safe package manifest validation, packing and extraction for Silicon Apps"
 license.workspace = true

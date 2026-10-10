@@ -3,7 +3,7 @@
  * same files as the developer site), the no-flash theme boot script (inline, with the request's CSP nonce), the
  * header and footer, the one behaviour island, and the Organization and WebSite JSON-LD every page carries. Every page renders per request: the nonce and the visitor's session change each time.
  */
-import "@/components/arc/foundation.css";
+import "@/components/silicon-ui/foundation.css";
 import "@/styles/fonts.css";
 import "@/styles/tokens.css";
 import "@/styles/squircle.css";

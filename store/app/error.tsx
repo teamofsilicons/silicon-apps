@@ -1,6 +1,6 @@
 "use client";
 /** The last resort when a page fails to render. Next logs the server error; nothing private is shown here. */
-import buttonStyles from "@/components/arc/button/button.module.css";
+import buttonStyles from "@/components/silicon-ui/button/button.module.css";
 import linkStyles from "@/components/foundation/button-link.module.css";
 import styles from "@/components/store/store.module.css";
 

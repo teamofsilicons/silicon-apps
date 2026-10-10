@@ -2,3 +2,9 @@ onlyBuiltDependencies: []
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+
+# Production standalone bundles run on Linux ARM64, including native image dependencies.
+supportedArchitectures:
+  os: [current, linux]
+  cpu: [current, arm64]
+  libc: [current, glibc]

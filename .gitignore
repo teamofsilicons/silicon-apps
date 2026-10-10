@@ -16,3 +16,6 @@ __pycache__/
 *.pyc
 
 /dist/
+
+# Local isolated migration evidence (databases, exports and logs).
+/.mig/

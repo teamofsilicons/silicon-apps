@@ -24,10 +24,12 @@ pub const SORTS: [&str; 6] = [
     "updated",
     "newest",
 ];
-const MIGRATIONS: [&str; 3] = [
+const MIGRATIONS: [&str; 5] = [
     include_str!("../../../migrations/001_catalog.sql"),
     include_str!("../../../migrations/002_events.sql"),
     include_str!("../../../migrations/003_signing.sql"),
+    include_str!("../../../migrations/004_account_uuid_backfill.sql"),
+    include_str!("../../../migrations/005_retired_identity_events.sql"),
 ];
 #[derive(Default)]
 pub struct Prepared {
@@ -133,6 +135,18 @@ impl Store {
             events: tokio::sync::watch::channel(0).0,
             signer: None,
         })
+    }
+    /// Retired subjects can never authenticate, including before Accounts cache expiry.
+    pub fn account_uuid_retired(&self, uuid: &str) -> Result<bool> {
+        Ok(self
+            .connection
+            .query_row(
+                "SELECT 1 FROM account_uuid_migrations WHERE old_uuid=?1",
+                [uuid],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some())
     }
     pub fn notify_events(&self) {
         self.events.send_modify(|n| *n = n.wrapping_add(1));
