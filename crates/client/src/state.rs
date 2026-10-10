@@ -9,6 +9,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// cmd.exe cannot launch a canonical Windows verbatim path. Keep filesystem
+/// paths canonical, and convert only where a path is embedded in a shell command.
+#[cfg(any(windows, test))]
+pub(crate) fn windows_shell_path(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    if let Some(unc) = text.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{unc}")
+    } else {
+        text.strip_prefix(r"\\?\").unwrap_or(&text).to_owned()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {

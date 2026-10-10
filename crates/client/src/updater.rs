@@ -441,8 +441,8 @@ fn windows_service_document(state: &LocalState, executable: &Path) -> String {
     .join("System32/cmd.exe");
     let arguments = format!(
         "/D /S /C \"\"{}\" --home \"{}\" daemon run --detached\"",
-        launcher.display(),
-        state.home.display()
+        state::windows_shell_path(&launcher),
+        state::windows_shell_path(&state.home)
     );
     format!(
         "<?xml version=\"1.0\" encoding=\"UTF-16\"?><Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\"><Triggers><LogonTrigger><Enabled>true</Enabled></LogonTrigger></Triggers><Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><ExecutionTimeLimit>PT0S</ExecutionTimeLimit><StartWhenAvailable>true</StartWhenAvailable></Settings><Actions><Exec><Command>{}</Command><Arguments>{}</Arguments></Exec></Actions></Task>",

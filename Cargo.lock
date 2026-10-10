@@ -2441,7 +2441,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-apps-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -2455,7 +2455,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-apps-client"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "axum",

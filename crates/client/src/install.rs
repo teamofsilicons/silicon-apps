@@ -718,7 +718,10 @@ fn link_command(binary: &Path, command: &Path) -> Result<()> {
         );
         fs::write(
             &temp,
-            format!("@echo off\r\n\"{}\" %*\r\n", binary.display()),
+            format!(
+                "@echo off\r\n\"{}\" %*\r\n",
+                crate::state::windows_shell_path(binary)
+            ),
         )?;
     }
     #[cfg(not(any(unix, windows)))]
@@ -818,6 +821,30 @@ fn script_output_tail(file: &fs::File) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    fn windows_installed_command_runs_from_canonical_home_with_spaces() {
+        use std::{os::windows::process::CommandExt, path::PathBuf};
+        let temp = tempfile::tempdir().unwrap();
+        let home = temp.path().join("home with spaces");
+        fs::create_dir(&home).unwrap();
+        let state = LocalState::new(&home).unwrap();
+        state.initialize().unwrap();
+        let binary = state.root.join("installed/fixture.exe");
+        let shell = PathBuf::from(std::env::var_os("SystemRoot").unwrap()).join("System32/cmd.exe");
+        fs::copy(&shell, &binary).unwrap();
+        let command = state.root.join("bin/fixture.cmd");
+        link_command(&binary, &command).unwrap();
+        let status = std::process::Command::new(&shell)
+            .args(["/D", "/S", "/C"])
+            .raw_arg(format!(
+                "\"\"{}\" /D /C exit 17\"",
+                crate::state::windows_shell_path(&command)
+            ))
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(17));
+    }
     #[test]
     fn parses_channels_and_exact_versions() {
         for (input, channel, version) in [
