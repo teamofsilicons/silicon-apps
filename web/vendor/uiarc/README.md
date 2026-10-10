@@ -1,0 +1,1 @@
+The historical Arc UI MIT notice is retained for attribution. Active components now come from Silicon UI; see ../silicon-ui/PROVENANCE.md and src/components/silicon-ui/registry-manifest.json. The obsolete registry installer and snapshots were removed.
