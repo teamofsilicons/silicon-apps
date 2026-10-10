@@ -338,7 +338,10 @@ async fn script_timeout_terminates_process_and_keeps_previous_install() {
     let error = install::install(&client, &state, &config, &spec, false)
         .await
         .unwrap_err();
-    assert!(error.to_string().contains("exceeded 1 seconds"));
+    assert!(
+        error.to_string().contains("exceeded 1 seconds"),
+        "{error:#}"
+    );
     assert!(started.elapsed() < std::time::Duration::from_secs(5));
     assert_eq!(state.installed().unwrap()["fixture"].version, "1.0.0");
     server.abort();

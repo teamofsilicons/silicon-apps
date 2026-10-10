@@ -34,6 +34,17 @@ pub struct LocalState {
     pub home: PathBuf,
     pub root: PathBuf,
 }
+/// Releases the advisory lock even if a concurrently spawned child temporarily
+/// retains a duplicate descriptor before exec closes it.
+#[derive(Debug)]
+pub struct LocalLock(fs::File);
+
+impl Drop for LocalLock {
+    fn drop(&mut self) {
+        let _ = FileExt::unlock(&self.0);
+    }
+}
+
 impl LocalState {
     pub fn new(home: impl Into<PathBuf>) -> Result<Self> {
         let home = home.into();
@@ -99,7 +110,7 @@ impl LocalState {
         self.initialize()?;
         atomic_json(&self.root.join("installed.json"), items)
     }
-    pub fn lock(&self, name: &str) -> Result<fs::File> {
+    pub fn lock(&self, name: &str) -> Result<LocalLock> {
         ensure!(
             name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'),
             "invalid lock name"
@@ -114,7 +125,7 @@ impl LocalState {
         lock.try_lock_exclusive().with_context(|| {
             format!("another Apps process holds the {name} lock; wait for it to finish")
         })?;
-        Ok(lock)
+        Ok(LocalLock(lock))
     }
 }
 pub fn read_json<T: serde::de::DeserializeOwned + Default>(path: &Path) -> Result<T> {
@@ -147,4 +158,27 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     temp.as_file().sync_all()?;
     temp.persist(path).map_err(|e| e.error)?;
     Ok(())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dropping_lock_releases_it_with_a_duplicate_descriptor_alive() {
+        let home = tempfile::tempdir().unwrap();
+        let state = LocalState::new(home.path()).unwrap();
+        let guard = state.lock("install").unwrap();
+        // A fork in another thread can retain the open-file description until
+        // the child executes its new program, even with close-on-exec set.
+        let duplicate = guard.0.try_clone().unwrap();
+        assert!(state.lock("install").is_err());
+        drop(guard);
+        let next = state.lock("install").unwrap();
+        assert!(state.lock("install").is_err());
+        drop(duplicate);
+        assert!(state.lock("install").is_err());
+        drop(next);
+        assert!(state.lock("install").is_ok());
+    }
 }
