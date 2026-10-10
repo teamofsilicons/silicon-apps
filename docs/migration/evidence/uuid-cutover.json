@@ -1,0 +1,48 @@
+{
+  "scope": "isolated local shared Accounts migration; no production change",
+  "mapping_rows": 211,
+  "mapping_sha256": "750423f3117e11f5eb42025b457ff0f1bf42bd463c31b7e106d9cd10978ca4d9",
+  "migration": {
+    "apply": {
+      "apply": true,
+      "mapping_rows": 211,
+      "new_mappings": 211,
+      "already_applied": 0,
+      "browser_sessions_expired": 0,
+      "oauth_attempts_expired": 0,
+      "linked_accounts_seen": 1,
+      "retired_events": 3,
+      "cancelled_deliveries": 0
+    },
+    "replay": {
+      "apply": true,
+      "mapping_rows": 211,
+      "new_mappings": 0,
+      "already_applied": 211,
+      "browser_sessions_expired": 0,
+      "oauth_attempts_expired": 0,
+      "linked_accounts_seen": 2,
+      "retired_events": 0,
+      "cancelled_deliveries": 0
+    },
+    "signing_key_package_bytes_preserved": true,
+    "replay_logical_dump_unchanged": true
+  },
+  "runtime_verification": {
+    "passed": true,
+    "old_subject_rejected": true,
+    "fresh_real_developer_signin": true,
+    "owner_and_author_rekeyed": true,
+    "signed_release_manifest_and_signature_preserved": true,
+    "authenticated_package_download_bytes_preserved": true,
+    "actual_accounts_registry_sync_canonical_owner": true,
+    "independent_ed25519_signature_valid": true
+  },
+  "source_fixture_note": "Waveform current namespace retained; unrelated older MCPort and Apps fixtures preserved separately without rekeying",
+  "package_validation_scope": "Controlled archive seeded after structural inspection; actual release signed through API. This fixture does not claim isolated runner acceptance.",
+  "source_cache_provenance_audit": {
+    "total": 10,
+    "matching_current_handle": 9,
+    "kind_mismatch": 1
+  }
+}
