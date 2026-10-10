@@ -113,13 +113,13 @@ class PublicationTests(unittest.TestCase):
             db.execute('UPDATE catalog SET document=?', (json.dumps(catalog),))
         for filename in self.meta['reports']:
             path = self.bundle / filename; report = json.loads(path.read_text())
-            report.update(app_id='browser', version='browser 1.1.1')
+            report.update(app_id='browser', version='browser 1.1.1', default_api_url='https://backend.browser.teamofsilicons.com')
             archive = self.bundle / report['archive']
             with tarfile.open(archive, 'w:gz') as tar:
                 raw = b'app_id: browser\nversion: 1.1.1\ncommand: browser\n'
                 info = tarfile.TarInfo('apps.yaml'); info.size = len(raw); tar.addfile(info, io.BytesIO(raw))
             report.update(sha256=p.sha(archive.read_bytes()), size=archive.stat().st_size)
-            report['command_results'][1]['stdout'] = json.dumps({'app_id': 'browser', 'version': '1.1.1', 'api_url': 'https://backend.browser.teamofsilicons.com'})
+            report['command_results'][1]['stdout'] = json.dumps({'app_id': 'browser'})
             report['command_results'][3]['stdout'] = 'browser 1.1.1\n'
             path.write_text(json.dumps(report))
         self.save()
@@ -171,7 +171,7 @@ class PublicationTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.publish()
         self.meta['workflow'] = self.meta['workflow'].replace('teamofsilicons', 'unlikefraction'); self.save()
         path = self.bundle / self.meta['reports'][0]; report = json.loads(path.read_text())
-        report['command_results'][1]['stdout'] = report['command_results'][1]['stdout'].replace('backend.browser', 'api.browser')
+        report['default_api_url'] = 'https://api.browser.teamofsilicons.com'
         path.write_text(json.dumps(report))
         with self.assertRaises(ValueError): self.publish()
         self.assertEqual(self.catalog(), before)

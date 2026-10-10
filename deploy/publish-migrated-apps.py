@@ -109,10 +109,13 @@ def verified_packages(folder, metadata):
                 raise ValueError('Native version command does not support the report version')
             if command == 'accounts --json':
                 discovery = json.loads(result['stdout'])
-                if discovery.get('app_id') != app or discovery.get('version') != version:
+                if discovery.get('app_id') != app or (app != 'browser' and discovery.get('version') != version):
                     raise ValueError('Native account discovery identity differs')
                 expected_api = API_ORIGINS.get(app, 'https://api.' + app + '.teamofsilicons.com')
-                if discovery.get('api_url') != expected_api:
+                # Browser's existing discovery contract returns only app_id. Its native report
+                # reads the selected default from the CLI-created signed-out state instead.
+                actual_api = report.get('default_api_url') if app == 'browser' else discovery.get('api_url')
+                if actual_api != expected_api:
                     raise ValueError('Package still targets a legacy API origin')
             if command == 'login status --json' and json.loads(result['stdout']).get('authenticated') is not False:
                 raise ValueError('Native verification must use a signed-out home')
