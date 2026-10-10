@@ -95,6 +95,7 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "alice".into(),
+        pfp_url: None,
         verified_emails: vec![],
     };
     let bytes = b"client package";

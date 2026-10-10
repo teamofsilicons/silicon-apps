@@ -120,7 +120,7 @@ async fn built_in_account_service_ids_are_unavailable_and_cannot_be_created() {
 async fn production_auth_verifies_signature_issuer_audience_expiry_and_active_account() {
     let key = SigningKey::from_bytes(&[7u8; 32]);
     let x = URL_SAFE_NO_PAD.encode(key.verifying_key().to_bytes());
-    let provider=Router::new().route("/.well-known/jwks.json",get(move||{let x=x.clone();async move{Json(json!({"keys":[{"kty":"OKP","crv":"Ed25519","alg":"EdDSA","kid":"test-key","x":x}]}))}})).route("/v1/userinfo",get(||async{Json(json!({"uuid":"alice","kind":"carbon","id":"c:renamed","display_name":"Alice","email":"alice@example.com","email_verified":true,"verified_emails":["alice@example.com","alice@secondary.example"]}))}));
+    let provider=Router::new().route("/.well-known/jwks.json",get(move||{let x=x.clone();async move{Json(json!({"keys":[{"kty":"OKP","crv":"Ed25519","alg":"EdDSA","kid":"test-key","x":x}]}))}})).route("/v1/userinfo",get(||async{Json(json!({"uuid":"alice","kind":"carbon","id":"c:renamed","display_name":"Alice","pfp_url":"https://accounts.example/v1/photos/alice","email":"alice@example.com","email_verified":true,"verified_emails":["alice@example.com","alice@secondary.example"]}))}));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let issuer = format!("http://{}", listener.local_addr().unwrap());
     let task = tokio::spawn(async move { axum::serve(listener, provider).await.unwrap() });
@@ -134,6 +134,13 @@ async fn production_auth_verifies_signature_issuer_audience_expiry_and_active_ac
     let (status, body) = call(&app, "GET", "/v1/me", Some(&token), json!({}), None).await;
     assert_eq!(status, 200, "{body}");
     assert_eq!(body["id"], "c:renamed");
+    assert_eq!(body["pfp_url"], "https://accounts.example/v1/photos/alice");
+    let (status, session) = call(&app, "GET", "/v1/session", Some(&token), json!({}), None).await;
+    assert_eq!(status, 200, "{session}");
+    assert_eq!(
+        session["account"]["pfp_url"],
+        "https://accounts.example/v1/photos/alice"
+    );
     assert_eq!(
         body["verified_emails"],
         json!(["alice@example.com", "alice@secondary.example"])
@@ -364,7 +371,7 @@ async fn developer_portal_tokens_manage_owned_apps_but_not_store_actions_or_othe
     task.abort();
 }
 #[tokio::test]
-async fn author_refresh_uses_subscribed_profile_and_id_only_fallback_preserves_display_name() {
+async fn author_refresh_recovers_photos_without_login_and_respects_profile_consent() {
     use axum::response::IntoResponse;
     use std::sync::{
         Arc,
@@ -374,22 +381,41 @@ async fn author_refresh_uses_subscribed_profile_and_id_only_fallback_preserves_d
     let profile_mode = mode.clone();
     let lookups = Arc::new(AtomicUsize::new(0));
     let lookup_count = lookups.clone();
+    let lookup_mode = mode.clone();
     let provider = Router::new()
         .route("/v1/apps/silicon-apps/users/alice", get(move || {
             let mode = profile_mode.clone();
             async move {
                 let mode = mode.load(Ordering::SeqCst);
-                if mode == 1 {
+                if matches!(mode, 1 | 7) {
                     return StatusCode::NOT_FOUND.into_response();
                 }
-                Json(json!({"user":{"uuid":"alice","id":"c:renamed","display_name":if mode == 2 { "" } else { "Alice Current" },"status":"active"}})).into_response()
+                let mut user = json!({"uuid":"alice","id":"c:renamed","display_name":if mode == 2 { "" } else { "Alice Current" },"status":"active"});
+                match mode {
+                    0 => user["pfp_url"] = json!("https://accounts.example/v1/photos/first"),
+                    3 => user["pfp_url"] = json!("https://accounts.example/v1/photos/second"),
+                    4 => user["pfp_url"] = json!(""),
+                    5 | 8 => user["pfp_url"] = json!("https://accounts.example/v1/photos/third"),
+                    6 | 9 => {
+                        user["status"] = json!(if mode == 6 { "access_removed" } else { "deleted" });
+                        user["pfp_url"] = json!("https://accounts.example/private-withheld-photo");
+                    }
+                    _ => {}
+                }
+                Json(json!({"user":user})).into_response()
             }
         }))
         .route("/v1/accounts/alice", get(move || {
             let calls = lookup_count.clone();
+            let mode = lookup_mode.clone();
             async move {
                 calls.fetch_add(1, Ordering::SeqCst);
-                Json(json!({"uuid":"alice","kind":"carbon","id":"c:fallback"}))
+                if mode.load(Ordering::SeqCst) == 9 {
+                    return StatusCode::NOT_FOUND.into_response();
+                }
+                // App lookups do not grant photos. Even an unexpected field must
+                // not undo the app-user consent boundary.
+                Json(json!({"uuid":"alice","kind":"carbon","id":"c:fallback","pfp_url":"https://accounts.example/unauthorized-lookup-photo"})).into_response()
             }
         }));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -414,23 +440,86 @@ async fn author_refresh_uses_subscribed_profile_and_id_only_fallback_preserves_d
             status: "pending".into(),
             created_at: now(),
         });
+        let mut legacy = serde_json::to_value(&catalog).unwrap();
+        legacy["apps"]["secret-app"]["authors"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("pfp_url");
         store
             .connection
             .execute(
                 "UPDATE catalog SET document=?1 WHERE id=1",
-                [serde_json::to_string(&catalog).unwrap()],
+                [legacy.to_string()],
             )
             .unwrap();
     }
     let app = router(state.clone());
-    for (step, expected_id) in [(0, "c:renamed"), (1, "c:fallback"), (2, "c:renamed")] {
+    for (step, expected_id, expected_photo, expected_lookups) in [
+        (
+            0,
+            "c:renamed",
+            Some("https://accounts.example/v1/photos/first"),
+            0,
+        ),
+        (
+            1,
+            "c:fallback",
+            Some("https://accounts.example/v1/photos/first"),
+            1,
+        ),
+        (
+            2,
+            "c:renamed",
+            Some("https://accounts.example/v1/photos/first"),
+            1,
+        ),
+        (
+            3,
+            "c:renamed",
+            Some("https://accounts.example/v1/photos/second"),
+            1,
+        ),
+        (4, "c:renamed", None, 1),
+        (
+            5,
+            "c:renamed",
+            Some("https://accounts.example/v1/photos/third"),
+            1,
+        ),
+        (6, "c:fallback", None, 2),
+        (7, "c:fallback", None, 3),
+        (
+            8,
+            "c:renamed",
+            Some("https://accounts.example/v1/photos/third"),
+            3,
+        ),
+        (9, "c:renamed", None, 4),
+    ] {
         mode.store(step, Ordering::SeqCst);
-        state.identity_cache.lock().unwrap().clear();
+        // Advance the existing bounded cache without sleeping or signing in.
+        for (when, _) in state.identity_cache.lock().unwrap().values_mut() {
+            *when = std::time::Instant::now() - std::time::Duration::from_secs(301);
+        }
+        let (status, first_profile) =
+            call(&app, "GET", "/v1/authors/alice", None, json!({}), None).await;
+        assert_eq!(status, 200, "{first_profile}");
+        assert_eq!(
+            first_profile["pfp_url"],
+            json!(expected_photo),
+            "step {step}"
+        );
+        assert_eq!(
+            first_profile["items"][0]["authors"][0]["pfp_url"],
+            json!(expected_photo),
+            "step {step}"
+        );
         let (status, body) = call(&app, "GET", "/v1/apps/secret-app", None, json!({}), None).await;
         assert_eq!(status, 200, "{body}");
         let author = &body["authors"][0];
         assert_eq!(author["id"], expected_id);
         assert_eq!(author["display_name"], "Alice Current");
+        assert_eq!(author["pfp_url"], json!(expected_photo), "step {step}");
         assert!(author.get("authors").is_none());
         assert!(author.get("items").is_none());
         let (status, profile) = call(&app, "GET", "/v1/authors/alice", None, json!({}), None).await;
@@ -438,17 +527,19 @@ async fn author_refresh_uses_subscribed_profile_and_id_only_fallback_preserves_d
         assert_eq!(profile["uuid"], "alice");
         assert_eq!(profile["id"], expected_id);
         assert_eq!(profile["display_name"], "Alice Current");
+        assert_eq!(profile["pfp_url"], json!(expected_photo));
         assert_eq!(profile["total"], 1);
         assert_eq!(profile["items"][0]["authors"][0]["id"], expected_id);
 
         let stored = state.store.lock().unwrap().app("secret-app").unwrap();
         assert_eq!(stored.authors[0].display_name, "Alice Current");
+        assert_eq!(stored.authors[0].pfp_url.as_deref(), expected_photo);
         assert_eq!(stored.authors[0].id, expected_id);
         assert_eq!(
             state.store.lock().unwrap().catalog().unwrap().invites[0].to,
             expected_id
         );
-        assert_eq!(lookups.load(Ordering::SeqCst), usize::from(step > 0));
+        assert_eq!(lookups.load(Ordering::SeqCst), expected_lookups);
     }
     task.abort();
 }
@@ -575,6 +666,7 @@ fn seed_private(state: &silicon_apps_server::Shared) {
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "Alice".into(),
+        pfp_url: None,
         verified_emails: vec![],
     };
     let mut s = state.store.lock().unwrap();

@@ -103,6 +103,7 @@ impl Subscription {
             uuid: self.owner_uuid.clone(),
             id: self.owner_id.clone(),
             display_name: String::new(),
+            pfp_url: None,
             verified_emails: self.owner_emails.clone(),
         }
     }

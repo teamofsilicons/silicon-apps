@@ -4,6 +4,7 @@ export type Account = {
   uuid: string;
   id: string;
   display_name: string;
+  pfp_url?: string | null;
 };
 
 export type Author = Account & { joined_at: string };

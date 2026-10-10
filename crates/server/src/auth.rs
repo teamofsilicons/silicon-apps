@@ -235,6 +235,7 @@ async fn verified_identity(
             uuid: parts[1].into(),
             id: parts[2].into(),
             display_name: parts[2].into(),
+            pfp_url: None,
             verified_emails: vec![],
         }));
     }
@@ -302,6 +303,7 @@ async fn verified_identity(
         uuid: user.uuid,
         id: user.id,
         display_name: user.display_name,
+        pfp_url: (!user.pfp_url.is_empty()).then_some(user.pfp_url),
         verified_emails,
     }))
 }

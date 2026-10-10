@@ -92,7 +92,7 @@ export default async function AppPage({ params, searchParams }: Props) {
   const platforms = targetsByOs(app.targets);
   const rated = reviews.count > 0 && reviews.rating !== null;
   const released = Boolean(production || development);
-  const signedBy = app.signed_by_author ? (app.signed_by ?? []) : [];
+  const signedBy = app.signed_by ?? [];
   const withdrawn = app.withdrawn_releases ?? [];
 
   return (
@@ -107,30 +107,56 @@ export default async function AppPage({ params, searchParams }: Props) {
         ) : null}
 
         <header className={pageStyles.header}>
-          <div className={pageStyles.identityRow}>
-            <AppLogo app={app} size={88} decorative={false} />
-            <div className={pageStyles.identity}>
-              <h1 id="app-name" className={pageStyles.name}>{app.name}</h1>
-              {app.authors.length ? (
-                <p className={pageStyles.authors}>
-                  <span className="sr-only">By </span>
-                  {app.authors.map((author, index) => (
-                    <span key={author.uuid}>
-                      {index > 0 ? <span aria-hidden="true">, </span> : null}
-                      <a href={authorPath(author.uuid)} title={author.id}>{author.display_name || author.id}</a>
-                    </span>
-                  ))}
+          <div className={pageStyles.overview}>
+            <div className={pageStyles.identityRow}>
+              <AppLogo app={app} size={88} decorative={false} />
+              <div className={pageStyles.identity}>
+                <h1 id="app-name" className={pageStyles.name}>{app.name}</h1>
+                {app.authors.length ? (
+                  <p className={pageStyles.authors}>
+                    <span className="sr-only">By </span>
+                    {app.authors.map((author, index) => (
+                      <span key={author.uuid}>
+                        {index > 0 ? <span aria-hidden="true">, </span> : null}
+                        <a href={authorPath(author.uuid)} title={author.id}>{author.display_name || author.id}</a>
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
+                <p className={pageStyles.idLine}>
+                  <span className={pageStyles.appId}>{app.app_id}</span>
+                  {app.visibility === "private" ? (
+                    <span className={`${styles.badge} ${styles.badgeAccent}`} data-sq="surface"><Lock size={11} strokeWidth={2} aria-hidden="true" />Private app</span>
+                  ) : (
+                    <span className={styles.badge} data-sq="surface">Public app</span>
+                  )}
                 </p>
-              ) : null}
-              <p className={pageStyles.idLine}>
-                <span className={pageStyles.appId}>{app.app_id}</span>
-                {app.visibility === "private" ? (
-                  <span className={`${styles.badge} ${styles.badgeAccent}`} data-sq="surface"><Lock size={11} strokeWidth={2} aria-hidden="true" />Private app</span>
-                ) : (
-                  <span className={styles.badge} data-sq="surface">Public app</span>
-                )}
-              </p>
+              </div>
             </div>
+            {outbound.length ? (
+              <section aria-labelledby="links-title" className={pageStyles.card} data-sq="surface">
+                <h2 id="links-title" className={pageStyles.cardTitle}><Globe {...ICON} aria-hidden="true" />Around the web</h2>
+                <ul className={`${pageStyles.links} ${pageStyles.headerLinks}`} role="list">
+                  {outbound.map((link, index) => {
+                    const Icon = LINK_ICONS[link.icon];
+                    return (
+                      <li key={`${link.url}-${index}`}>
+                        <a href={link.url} target="_blank" rel="nofollow ugc noopener noreferrer" className={pageStyles.link} data-sq="surface">
+                          {link.logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={link.logo} alt="" width={18} height={18} className={pageStyles.linkLogo} />
+                          ) : (
+                            <Icon size={17} strokeWidth={1.75} aria-hidden="true" />
+                          )}
+                          <span>{link.label}</span>
+                          <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" className={pageStyles.linkArrow} />
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
           </div>
           <div className={pageStyles.cta} id="install">
             <p className={pageStyles.ctaLabel}>Install with one command</p>
@@ -147,14 +173,14 @@ export default async function AppPage({ params, searchParams }: Props) {
               <p className={pageStyles.trust}>
                 <ShieldCheck size={16} strokeWidth={1.75} aria-hidden="true" />
                 <span>
-                  Signed by Silicon Apps{signedBy.length ? <> and by {signedBy.map((id, index) => <span key={id}>{index > 0 ? ", " : ""}<span className={pageStyles.signer}>{id}</span></span>)}</> : null}.
-                  The CLI checks {signedBy.length ? "both signatures" : "the signature"} before it installs anything.
+                  Signed by Silicon Apps{app.signed_by_author && signedBy.length ? <> and by {signedBy.map((id, index) => <span key={id}>{index > 0 ? ", " : ""}<span className={pageStyles.signer}>{id}</span></span>)}</> : null}.
+                  The CLI checks the release signature and any author signature before installation.
                 </span>
               </p>
             ) : null}
             <div className={pageStyles.ctaActions}>
               <Action href="#reviews" variant="secondary" size="sm"><Star size={15} strokeWidth={1.75} aria-hidden="true" />{mine ? "Edit your review" : "Write a review"}</Action>
-              {app.is_author ? <Action href={manageAppUrl(app.app_id)} variant="ghost" size="sm">Manage app<ArrowUpRight size={15} strokeWidth={1.75} aria-hidden="true" /></Action> : null}
+              {app.is_author ? <Action href={manageAppUrl(app.app_id)} target="_blank" rel="noopener noreferrer" variant="ghost" size="sm">Manage app<ArrowUpRight size={15} strokeWidth={1.75} aria-hidden="true" /></Action> : null}
             </div>
           </div>
         </header>
@@ -436,12 +462,12 @@ export default async function AppPage({ params, searchParams }: Props) {
                     <dd data-state={app.signed ? "yes" : "no"}>{app.signed ? "Signed every package" : "Not signed yet"}</dd>
                   </div>
                   <div>
-                    <dt>Authors</dt>
-                    <dd data-state={signedBy.length ? "yes" : "no"}>{signedBy.length ? `Signed by ${signedBy.join(", ")}` : "No author signature"}</dd>
+                    <dt>Author signing (optional)</dt>
+                    <dd data-state={signedBy.length ? "yes" : "no"}>{signedBy.length ? `${app.signed_by_author ? "All" : "Some"} packages signed by ${signedBy.join(", ")}` : "No additional author signatures"}</dd>
                   </div>
                 </dl>
                 <p className={pageStyles.cardText}>
-                  For the current {production ? "production" : "development"} release. <a href={`${LINKS.appsDocs}/learn/signed-releases`}>How signed releases work</a>
+                  Authors can add their own package signatures alongside the Silicon Apps release signature. Shown for the current {production ? "production" : "development"} release. <a href={`${LINKS.appsDocs}/learn/signed-releases`} target="_blank" rel="noopener noreferrer">How signed releases work</a>
                 </p>
               </section>
             ) : null}
@@ -453,7 +479,7 @@ export default async function AppPage({ params, searchParams }: Props) {
                   {app.authors.map(author => (
                     <li key={author.uuid}>
                       <a href={authorPath(author.uuid)} className={pageStyles.person} data-sq="surface">
-                        <Avatar name={author.display_name || author.id} id={author.id} size={36} />
+                        <Avatar name={author.display_name || author.id} id={author.id} photo={author.pfp_url} size={36} />
                         <span className={pageStyles.personText}>
                           <span className={pageStyles.personName}>{author.display_name || author.id}</span>
                           <span className={pageStyles.personId}>{author.id}</span>
@@ -461,31 +487,6 @@ export default async function AppPage({ params, searchParams }: Props) {
                       </a>
                     </li>
                   ))}
-                </ul>
-              </section>
-            ) : null}
-
-            {outbound.length ? (
-              <section aria-labelledby="links-title" className={pageStyles.card} data-sq="surface">
-                <h2 id="links-title" className={pageStyles.cardTitle}><Globe {...ICON} aria-hidden="true" />Around the web</h2>
-                <ul className={pageStyles.links} role="list">
-                  {outbound.map((link, index) => {
-                    const Icon = LINK_ICONS[link.icon];
-                    return (
-                      <li key={`${link.url}-${index}`}>
-                        <a href={link.url} rel="nofollow ugc noopener noreferrer" className={pageStyles.link} data-sq="surface">
-                          {link.logo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={link.logo} alt="" width={18} height={18} className={pageStyles.linkLogo} />
-                          ) : (
-                            <Icon size={17} strokeWidth={1.75} aria-hidden="true" />
-                          )}
-                          <span>{link.label}</span>
-                          <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" className={pageStyles.linkArrow} />
-                        </a>
-                      </li>
-                    );
-                  })}
                 </ul>
               </section>
             ) : null}

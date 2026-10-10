@@ -368,7 +368,7 @@ impl Store {
             let limit = page(q, "limit", 24).clamp(1, 100);
             let offset = page(q, "offset", 0);
             return Ok(json!({
-                "uuid":author.uuid,"id":author.id,"display_name":author.display_name,
+                "uuid":author.uuid,"id":author.id,"display_name":author.display_name,"pfp_url":author.pfp_url,
                 "items":apps.into_iter().skip(offset).take(limit).map(|app|app.view(who)).collect::<Vec<_>>(),
                 "total":total
             }));

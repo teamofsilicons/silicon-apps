@@ -1,7 +1,6 @@
 /**
  * Small server-rendered pieces every store page shares: logos and avatars, stars, the install command, tags, empty
- * states, notices, breadcrumbs, pagination and section heads. No client code: the copy buttons are wired by the one
- * script island (components/site/enhancer.tsx).
+ * states, notices, breadcrumbs, pagination and section heads. Photos have a small client fallback when loading fails.
  */
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
@@ -11,6 +10,7 @@ import { formatRating, initialOf, safeImage } from "@/lib/format";
 import { JsonLd, type Json } from "@/lib/seo";
 import type { App } from "@/lib/types";
 import styles from "./store.module.css";
+import { AvatarPhoto } from "./avatar-photo";
 
 export { styles };
 
@@ -38,10 +38,12 @@ export function accountKind(id: string): "Silicon" | "Carbon" {
   return id.startsWith("si:") ? "Silicon" : "Carbon";
 }
 
-export function Avatar({ name, id, size = 36 }: { name: string; id: string; size?: number }) {
+export function Avatar({ name, id, photo, size = 36 }: { name: string; id: string; photo?: string | null; size?: number }) {
+  const src = safeImage(photo);
   return (
     <span className={styles.avatar} data-sq="surface" data-kind={accountKind(id)} aria-hidden="true" style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}>
       {initialOf(name.replace(/^(c|si):/, ""))}
+      {src ? <AvatarPhoto src={src} size={size} /> : null}
     </span>
   );
 }

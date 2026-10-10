@@ -262,6 +262,7 @@ mod tests {
             uuid: uuid.into(),
             id: format!("c:{uuid}"),
             display_name: uuid.into(),
+            pfp_url: None,
             verified_emails: vec![],
         }
     }

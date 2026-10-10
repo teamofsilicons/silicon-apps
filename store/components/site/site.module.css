@@ -100,7 +100,6 @@
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .accountChip:hover, .accountChip:focus-visible { --sq-fill: var(--surface-muted); color: var(--foreground); }
-.accountAvatar { --sq-r: 8px; display: grid; width: 26px; height: 26px; flex: none; place-items: center; background: var(--primary); color: var(--primary-foreground); font-size: var(--text-xs); font-weight: 600; }
 .accountId { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: .8125rem; letter-spacing: 0; }
 
 /* Icon buttons (search, theme, menu): Arc's icon-only switch, 38 px on a 12 px squircle. */

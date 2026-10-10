@@ -43,6 +43,7 @@ pub async fn resolve(s: &Shared, id: &str) -> Result<Identity> {
             uuid: name.into(),
             id: id.into(),
             display_name: id.into(),
+            pfp_url: None,
             verified_emails: vec![],
         });
     }
@@ -62,6 +63,7 @@ pub async fn resolve(s: &Shared, id: &str) -> Result<Identity> {
         uuid: account.uuid,
         id: account.id,
         display_name: account.display_name,
+        pfp_url: None,
         verified_emails: vec![],
     })
 }
@@ -595,6 +597,13 @@ pub fn refresh_identity(s: &Shared, who: &Identity) -> Result<()> {
                     author.id = who.id.clone();
                     changed = true;
                 }
+                if let Some(url) = &who.pfp_url {
+                    let photo = (!url.trim().is_empty()).then(|| url.clone());
+                    if author.pfp_url != photo {
+                        author.pfp_url = photo;
+                        changed = true;
+                    }
+                }
                 // Accounts identity lookups may omit profile fields. Omission must not
                 // erase a display name previously obtained from a granted profile.
                 if !who.display_name.trim().is_empty() && author.display_name != who.display_name {
@@ -671,16 +680,26 @@ pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Val
             && let Some(secret) = s.config.accounts_app_secret.as_deref()
         {
             let app = s.accounts.as_app(APP_ID, secret);
-            let profile = app.user(&id).await.ok().filter(|account| {
-                account.uuid == id
-                    && account.status == "active"
+            let profile = app
+                .user(&id)
+                .await
+                .ok()
+                .filter(|account| account.uuid == id);
+            let photo_withheld = profile.as_ref().is_some_and(|account| {
+                matches!(account.status.as_str(), "access_removed" | "deleted")
+                    || account.account_status.as_deref() == Some("deleted")
+            });
+            let active_profile = profile.filter(|account| {
+                account.status == "active"
+                    && account.account_status.as_deref() != Some("deleted")
                     && account.id.as_ref().is_some_and(|id| !id.is_empty())
             });
-            let identity = if let Some(account) = profile {
+            let mut identity = if let Some(account) = active_profile {
                 Some(Identity {
                     uuid: account.uuid,
                     id: account.id.unwrap(),
                     display_name: account.display_name,
+                    pfp_url: account.pfp_url,
                     verified_emails: vec![],
                 })
             } else {
@@ -694,9 +713,22 @@ pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Val
                         uuid: account.uuid,
                         id: account.id,
                         display_name: account.display_name,
+                        pfp_url: None,
                         verified_emails: vec![],
                     })
             };
+            if photo_withheld {
+                // The app-user view is the consent authority. A public ID lookup
+                // must never restore a photo after access was removed or deletion.
+                let identity = identity.get_or_insert_with(|| Identity {
+                    uuid: id.clone(),
+                    id: String::new(),
+                    display_name: String::new(),
+                    pfp_url: None,
+                    verified_emails: vec![],
+                });
+                identity.pfp_url = Some(String::new());
+            }
             if let Some(identity) = identity {
                 refresh_identity(s, &identity)?;
             }
@@ -715,6 +747,11 @@ pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Val
             }
             if v.get("display_name").is_some() && !identity.display_name.trim().is_empty() {
                 v["display_name"] = json!(identity.display_name);
+            }
+            if v.get("pfp_url").is_some()
+                && let Some(photo) = &identity.pfp_url
+            {
+                v["pfp_url"] = json!((!photo.trim().is_empty()).then_some(photo));
             }
         }
         if let Some(id) = v["account_uuid"].as_str()

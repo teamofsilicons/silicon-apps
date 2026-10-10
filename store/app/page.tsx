@@ -97,7 +97,7 @@ export default async function Home() {
           ) : null}
 
           {!failed && apps.length === 0 ? (
-            <EmptyState icon={<Package {...ICON} />} title="No apps here yet" actions={<Action href={LINKS.appsDocs}>Make the first one<ArrowUpRight size={16} strokeWidth={1.75} aria-hidden="true" /></Action>}>
+            <EmptyState icon={<Package {...ICON} />} title="No apps here yet" actions={<Action href={LINKS.appsDocs} target="_blank" rel="noopener noreferrer">Make the first one<ArrowUpRight size={16} strokeWidth={1.75} aria-hidden="true" /></Action>}>
               <p>Apps show up here the moment their authors publish them.</p>
             </EmptyState>
           ) : null}
@@ -180,7 +180,7 @@ export default async function Home() {
           <div className={styles.cliCode}>
             <CodeBlock code={INSTALL_UNIX} lang="sh" title="macOS and Linux" />
             <CodeBlock code={INSTALL_WINDOWS} lang="powershell" title="Windows PowerShell" />
-            <p className={styles.miniText}>Want Silicon Accounts at the same time? Follow the <a href={LINKS.installDocs}>install guide</a>.</p>
+            <p className={styles.miniText}>Want Silicon Accounts at the same time? Follow the <a href={LINKS.installDocs} target="_blank" rel="noopener noreferrer">install guide</a>.</p>
           </div>
         </div>
       </section>
@@ -260,8 +260,8 @@ export default async function Home() {
             <p>Making an app, publishing it here and adding sign-in all live on Silicon Developer.</p>
           </div>
           <div className={styles.pointerActions}>
-            <Action href={LINKS.appsDocs}>Make an app<ArrowUpRight size={16} strokeWidth={1.75} aria-hidden="true" /></Action>
-            <Action href={LINKS.accountsDocs} variant="secondary">Add sign-in<ArrowUpRight size={16} strokeWidth={1.75} aria-hidden="true" /></Action>
+            <Action href={LINKS.appsDocs} target="_blank" rel="noopener noreferrer">Make an app<ArrowUpRight size={16} strokeWidth={1.75} aria-hidden="true" /></Action>
+            <Action href={LINKS.accountsDocs} target="_blank" rel="noopener noreferrer" variant="secondary">Add sign-in<ArrowUpRight size={16} strokeWidth={1.75} aria-hidden="true" /></Action>
           </div>
         </div>
       </section>

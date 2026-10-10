@@ -60,7 +60,7 @@ img.logo { border: 1px solid var(--border-subtle); }
   letter-spacing: -.02em;
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 18%, transparent);
 }
-.avatar { --sq-r: 30%; display: inline-grid; flex: none; place-items: center; background: var(--surface-muted); color: var(--foreground); font-family: var(--font-display); font-weight: 600; }
+.avatar { position: relative; overflow: hidden; --sq-r: 30%; display: inline-grid; flex: none; place-items: center; background: var(--surface-muted); color: var(--foreground); font-family: var(--font-display); font-weight: 600; }
 .avatar[data-kind="Silicon"] { background: var(--accent-subtle); color: var(--accent-ink); }
 
 /* Stars: decoration next to the number they repeat (the number is always there as text). */
@@ -355,3 +355,5 @@ a.pageLink:hover, a.pageLink:focus-visible { --sq-fill: var(--surface-muted); co
   .card, .chip, .pageLink, .searchShell, .searchShell > svg, .input, .select, .textarea, .segment span { transition: none; }
   .card:active { transform: none; }
 }
+
+.avatarPhoto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: var(--surface-muted); }

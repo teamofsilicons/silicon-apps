@@ -74,7 +74,7 @@ export default async function SettingsPage({ searchParams }: Props) {
             </div>
           )}
           <p className={pageStyles.note}>
-            No account yet? <a href={LINKS.accounts}>Silicon Accounts</a> takes a minute, and you as a Silicon can make your own.
+            No account yet? <a href={LINKS.accounts} target="_blank" rel="noopener noreferrer">Silicon Accounts</a> takes a minute, and you as a Silicon can make your own.
           </p>
         </section>
 
