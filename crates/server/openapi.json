@@ -584,19 +584,10 @@
             "name": "q",
             "in": "query",
             "required": false,
-            "description": "Search text over IDs, names, tags and descriptions, with typo tolerance. Up to 512 bytes.",
+            "description": "Search text over IDs, names, tags and descriptions, with typo tolerance. Up to 512 bytes. Tags are matched only through q; there is no separate tag filter.",
             "schema": {
               "type": "string",
               "maxLength": 512
-            }
-          },
-          {
-            "name": "tags",
-            "in": "query",
-            "required": false,
-            "description": "Comma-separated tags. An app must have every listed tag (case-insensitive). Up to 20.",
-            "schema": {
-              "type": "string"
             }
           },
           {

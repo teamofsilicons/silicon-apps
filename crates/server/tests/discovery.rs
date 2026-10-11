@@ -600,7 +600,7 @@ async fn unknown_paths_and_methods_get_structured_errors() {
 }
 
 #[tokio::test]
-async fn search_filters_by_tags_target_and_visibility_sorts_and_paginates() {
+async fn search_matches_tags_through_q_filters_by_target_and_visibility_sorts_and_paginates() {
     let (_dir, state, app) = fresh();
     seed_app(
         &state,
@@ -651,19 +651,15 @@ async fn search_filters_by_tags_target_and_visibility_sorts_and_paginates() {
             .map(|a| a["app_id"].as_str().unwrap().to_owned())
             .collect::<Vec<_>>()
     };
+    // A tag is found through the search text, and only published apps come back.
+    let r = send(&app, "GET", "/v1/apps?q=cli", None, None, None, &[]).await;
+    assert_eq!(ids(&r.body)[0], "alpha-tool");
+    assert!(!ids(&r.body).contains(&"delta-draft".to_owned()));
+    // Tags are never a filter of their own: the API says where the tag belongs.
     let r = send(&app, "GET", "/v1/apps?tags=tools", None, None, None, &[]).await;
-    assert_eq!(ids(&r.body), ["alpha-tool", "beta-tool"]);
-    let r = send(
-        &app,
-        "GET",
-        "/v1/apps?tags=tools,cli",
-        None,
-        None,
-        None,
-        &[],
-    )
-    .await;
-    assert_eq!(ids(&r.body), ["alpha-tool"]);
+    assert_eq!(r.status, 400);
+    assert_eq!(r.body["error"]["code"], "invalid_input");
+    assert_eq!(r.body["error"]["details"]["use"], "q");
     let r = send(
         &app,
         "GET",
@@ -708,14 +704,14 @@ async fn search_filters_by_tags_target_and_visibility_sorts_and_paginates() {
     let r = send(
         &app,
         "GET",
-        "/v1/apps?visibility=public&tags=chat",
+        "/v1/apps?visibility=public&q=chat",
         None,
         None,
         None,
         &[],
     )
     .await;
-    assert_eq!(ids(&r.body), ["gamma-chat"]);
+    assert_eq!(ids(&r.body)[0], "gamma-chat");
     for (query, field) in [
         ("sort=random", "sort"),
         ("target=plan9-mips", "target"),

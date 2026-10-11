@@ -92,7 +92,7 @@ There's no verification and no permissions check. As soon as the author publishe
 
 - `App Name`
 - `App Description` - 200 to 600 characters.
-- `Tags` - up to 20.
+- `Tags` - up to 20. Tags help an app get found and let us categorise it. Nobody filters by them.
 
 ## 2) Access
 
@@ -209,15 +209,15 @@ There's a filter to see only private apps. If someone isn't signed in, the priva
 
 ### Search
 
-Apps can be searched by app_id, name, description and tags. Search should handle partial names and spelling mistakes. Exact app_id and name matches come first, and a stronger match is never pushed below a weaker one just because it has a lower rating. Only apps the person is allowed to see are included.
+Apps can be searched by app_id, name, description and tags. Tags are only matched through the search text: there is no separate tag filter in the store, the CLI or the API. Search should handle partial names and spelling mistakes. Exact app_id and name matches come first, and a stronger match is never pushed below a weaker one just because it has a lower rating. Only apps the person is allowed to see are included.
 
 ### The app's page
 
-Every app opens its own page, showing everything its authors set up: the name, logo, banner, carousel, description, tags, links, authors, the targets it supports, its latest release, its rating and its installs.
+Every app opens its own page, showing everything its authors set up: the name, logo, banner, carousel, description, tags (as plain words, not links), links, authors, the targets it supports, its latest release, its rating and its installs.
 
-Show every accepted co-author as a link directly below the app name, above the app ID and visibility. Each link opens that author’s profile in the store, with their name, current public ID and all published apps the visitor can access. Use the permanent Accounts UUID in profile URLs so changing a public ID does not break links. Drafts and inaccessible private apps never appear.
+Show every accepted co-author, with their profile photo, as a link directly below the app name, above the app ID and visibility. Each link opens that author’s profile in the store, with their name, current public ID and all published apps the visitor can access. Use the permanent Accounts UUID in profile URLs so changing a public ID does not break links. Drafts and inaccessible private apps never appear.
 
-The store and author profiles share the developer portal’s typography, colors and Arc controls. A theme switch in the header makes light and dark mode easy to reach, saves the choice and follows the system appearance when no choice is set.
+The store and author profiles look like Silicon Writings: warm paper, serif titles, one calm column and as few boxes as possible. The store is light mode only.
 
 Each page shows the one simple command to install it, for example `silicon-apps install briefcase`.
 
