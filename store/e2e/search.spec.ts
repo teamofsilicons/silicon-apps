@@ -131,3 +131,16 @@ test("with script, each filter is a quiet dropdown: one click to a value, one cl
   await page.getByRole("menuitem", { name: "Most installed" }).click();
   await expect(page).toHaveURL(/\/search\?sort=installs$/);
 });
+
+test("the rating filter is five stars: the keyboard moves by half a star and Enter keeps it", async ({ page }) => {
+  await page.goto("/search");
+  await page.getByRole("group", { name: "Filters" }).getByRole("button", { name: "Rating" }).click();
+  const stars = page.getByRole("slider", { name: "Minimum rating" });
+  await stars.focus();
+  await stars.press("End");
+  await stars.press("ArrowLeft");
+  await expect(stars).toHaveAttribute("aria-valuetext", "4.5 stars or more");
+  await stars.press("Enter");
+  await expect(page).toHaveURL(/\/search\?rating=4\.5$/);
+  await expect(page.getByRole("status").filter({ hasText: "1 app" })).toBeVisible();
+});

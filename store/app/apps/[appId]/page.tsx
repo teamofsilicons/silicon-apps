@@ -101,7 +101,8 @@ export default async function AppPage({ params, searchParams }: Props) {
 
       <article className={pageStyles.article} aria-labelledby="app-name">
         <header className={pageStyles.header}>
-          <AppLogo app={app} size={64} decorative={false} />
+          {/* The logo runs the full height of the name and byline beside it, cap height to byline (app-page.module.css). */}
+          <span className={pageStyles.logoBox}><AppLogo app={app} size={64} decorative={false} /></span>
           <div className={pageStyles.identity}>
             <h1 id="app-name" className={pageStyles.name}>{app.name}</h1>
             <p className={pageStyles.byline}>

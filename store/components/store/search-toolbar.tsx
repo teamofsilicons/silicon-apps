@@ -11,6 +11,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Check } from "lucide-react";
 import { DropdownMenu, type DropdownItem } from "@/components/silicon-ui/dropdown-menu/dropdown-menu";
 import { FILTERS, SORT_LABELS, SORTS, type Sort } from "@/lib/filters";
+import { RatingFilter } from "./rating-filter";
 import styles from "./search-toolbar.module.css";
 
 /** The filters the row offers, in order, with the words for "any". Added and visibility stay in the URL and the plain form. */
@@ -60,6 +61,7 @@ export function SearchToolbar({ values }: { values: Record<string, string> }) {
     <div className={styles.bar} role="group" aria-label="Filters">
       <div className={styles.filters}>
         {SHOWN.map(({ param, any }) => {
+          if (param === "rating") return <RatingFilter key={param} value={Number(current.rating) || 0} onChange={value => set("rating", value ? String(value) : "")} />;
           const spec = FILTERS.find(entry => entry.param === param)!;
           const chosen = spec.options.find(option => option.value === current[param]);
           const items: DropdownItem[] = [
