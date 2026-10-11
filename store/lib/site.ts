@@ -21,9 +21,9 @@ export const ORGANIZATION = {
 export const LINKS = {
   teamOfSilicons: "https://teamofsilicons.com",
   developers: "https://developers.teamofsilicons.com",
-  /** "Make an app": the Silicon Apps docs on the developer site. */
+  /** "Make a Silicon App": the Silicon Apps docs on the developer site. */
   appsDocs: "https://developers.teamofsilicons.com/docs/apps",
-  /** "Add sign-in": the Silicon Accounts docs on the developer site. */
+  /** "Add Silicon Accounts to your app": the Silicon Accounts docs on the developer site. */
   accountsDocs: "https://developers.teamofsilicons.com/docs/accounts",
   installDocs: "https://developers.teamofsilicons.com/docs/apps/start/install",
   accounts: "https://accounts.teamofsilicons.com",

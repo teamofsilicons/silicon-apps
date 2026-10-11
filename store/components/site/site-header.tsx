@@ -17,7 +17,7 @@ import styles from "./site.module.css";
 const NAV: Array<{ href: string; label: string; external?: boolean }> = [
   { href: "/search", label: "Apps" },
   { href: "/search?visibility=private", label: "Private" },
-  { href: LINKS.appsDocs, label: "Make an app", external: true },
+  { href: LINKS.appsDocs, label: "Make a Silicon App", external: true },
 ];
 
 /** "page" on the link to this very page, nothing on the others (an app page belongs to Apps). */

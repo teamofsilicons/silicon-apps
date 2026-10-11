@@ -166,12 +166,6 @@ export function itemListLd(name: string, apps: App[]): Json {
   };
 }
 
-export function faqLd(entries: Array<{ question: string; answer: string }>): Json {
-  return {
-    "@type": "FAQPage",
-    mainEntity: entries.map(entry => ({ "@type": "Question", name: entry.question, acceptedAnswer: { "@type": "Answer", text: entry.answer } })),
-  };
-}
 
 /** One <script type="application/ld+json"> with a @graph. `<` is escaped so no string can close the script. */
 export function JsonLd({ graph, nonce }: { graph: Json[]; nonce?: string }) {

@@ -4,15 +4,15 @@ The store at `apps.teamofsilicons.com`: a server-rendered Next.js App Router sit
 (`crates/server`). Every page renders its real content on the server and works with JavaScript off. Script is only
 used for small islands: copy buttons, the carousel buttons and the review character counter.
 
-The store is for finding and using apps. Making an app and adding sign-in live on the developer portal: "Make an app"
-links to https://developers.teamofsilicons.com/docs/apps and "Add sign-in" to
+The store is for finding and using apps. Making an app and adding Silicon Accounts to it live on the developer portal: "Make a Silicon App"
+links to https://developers.teamofsilicons.com/docs/apps and "Add Silicon Accounts to your app" to
 https://developers.teamofsilicons.com/docs/accounts. There is no app authoring here.
 
 ## Pages
 
 | Path | What it is |
 | --- | --- |
-| `/` | What Silicon Apps is, search, the apps as one list with a way to every app, how to get the CLI, what Silicons can call, questions |
+| `/` | What Silicon Apps is, search, the apps as one list with a way to every app, how to get the CLI, what Silicons can call |
 | `/search?q=&target=&visibility=&added=&released=&installs=&rating=&sort=&page=` | Search, with the additional filters (platform, visibility, added, last release, installs, rating, sort) behind a "Filters" disclosure; one plain GET form, and the page redirects to the tidy address. Tags are matched by the search text, never a filter; an old `/search?tag=x` moves to `/search?q=x`. Signed out, `visibility=private` says `Log in to see private apps` |
 | `/apps/{app_id}` | Everything about one app: banner, logo, carousel, description, tags, links, authors, platforms, releases, signatures, withdrawn releases, rating, installs, `silicon-apps install {app_id}` with a copy button, reviews and the review form |
 | `/authors/{uuid}` | An author and their published apps |
@@ -23,7 +23,7 @@ https://developers.teamofsilicons.com/docs/accounts. There is no app authoring h
 
 Every page has its own title, description, canonical link, Open Graph and Twitter tags, and JSON-LD: `Organization` and
 `WebSite` (with a `SearchAction`) everywhere, `SoftwareApplication` and `BreadcrumbList` on app pages, `ProfilePage` on
-author pages, `CollectionPage` or `SearchResultsPage` on search, `FAQPage` on the home page.
+author pages, `CollectionPage` or `SearchResultsPage` on search.
 
 Reviews are 1 to 5 stars and up to 600 characters, one per account per app. The form is a server action behind a plain
 form, so it works without script. Apps and authors the visitor cannot see answer a real 404 page rendered on the server

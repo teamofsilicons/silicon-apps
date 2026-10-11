@@ -76,7 +76,7 @@ test.describe("with JavaScript off", () => {
     await form.getByLabel("Search", { exact: true }).fill("notes");
     // The additional filters wait behind a native disclosure, closed until one is set.
     await expect(form.getByLabel("Platform")).toBeHidden();
-    await form.getByText("Filters").click();
+    await form.locator("summary").filter({ hasText: "Filters" }).click();
     await form.getByLabel("Platform").selectOption("linux-x86_64");
     await form.getByRole("radio", { name: "Public" }).check();
     await form.getByRole("button", { name: "Show apps" }).click();
@@ -115,4 +115,16 @@ test("signed in, the private apps view shows only what is shared with you", asyn
   const response = await novaPage.goto("/apps/team-vault");
   expect(response?.status()).toBe(404);
   await nova.close();
+});
+
+test("with script, the filters are Arc's toolbar: add one from the menu, remove it from its chip", async ({ page }) => {
+  await page.goto("/search");
+  const toolbar = page.getByRole("group", { name: "Filters" });
+  await toolbar.getByRole("button", { name: "Add filter" }).click();
+  await page.getByRole("menuitem", { name: /Installs/ }).click();
+  await page.getByRole("menuitemradio", { name: "1,000 or more" }).or(page.getByRole("menuitem", { name: "1,000 or more" })).click();
+  await expect(page).toHaveURL(/\/search\?installs=1000$/);
+  await expect(page.getByRole("status").filter({ hasText: "2 apps" })).toBeVisible();
+  await toolbar.getByRole("button", { name: "Remove Installs: 1,000 or more" }).click();
+  await expect(page).toHaveURL(/\/search$/);
 });

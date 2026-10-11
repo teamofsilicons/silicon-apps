@@ -1,20 +1,18 @@
 /**
  * /: the store's home page, kept as quiet as Silicon Writings: one column with a serif title, one paragraph and the
- * search, the apps as one list, then how to get the CLI, what a Silicon can read here, and the questions people ask.
+ * search, the apps as one list, then how to get the CLI and what a Silicon can read here.
  * Server-rendered; the copy buttons are the only script.
  */
 import type { Metadata } from "next";
-import { ArrowRight, Package, Plus } from "lucide-react";
+import { ArrowRight, Package } from "lucide-react";
 import { AppList } from "@/components/store/app-card";
 import styles from "@/components/store/home.module.css";
 import { EmptyState, Notice, StructuredData } from "@/components/store/parts";
-import { Rich } from "@/components/store/rich";
 import { SearchBox } from "@/components/store/search-form";
 import { Action } from "@/components/site/action";
 import { CodeBlock } from "@/components/site/code-block";
 import { listAll } from "@/lib/catalog";
-import { FAQ, plainAnswer } from "@/lib/content";
-import { faqLd, itemListLd, pageMetadata } from "@/lib/seo";
+import { itemListLd, pageMetadata } from "@/lib/seo";
 import { CANONICAL_ORIGIN, INSTALL_UNIX, INSTALL_WINDOWS, LINKS, SITE_DESCRIPTION } from "@/lib/site";
 import type { App } from "@/lib/types";
 
@@ -45,7 +43,6 @@ export default async function Home() {
         graph={[
           { "@type": "WebPage", "@id": `${CANONICAL_ORIGIN}/#webpage`, url: `${CANONICAL_ORIGIN}/`, name: TITLE, description: SITE_DESCRIPTION, isPartOf: { "@id": `${CANONICAL_ORIGIN}/#website` } },
           ...(apps.length ? [itemListLd("Apps on Silicon Apps", apps.filter(app => app.visibility === "public").slice(0, 30))] : []),
-          faqLd(FAQ.map(faq => ({ question: faq.question, answer: plainAnswer(faq) }))),
         ]}
       />
 
@@ -68,7 +65,7 @@ export default async function Home() {
             <p>We could not reach the Apps service. Try again in a moment, or run <code>silicon-apps search</code> in your terminal.</p>
           </Notice>
         ) : apps.length === 0 ? (
-          <EmptyState icon={<Package size={18} strokeWidth={1.75} />} title="No apps here yet" actions={<Action href={LINKS.appsDocs} target="_blank" rel="noopener noreferrer">Make the first one</Action>}>
+          <EmptyState icon={<Package size={18} strokeWidth={1.75} />} title="No apps here yet" actions={<Action href={LINKS.appsDocs} target="_blank" rel="noopener noreferrer">Make the first Silicon App</Action>}>
             <p>Apps show up here the moment their authors publish them.</p>
           </EmptyState>
         ) : (
@@ -112,26 +109,9 @@ export default async function Home() {
         </p>
       </section>
 
-      <section className={styles.section} id="faq" aria-labelledby="faq-title">
-        <div className={styles.head}>
-          <h2 id="faq-title" className={styles.heading}>Questions, answered</h2>
-        </div>
-        <div className={styles.faq}>
-          {FAQ.map(faq => (
-            <details key={faq.id} className={styles.faqItem} id={faq.id}>
-              <summary className={styles.faqQuestion}>
-                <h3 className={styles.faqHeading}>{faq.question}</h3>
-                <Plus size={16} strokeWidth={1.75} aria-hidden="true" className={styles.faqIcon} />
-              </summary>
-              <p className={styles.faqAnswer}><Rich text={faq.answer} /></p>
-            </details>
-          ))}
-        </div>
-      </section>
-
       <p className={styles.closing}>
-        Made something useful? <a href={LINKS.appsDocs} target="_blank" rel="noopener noreferrer">Make an app</a> or{" "}
-        <a href={LINKS.accountsDocs} target="_blank" rel="noopener noreferrer">add sign-in</a> on Silicon Developer.
+        Made something useful? <a href={LINKS.appsDocs} target="_blank" rel="noopener noreferrer">Make a Silicon App</a> or{" "}
+        <a href={LINKS.accountsDocs} target="_blank" rel="noopener noreferrer">add Silicon Accounts to your app</a> on Silicon Developer.
       </p>
     </div>
   );

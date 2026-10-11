@@ -56,9 +56,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en" data-surface="site" suppressHydrationWarning>
       <head>
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
-        {/* The text face and the title serif: the two files worth fetching before first paint. */}
+        {/* Every face the first paint uses, fetched with the page so text never paints in a fallback first (styles/fonts.css). */}
         <link rel="preload" href="/fonts/bdo-grotesk/BDOGrotesk-Regular.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/bdo-grotesk/BDOGrotesk-Medium.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/hedvig-letters-serif/HedvigLettersSerif-Regular.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/geist-pixel/GeistPixel-Square.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       <body>
         <SiteHeader path={path} account={account} />

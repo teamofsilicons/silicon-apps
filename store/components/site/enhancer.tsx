@@ -9,7 +9,8 @@
  * - carousel buttons ([data-carousel-step] on a button that controls a scroll-snap track): scroll by one screen, and
  *   disable themselves at either end;
  * - character counters ([data-count-for]): how many of a field's characters are left;
- * - the menu (#site-menu): close it when one of its links only moves within this page.
+ * - the menu (#site-menu): close it when one of its links only moves within this page;
+ * - "/" anywhere outside a field jumps to the page's search field (a hint shows in the field).
  *
  * It renders one visually hidden status line, so a copy is announced to screen readers.
  */
@@ -84,10 +85,29 @@ function useCounters() {
   }, []);
 }
 
+/** "/" outside a field focuses the page's first search field, as on most sites with search. */
+function useSearchShortcut() {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName))) return;
+      const field = document.querySelector<HTMLInputElement>('main input[type="search"]');
+      if (!field) return;
+      event.preventDefault();
+      field.focus();
+      field.select();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+}
+
 export function Enhancer() {
   const [status, setStatus] = useState("");
   useCarousels();
   useCounters();
+  useSearchShortcut();
 
   useEffect(() => {
     const timers = new Map<HTMLElement, number>();
