@@ -30,12 +30,12 @@ const SECONDARY = "#57544D";
 const BORDER = "#E7E3D8";
 const BLUE = "#1F5CB1";
 
-/** The Silicon Apps mark (components/site/brand.tsx): cream hexagons on #181818. */
+/** The Silicon Apps mark in its light colours (components/site/brand.tsx): #181818 hexagons on cream. */
 function Mark({ size }: { size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 200 200">
-      <rect width="200" height="200" rx="36" fill="#181818" />
-      {HEXAGONS.map(d => <path key={d} d={d} fill="#EDE8E0" />)}
+      <rect width="200" height="200" rx="36" fill="#EDE8E0" />
+      {HEXAGONS.map(d => <path key={d} d={d} fill="#181818" />)}
     </svg>
   );
 }
