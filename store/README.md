@@ -12,7 +12,7 @@ https://developers.teamofsilicons.com/docs/accounts. There is no app authoring h
 
 | Path | What it is |
 | --- | --- |
-| `/` | What Silicon Apps is, search, featured, popular and new apps, tags, how to get the CLI, what Silicons can call, questions |
+| `/` | What Silicon Apps is, search, featured apps, the most installed and newest as numbered lists, tags, how to get the CLI, what Silicons can call, questions |
 | `/search?q=&tag=&target=&visibility=&page=` | Search and filters, one plain GET form. Signed out, `visibility=private` says `Log in to see private apps` |
 | `/apps/{app_id}` | Everything about one app: banner, logo, carousel, description, tags, links, authors, platforms, releases, signatures, withdrawn releases, rating, installs, `silicon-apps install {app_id}` with a copy button, reviews and the review form |
 | `/authors/{uuid}` | An author and their published apps |
@@ -129,6 +129,8 @@ off, the 600-character limit, private apps signed in and out, 404s, old addresse
 the agent files, the API paths, that pages register no browser tools, and that `/mcp` answers 404 (the store runs no
 MCP server). It reuses servers already listening on those ports outside CI. `E2E_STORE_PORT` and `E2E_API_PORT` change
 the ports, and `E2E_DEV=1` tests `next dev` instead of the build.
+
+The look is Silicon Writings' (writings.teamofsilicons.com): warm paper and ink, blue Hedvig Letters Serif titles, BDO Grotesk text, small labels in Geist Pixel Square, with a warm dark mode. Every colour and face is a token in `styles/tokens.css`; the three fonts are self-hosted under `public/fonts/` with their licences.
 
 Copy on these pages follows the Carbon's voice in `llms/llms.md`: plain words, Carbons and Silicons, and no em or en
 dashes anywhere.

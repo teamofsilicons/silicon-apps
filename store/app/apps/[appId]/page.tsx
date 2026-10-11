@@ -97,8 +97,8 @@ export default async function AppPage({ params, searchParams }: Props) {
 
   return (
     <div className={`${styles.page} ${pageStyles.page}`}>
-      <StructuredData graph={[softwareApplicationLd(app, sorted), breadcrumbLd([{ name: "Home", path: "/" }, { name: "All apps", path: "/search" }, { name: app.name, path }])]} />
-      <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "All apps", href: "/search" }, { name: app.name }]} />
+      <StructuredData graph={[softwareApplicationLd(app, sorted), breadcrumbLd([{ name: "Home", path: "/" }, { name: "Apps", path: "/search" }, { name: app.name, path }])]} />
+      <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "Apps", href: "/search" }, { name: app.name }]} />
 
       <article className={pageStyles.article} aria-labelledby="app-name">
         {banner ? (
@@ -135,7 +135,7 @@ export default async function AppPage({ params, searchParams }: Props) {
             </div>
             {outbound.length ? (
               <section aria-labelledby="links-title" className={pageStyles.card} data-sq="surface">
-                <h2 id="links-title" className={pageStyles.cardTitle}><Globe {...ICON} aria-hidden="true" />Around the web</h2>
+                <h2 id="links-title" className={pageStyles.cardTitle}><Globe {...ICON} aria-hidden="true" />Links</h2>
                 <ul className={`${pageStyles.links} ${pageStyles.headerLinks}`} role="list">
                   {outbound.map((link, index) => {
                     const Icon = LINK_ICONS[link.icon];

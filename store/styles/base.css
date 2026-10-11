@@ -53,7 +53,7 @@ code, kbd, samp, pre { font-family: var(--font-mono); font-size: .92em; letter-s
 strong, b { font-weight: 500; }
 hr { height: 1px; margin: 0; border: 0; background: var(--border); }
 
-::selection { background: color-mix(in oklab, var(--accent) 24%, transparent); color: inherit; }
+::selection { background: var(--foreground); color: var(--background); }
 
 /* Thin scrollbars that disappear into the surface. */
 * { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent; }
@@ -71,7 +71,10 @@ hr { height: 1px; margin: 0; border: 0; background: var(--border); }
   border: 0;
 }
 .mono { font-family: var(--font-mono); letter-spacing: 0; font-variant-ligatures: none; }
-.serif, .display { font-family: var(--font-display); font-weight: 600; letter-spacing: var(--tracking-display); }
+.serif { font-family: var(--font-serif); font-weight: 400; letter-spacing: -.005em; }
+.display { font-family: var(--font-display); font-weight: 500; letter-spacing: var(--tracking-display); }
+/* Small labels, dates and ids in the pixel face, as on Silicon Writings. */
+.pixel { font-family: var(--font-pixel); letter-spacing: 0; }
 .tabular { font-variant-numeric: tabular-nums; }
 .muted { color: var(--text-muted); }
 .secondary { color: var(--text-secondary); }

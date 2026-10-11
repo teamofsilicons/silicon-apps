@@ -1,271 +1,141 @@
 /*
- * The store's home page: the developer site's home page styles (developer/components/home/home.module.css), after
- * Arc's hero, feature, FAQ and CTA blocks, plus the hero search and the catalog sections. Generous space, BDO Grotesk
- * headlines, quiet squircle cards on the page, brand blue only where you act. Sections alternate between the page
- * and a lifted band.
+ * The store's home page, laid out like Silicon Writings: flat paper, a pixel-face kicker over a blue serif title, one
+ * paragraph and the search, the catalog as quiet cards and two numbered lists, then sections whose heading sits in a
+ * left column and whose content reads in the right one, divided by hairlines. No glows, no dot grids, no bands.
  */
 .inner { width: 100%; max-width: var(--page-max); margin-inline: auto; padding-inline: var(--gutter); }
 
+/* Kickers: "TEAM OF SILICONS" over "Write together." */
+.kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; color: var(--text-muted); font-family: var(--font-pixel); font-size: .8125rem; letter-spacing: .03em; text-transform: uppercase; }
+
 /* Hero ------------------------------------------------------------------------------------------------------------ */
-.hero { position: relative; overflow: hidden; isolation: isolate; border-bottom: 1px solid var(--border-subtle); }
-.hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-image: radial-gradient(var(--dot-color) 1px, transparent 1.3px), var(--wash);
-  background-size: 22px 22px, 100% 100%;
-  background-position: 11px 11px, 0 0;
-  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 10%, #000 30%, transparent 85%);
-  mask-image: radial-gradient(ellipse 90% 80% at 50% 10%, #000 30%, transparent 85%);
-}
+.hero { position: relative; }
 .heroInner {
   display: grid;
   max-width: var(--page-max);
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
-  align-items: center;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr);
+  align-items: end;
   gap: clamp(32px, 5vw, 72px);
   margin-inline: auto;
-  padding: clamp(56px, 9vw, 112px) var(--gutter) clamp(56px, 8vw, 104px);
+  padding: clamp(48px, 8vw, 104px) var(--gutter) clamp(40px, 6vw, 72px);
 }
 .heroCopy { display: grid; justify-items: start; gap: var(--space-5); min-width: 0; }
-.heroBadge {
-  --sq-r: var(--radius-pill);
-  --sq-fill: var(--surface);
-  --sq-stroke: var(--border);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  border: 1px solid var(--sq-stroke);
-  padding: 5px 12px 5px 10px;
-  background: var(--sq-fill);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 500;
-}
-.dot { --sq-r: 3px; width: 7px; height: 7px; background: var(--primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 20%, transparent); }
 .heroTitle {
-  max-width: 14ch;
+  max-width: 17ch;
   margin: 0;
-  color: var(--foreground);
-  font-family: var(--font-display);
-  font-size: clamp(2.5rem, 1.6rem + 4vw, 4.5rem);
-  font-weight: 600;
-  letter-spacing: -.035em;
-  line-height: 1;
+  color: var(--accent-ink);
+  font-family: var(--font-serif);
+  font-size: clamp(2.75rem, 1.9rem + 3.2vw, 4.25rem);
+  font-weight: 400;
+  letter-spacing: -.015em;
+  line-height: 1.02;
   text-wrap: balance;
 }
-.heroLede { max-width: 56ch; margin: 0; color: var(--text-secondary); font-size: clamp(1.0625rem, 1rem + .3vw, 1.1875rem); line-height: 1.6; text-wrap: pretty; }
-.heroActions { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); margin-top: var(--space-2); }
+.heroLede { max-width: 50ch; margin: 0; color: var(--text-secondary); font-size: clamp(1.0625rem, 1rem + .25vw, 1.1875rem); line-height: 1.6; text-wrap: pretty; }
+.heroSearch { width: 100%; max-width: 560px; margin-top: var(--space-2); }
+.heroTags { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); }
+.heroTagsLabel { color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; letter-spacing: .03em; text-transform: uppercase; }
+/* The tags to try: plain words with dots between them, not buttons. */
+.inlineTags { display: flex; flex-wrap: wrap; gap: 4px 0; margin: 0; padding: 0; list-style: none; }
+.inlineTags li:not(:last-child)::after { content: "·"; margin: 0 10px; color: var(--text-faint); }
+.inlineTags a { color: var(--text-secondary); font-size: var(--text-sm); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: .28em; }
+.inlineTags a:hover, .inlineTags a:focus-visible { color: var(--foreground); text-decoration-color: currentColor; }
+.heroArt { display: grid; gap: var(--space-3); min-width: 0; }
 .heroNote { margin: 0; color: var(--text-muted); font-size: var(--text-sm); }
-.heroArt { min-width: 0; }
-.heroSearch { width: 100%; max-width: 600px; margin-top: var(--space-2); }
-.heroTags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
-.heroTagsLabel { color: var(--text-muted); font-size: var(--text-sm); }
+.heroNote a { margin-left: 4px; color: var(--text-secondary); }
 
-/* The catalog: featured, popular, new and the tags, on the page right under the hero. */
-.catalog { padding-block: clamp(48px, 7vw, 88px) 0; }
-.catalog > .inner > section + section { margin-top: clamp(48px, 6vw, 72px); }
-.cliBand { margin-top: clamp(56px, 8vw, 96px); }
-.cliCode { display: grid; gap: var(--space-3); min-width: 0; margin-top: clamp(32px, 4vw, 48px); }
+/* The catalog: featured, the two lists and the tags, right under the hero. */
+.catalog { padding-block: clamp(16px, 3vw, 32px) 0; }
+.catalog > .inner > * + * { margin-top: clamp(48px, 6vw, 72px); }
+.lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 4vw, 56px); }
+.list { min-width: 0; }
 
-/* The store's hero is a little shorter than the developer site's, so the catalog starts sooner. */
-.heroInner.storeHero { padding-block: clamp(40px, 7vw, 88px) clamp(40px, 6vw, 80px); }
-.storeHero .heroTitle { max-width: 15ch; font-size: clamp(2.5rem, 1.75rem + 3.1vw, 4rem); }
+/* Sections -------------------------------------------------------------------------------------------------------- */
+.section { margin-top: clamp(72px, 9vw, 120px); scroll-margin-top: 72px; }
+/* The hairline above each section spans the content, not the gutters. */
+.section > .inner { padding-top: clamp(32px, 4vw, 48px); background: linear-gradient(var(--border), var(--border)) center top / calc(100% - 2 * var(--gutter)) 1px no-repeat; }
+/* The heading in a left column, the content in the right one. */
+.split { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); align-items: start; gap: clamp(32px, 5vw, 72px); }
+.sectionHead { display: grid; align-content: start; gap: var(--space-4); min-width: 0; }
+.sectionTitle {
+  margin: 0;
+  color: var(--foreground);
+  font-family: var(--font-serif);
+  font-size: clamp(1.875rem, 1.4rem + 1.8vw, 2.625rem);
+  font-weight: 400;
+  letter-spacing: -.01em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+.sectionLede { max-width: 46ch; margin: 0; color: var(--text-secondary); font-size: 1rem; line-height: 1.65; text-wrap: pretty; }
+.section :not(pre) > code, .hero :not(pre) > code { --sq-r: 6px; padding: .08em .34em; background: var(--surface-muted); color: var(--foreground); font-size: .86em; white-space: nowrap; }
 
-/* One short pointer to the developer site for making apps: a quiet card, not a call to action. */
-.pointerWrap { padding: clamp(56px, 8vw, 96px) var(--gutter); }
+/* Get the CLI: numbered points under the heading, the install commands on the right. */
+.points { display: grid; gap: var(--space-4); margin: var(--space-4) 0 0; padding: 0; list-style: none; }
+.points li { display: grid; grid-template-columns: 1.75rem minmax(0, 1fr); gap: var(--space-2); }
+.pointNumber { padding-top: 3px; color: var(--accent-ink); font-family: var(--font-pixel); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.pointTitle { margin: 0; color: var(--foreground); font-size: 1rem; font-weight: 500; line-height: 1.4; }
+.pointText { margin: 2px 0 0; color: var(--text-secondary); font-size: .9375rem; line-height: 1.6; }
+.cliCode { display: grid; gap: var(--space-3); min-width: 0; }
+.miniText { margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.6; }
+
+/* For Silicons: a spec sheet, one door per row, the label in the pixel face. */
+.spec { display: grid; margin: 0; border-top: 1px solid var(--border-subtle); }
+.spec > div { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: var(--space-2) var(--space-5); border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) 0; }
+.spec dt { padding-top: 3px; color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; letter-spacing: .03em; text-transform: uppercase; }
+.spec dd { margin: 0; color: var(--text-secondary); line-height: 1.6; }
+.spec a { overflow-wrap: anywhere; }
+
+/* Questions: native disclosure, hairlines between them. */
+.faqList { border-top: 1px solid var(--border-subtle); }
+.faqItem { border-bottom: 1px solid var(--border-subtle); scroll-margin-top: 80px; }
+.faqQuestion { display: flex; min-height: 60px; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4) 0; color: var(--foreground); cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+.faqQuestion::-webkit-details-marker { display: none; }
+.faqQuestion:focus-visible .faqHeading { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
+.faqHeading { margin: 0; font-size: 1.0625rem; font-weight: 500; line-height: 1.45; }
+.faqIcon { flex: none; color: var(--text-muted); transition: transform var(--duration-spring) var(--ease-spring), color var(--duration-fast) var(--ease-standard); }
+.faqItem[open] .faqIcon { color: var(--foreground); transform: rotate(45deg); }
+@media (hover: hover) and (pointer: fine) { .faqQuestion:hover .faqIcon { color: var(--foreground); } }
+.faqAnswer { max-width: 68ch; margin: 0; padding: 0 var(--space-10) var(--space-5) 0; color: var(--text-secondary); line-height: 1.7; }
+.faqAnswer a { overflow-wrap: anywhere; }
+
+/* Make an app: one quiet line, not a call to action. */
+.pointerWrap { padding: clamp(72px, 9vw, 120px) var(--gutter) clamp(16px, 3vw, 32px); }
 .pointer {
-  --sq-r: var(--radius-panel);
-  --sq-fill: var(--surface);
-  --sq-stroke: var(--border);
-  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4) var(--space-8);
   max-width: calc(var(--page-max) - 2 * var(--gutter));
-  overflow: hidden;
-  isolation: isolate;
   margin-inline: auto;
-  border: 1px solid var(--sq-stroke);
-  padding: var(--space-6) var(--space-8);
-  background: var(--sq-fill);
+  border-top: 1px solid var(--border);
+  padding-top: clamp(32px, 4vw, 48px);
 }
-.pointer::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--wash); }
-.pointerText { display: grid; gap: var(--space-1); min-width: 0; }
-.pointerTitle { margin: 0; color: var(--foreground); font-family: var(--font-display); font-size: 1.375rem; font-weight: 600; letter-spacing: -.02em; }
+.pointerText { display: grid; gap: var(--space-2); min-width: 0; }
+.pointerTitle { margin: 0; color: var(--foreground); font-family: var(--font-serif); font-size: clamp(1.625rem, 1.3rem + 1.2vw, 2.125rem); font-weight: 400; letter-spacing: -.01em; line-height: 1.15; }
 .pointerText p { margin: 0; color: var(--text-secondary); line-height: 1.55; }
 .pointerActions { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
-.heroArt figure { box-shadow: var(--shadow-raised); }
-
-/* Sections -------------------------------------------------------------------------------------------------------- */
-.section { padding-block: clamp(64px, 9vw, 112px); scroll-margin-top: 64px; }
-.band { border-block: 1px solid var(--border-subtle); background: color-mix(in oklab, var(--surface) 70%, var(--background)); }
-:global(:root[data-theme="dark"]) .band { background: color-mix(in oklab, var(--surface) 55%, var(--background)); }
-.sectionHead { display: grid; max-width: 760px; gap: var(--space-3); margin-bottom: clamp(32px, 4vw, 48px); }
-.eyebrow { margin: 0; color: var(--accent-ink); font-size: var(--text-sm); font-weight: 600; }
-.sectionTitle {
-  margin: 0;
-  color: var(--foreground);
-  font-family: var(--font-display);
-  font-size: clamp(1.875rem, 1.35rem + 2vw, 2.75rem);
-  font-weight: 600;
-  letter-spacing: -.03em;
-  line-height: 1.08;
-  text-wrap: balance;
-}
-.sectionLede { margin: var(--space-1) 0 0; color: var(--text-secondary); font-size: 1.0625rem; line-height: 1.65; text-wrap: pretty; }
-.sectionActions { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); margin-top: clamp(28px, 3vw, 40px); }
-.section :not(pre) > code, .hero :not(pre) > code { --sq-r: 6px; padding: .08em .34em; background: var(--surface-muted); color: var(--foreground); font-size: .86em; white-space: nowrap; }
-/* A long address may break anywhere rather than push the page sideways on a phone. */
-.section :not(pre) > code[data-wrap] { white-space: normal; overflow-wrap: anywhere; }
-
-/* The glossary and the two products. */
-.glossary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); margin: 0 0 var(--space-3); }
-.term { --sq-r: var(--radius-panel); --sq-fill: var(--surface); --sq-stroke: var(--border); display: grid; gap: var(--space-2); border: 1px solid var(--sq-stroke); padding: var(--space-5) var(--space-6); background: var(--sq-fill); }
-.term dt { display: flex; align-items: center; gap: 10px; color: var(--foreground); font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; letter-spacing: -.015em; }
-.term dt svg { color: var(--accent-ink); }
-.term dd { margin: 0; color: var(--text-secondary); line-height: 1.6; }
-.products { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
-.product {
-  --sq-r: var(--radius-panel);
-  --sq-fill: var(--surface);
-  --sq-stroke: var(--border);
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "icon name" "icon text";
-  align-items: start;
-  gap: 4px var(--space-4);
-  border: 1px solid var(--sq-stroke);
-  padding: var(--space-5) var(--space-6);
-  background: var(--sq-fill);
-  color: var(--foreground);
-  text-decoration: none;
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard), transform var(--duration-instant) var(--ease-standard);
-}
-.product:hover, .product:focus-visible { --sq-stroke: var(--border-strong); color: var(--foreground); box-shadow: var(--shadow-raised); }
-.product:active { transform: scale(.99); }
-.productIcon { --sq-r: 12px; grid-area: icon; display: grid; width: 44px; height: 44px; place-items: center; background: var(--primary); color: var(--primary-foreground); }
-.productName { grid-area: name; font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; letter-spacing: -.015em; }
-.productText { grid-area: text; color: var(--text-secondary); line-height: 1.55; }
-
-/* Feature grid. */
-.features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-8) var(--space-6); margin: 0; padding: 0; list-style: none; }
-/* ul.… outranks base.css's ul[role="list"] margin reset. */
-ul.featuresCompact { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: clamp(32px, 4vw, 48px); }
-.feature { display: grid; align-content: start; gap: var(--space-2); }
-.featureIcon { --sq-r: 11px; --sq-fill: var(--accent-subtle); display: grid; width: 38px; height: 38px; place-items: center; margin-bottom: var(--space-2); background: var(--sq-fill); color: var(--accent-ink); }
-.featureTitle { margin: 0; color: var(--foreground); font-size: 1.0625rem; font-weight: 600; letter-spacing: -.01em; }
-.featureText { margin: 0; color: var(--text-secondary); font-size: .9375rem; line-height: 1.6; }
-
-/* Two panels side by side. */
-.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
-.panel { --sq-r: var(--radius-panel); --sq-fill: var(--surface); --sq-stroke: var(--border); display: grid; align-content: start; gap: var(--space-4); border: 1px solid var(--sq-stroke); padding: var(--space-6) var(--space-6) var(--space-8); background: var(--sq-fill); }
-.panelTitle { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--foreground); font-family: var(--font-display); font-size: 1.375rem; font-weight: 600; letter-spacing: -.02em; }
-.panelTitle svg { color: var(--accent-ink); }
-.panelText { margin: 0; color: var(--text-secondary); line-height: 1.65; }
-.panelNote { margin: 0; border-top: 1px solid var(--border-subtle); padding-top: var(--space-4); color: var(--text-muted); font-size: var(--text-sm); line-height: 1.6; }
-.panelLink { display: inline-flex; width: fit-content; align-items: center; gap: 6px; color: var(--accent-ink); font-weight: 500; text-decoration: none; }
-.panelLink:hover, .panelLink:focus-visible { text-decoration: underline; text-underline-offset: .22em; }
-.checks, .steps { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-.checks li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--space-3); color: var(--text-secondary); line-height: 1.6; }
-.checks svg { margin-top: 3px; color: var(--text-muted); }
-.checks strong { color: var(--foreground); font-weight: 600; }
-.steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: var(--space-3); color: var(--text-secondary); line-height: 1.6; }
-.stepNumber { --sq-r: 9px; --sq-fill: var(--surface-muted); display: grid; width: 28px; height: 28px; place-items: center; background: var(--sq-fill); color: var(--foreground); font-size: var(--text-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
-
-.example { --sq-r: var(--radius-control); --sq-fill: var(--accent-subtle); display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-4); padding: var(--space-4) var(--space-5); background: var(--sq-fill); color: var(--foreground); line-height: 1.65; }
-.example svg { margin-top: 4px; color: var(--accent-ink); }
-.example p { margin: 0; }
-.example strong { font-weight: 600; }
-
-/* Reasons. */
-.reasons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; border-top: 1px solid var(--border); list-style: none; }
-.reason { display: grid; align-content: start; gap: var(--space-2); padding: var(--space-6) var(--space-8) var(--space-6) 0; border-bottom: 1px solid var(--border); }
-.reason:nth-child(even) { padding-left: var(--space-8); border-left: 1px solid var(--border); }
-.reason h3 { margin: 0; color: var(--foreground); font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; letter-spacing: -.015em; }
-.reason p { margin: 0; color: var(--text-secondary); line-height: 1.65; }
-
-/* For Silicons. */
-.agentGrid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); align-items: start; gap: var(--space-8); }
-.agentCode { display: grid; gap: var(--space-3); min-width: 0; }
-.miniTitle { margin: 0; color: var(--foreground); font-size: 1rem; font-weight: 600; }
-.miniText { margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.6; }
-.agentList { display: grid; gap: var(--space-5); margin: 0; padding: 0; list-style: none; }
-.agentList li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--space-3); color: var(--text-secondary); line-height: 1.6; }
-.agentList svg { margin-top: 3px; color: var(--accent-ink); }
-
-/* FAQ: Arc's accordion as native disclosure. */
-.faq { max-width: 860px; }
-.faqList { border-top: 1px solid var(--border); }
-.faqItem { border-bottom: 1px solid var(--border); scroll-margin-top: 80px; }
-.faqQuestion { display: flex; min-height: 64px; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4) var(--space-1); color: var(--foreground); cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
-.faqQuestion::-webkit-details-marker { display: none; }
-.faqQuestion:focus-visible .faqHeading { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
-.faqHeading { margin: 0; font-size: 1.0625rem; font-weight: 600; line-height: 1.45; letter-spacing: -.01em; }
-.faqIcon { flex: none; color: var(--text-muted); transition: transform var(--duration-spring) var(--ease-spring), color var(--duration-fast) var(--ease-standard); }
-.faqItem[open] .faqIcon { color: var(--foreground); transform: rotate(45deg); }
-@media (hover: hover) and (pointer: fine) { .faqQuestion:hover .faqIcon { color: var(--foreground); } }
-.faqAnswer { max-width: 70ch; margin: 0; padding: 0 var(--space-10) var(--space-6) var(--space-1); color: var(--text-secondary); line-height: 1.7; }
-.faqAnswer a { overflow-wrap: anywhere; }
-
-/* Closing call to action: Arc's centered CTA. */
-.closing { padding: 0 var(--gutter) clamp(64px, 9vw, 112px); }
-.closingCard {
-  --sq-r: var(--radius-surface);
-  --sq-fill: var(--surface);
-  --sq-stroke: var(--border);
-  position: relative;
-  display: grid;
-  max-width: calc(var(--page-max) - 2 * var(--gutter));
-  justify-items: center;
-  gap: var(--space-4);
-  overflow: hidden;
-  isolation: isolate;
-  margin-inline: auto;
-  border: 1px solid var(--sq-stroke);
-  padding: clamp(48px, 6vw, 72px) var(--space-6);
-  background: var(--sq-fill);
-  text-align: center;
-}
-.closingCard::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--wash); }
-.closingTitle { margin: 0; font-family: var(--font-display); font-size: clamp(2rem, 1.4rem + 2.4vw, 3.25rem); font-weight: 600; letter-spacing: -.035em; line-height: 1.04; }
-.closingText { max-width: 40ch; margin: 0; color: var(--text-secondary); font-size: 1.0625rem; line-height: 1.6; }
-.closingActions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-2); }
-.closingNote { margin: 0; color: var(--text-muted); font-size: var(--text-sm); }
 
 /* Responsive ------------------------------------------------------------------------------------------------------ */
 @media (max-width: 1023px) {
-  .heroInner { grid-template-columns: minmax(0, 1fr); }
-  .heroTitle { max-width: 16ch; }
-  .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  ul.featuresCompact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .agentGrid { grid-template-columns: minmax(0, 1fr); }
+  .heroInner { grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .heroArt { max-width: 640px; }
+  .split { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 799px) {
+  .lists { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 719px) {
-  .glossary, .products, .split, .reasons { grid-template-columns: minmax(0, 1fr); }
-  .reason, .reason:nth-child(even) { padding: var(--space-5) 0; border-left: 0; }
-  .features, ul.featuresCompact { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
-  .panel { padding: var(--space-5) var(--space-5) var(--space-6); }
-  .term, .product { padding: var(--space-5); }
+  .spec > div { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
   .faqAnswer { padding-right: var(--space-2); }
-}
-@media (max-width: 719px) {
-  .pointer { padding: var(--space-5); }
   /* Long commands and addresses wrap on a phone instead of pushing the page sideways. */
   .section :not(pre) > code, .hero :not(pre) > code { white-space: normal; overflow-wrap: anywhere; }
 }
 @media (max-width: 479px) {
-  /* The actions take the card's whole width (not just their own), so both buttons line up with the text above. */
   .pointerActions { flex: 1 1 100%; }
   .pointerActions > a { flex: 1 1 100%; }
-  .heroActions > a, .closingActions > a { flex: 1 1 100%; }
-  .sectionActions > a { flex: 1 1 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .product, .faqIcon { transition: none; }
-  .product:active { transform: none; }
+  .faqIcon { transition: none; }
 }

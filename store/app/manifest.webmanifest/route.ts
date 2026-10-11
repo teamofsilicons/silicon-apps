@@ -10,8 +10,8 @@ export function GET(request: Request) {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#F7F8FA",
-    theme_color: "#1F5FB8",
+    background_color: "#FFFDF9",
+    theme_color: "#FFFDF9",
     lang: "en",
     categories: ["developer", "productivity", "utilities"],
     icons: [

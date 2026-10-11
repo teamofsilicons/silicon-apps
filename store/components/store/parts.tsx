@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import { ArrowRight, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Info, Star } from "lucide-react";
 import { CopyCode } from "@/components/site/code-block";
-import { formatRating, initialOf, safeImage } from "@/lib/format";
+import { formatRating, initialOf, monogramOf, safeImage, toneOf } from "@/lib/format";
 import { JsonLd, type Json } from "@/lib/seo";
 import type { App } from "@/lib/types";
 import styles from "./store.module.css";
@@ -28,8 +28,8 @@ export function AppLogo({ app, size = 48, decorative = true }: { app: Pick<App, 
     return <img className={styles.logo} data-sq="clip" src={src} alt={decorative ? "" : app.logo_alt || `${app.name} logo`} width={size} height={size} style={{ width: size, height: size }} loading="lazy" decoding="async" />;
   }
   return (
-    <span className={styles.monogram} data-sq="surface" style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }} role={decorative ? undefined : "img"} aria-label={decorative ? undefined : `${app.name} logo`} aria-hidden={decorative ? true : undefined}>
-      {initialOf(app.name)}
+    <span className={styles.monogram} data-sq="surface" data-tone={toneOf(app.app_id)} style={{ width: size, height: size, fontSize: Math.round(size * 0.5) }} role={decorative ? undefined : "img"} aria-label={decorative ? undefined : `${app.name} logo`} aria-hidden={decorative ? true : undefined}>
+      {monogramOf(app.name)}
     </span>
   );
 }

@@ -1,7 +1,6 @@
 /**
  * An app's Open Graph image (1200 by 630 PNG), drawn with next/og in the look of the store's own social image
- * (public/og.png): BDO Grotesk on the light page colour, the dot grid and the brand wash, the app's logo, name and
- * description, and the command that installs it.
+ * (public/og.png): BDO Grotesk on warm paper, the app's logo, name and description, and the command that installs it.
  *
  * Only public data is drawn. Logos are used only when they are data: images or this store's own API media read
  * through APPS_API_URL (never an arbitrary remote URL, so this server fetches nothing it was not built for).
@@ -10,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { appsApiUrl } from "./config";
-import { formatCount, formatRating, initialOf, operatingSystems, truncate } from "./format";
+import { formatCount, formatRating, monogramOf, operatingSystems, truncate } from "./format";
 import type { App } from "./types";
 
 const fonts = (async () => {
@@ -24,11 +23,11 @@ const fonts = (async () => {
   ];
 })();
 
-const PAGE = "#F7F8FA";
-const INK = "#292929";
-const SECONDARY = "#4C5260";
-const BORDER = "#E2E5EB";
-const BLUE = "#1F5FB8";
+const PAGE = "#FFFDF9";
+const INK = "#1E1E1C";
+const SECONDARY = "#57544D";
+const BORDER = "#E7E3D8";
+const BLUE = "#1F5CB1";
 
 function Mark({ size }: { size: number }) {
   return (
@@ -71,7 +70,7 @@ export async function appImage(app: App): Promise<ImageResponse> {
   ].filter((value): value is string => Boolean(value));
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", padding: "64px 76px", backgroundColor: PAGE, backgroundImage: `radial-gradient(circle at 88% 22%, rgba(31,95,184,0.16), rgba(247,248,250,0) 52%)`, color: INK, fontFamily: "BDO Grotesk" }}>
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", padding: "64px 76px", backgroundColor: PAGE, color: INK, fontFamily: "BDO Grotesk" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 30, fontWeight: 600, letterSpacing: -0.6 }}>
           <Mark size={52} />
           <span>Silicon</span>
@@ -82,7 +81,7 @@ export async function appImage(app: App): Promise<ImageResponse> {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logo} width={176} height={176} alt="" style={{ borderRadius: 44, border: `1.5px solid ${BORDER}` }} />
           ) : (
-            <div style={{ width: 176, height: 176, borderRadius: 44, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 92, fontWeight: 600, backgroundColor: BLUE, color: "#FFFFFF" }}>{initialOf(app.name)}</div>
+            <div style={{ width: 176, height: 176, borderRadius: 44, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 92, fontWeight: 500, backgroundColor: "#EDE8E0", color: BLUE }}>{monogramOf(app.name)}</div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 800 }}>
             <div style={{ fontSize: 80, fontWeight: 600, letterSpacing: -3, lineHeight: 1 }}>{truncate(app.name, 30)}</div>
