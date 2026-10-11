@@ -463,7 +463,9 @@ async fn legacy_unscoped_install_does_not_guess_an_update_registry() {
 }
 
 #[tokio::test]
-async fn telemetry_opt_out_survives_auth_and_covers_json_upload_and_download() {
+async fn every_request_says_telemetry_off_even_through_the_retired_switch() {
+    // Silicon Apps records no telemetry. `X-Apps-Telemetry: off` keeps servers
+    // from before the removal from recording anything.
     let fixture = Arc::new(Mutex::new(package_fixture("1.0.0", None)));
     let bytes = fixture.lock().unwrap().bytes.clone();
     let payload = bytes.clone();
@@ -500,7 +502,6 @@ async fn telemetry_opt_out_survives_auth_and_covers_json_upload_and_download() {
     });
     let client = Client::new(&format!("http://{address}"), None)
         .unwrap()
-        .with_telemetry(false)
         .authenticated(Some("test-token".into()));
     assert_eq!(client.me().await.unwrap()["telemetry"], "off");
     assert_eq!(
@@ -523,11 +524,30 @@ async fn telemetry_opt_out_survives_auth_and_covers_json_upload_and_download() {
         .await
         .unwrap();
     assert_eq!(client.download(&resolved).await.unwrap(), bytes);
-    assert_eq!(
-        client.with_telemetry(true).me().await.unwrap()["telemetry"],
-        "on"
-    );
+    #[allow(deprecated)]
+    let retired = client.with_telemetry(true);
+    assert_eq!(retired.me().await.unwrap()["telemetry"], "off");
     task.abort();
+}
+
+#[test]
+fn configuration_with_the_retired_telemetry_key_still_loads() {
+    let home = tempfile::tempdir().unwrap();
+    let state = LocalState::new(home.path()).unwrap();
+    state.initialize().unwrap();
+    fs::write(
+        state.root.join("config.json"),
+        r#"{"server":"https://apps.example.test","telemetry":true,"update_interval_seconds":90}"#,
+    )
+    .unwrap();
+    let config = state.config().unwrap();
+    assert_eq!(config.server, "https://apps.example.test");
+    assert_eq!(config.update_interval_seconds, 90);
+    state.save_config(&config).unwrap();
+    let saved: Value =
+        serde_json::from_slice(&fs::read(state.root.join("config.json")).unwrap()).unwrap();
+    assert_eq!(saved["server"], "https://apps.example.test");
+    assert!(saved.get("telemetry").is_none(), "{saved}");
 }
 
 #[tokio::test]

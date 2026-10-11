@@ -194,7 +194,7 @@ fn developer_route(method: &Method, path: &str) -> bool {
             )
             | ("GET", ["apps", _, "media", _])
             | ("GET", ["apps", _, "packages", _, "download"])
-            | ("POST", ["apps" | "telemetry"])
+            | ("POST", ["apps"])
             | ("PATCH", ["apps", _])
             | ("POST", ["invites", _, "accept" | "decline"])
             | ("PUT", ["apps", _, "access" | "webhook"])

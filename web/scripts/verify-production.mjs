@@ -69,7 +69,6 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(() => {
-      localStorage.setItem("apps.telemetry", "false");
       window.__policyErrors = [];
       document.addEventListener("securitypolicyviolation", (event) =>
         window.__policyErrors.push(

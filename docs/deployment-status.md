@@ -43,6 +43,8 @@ Published Rust packages are [silicon-apps-cli 0.1.4](https://crates.io/crates/si
 
 ## Recovery and telemetry evidence
 
+Silicon Apps records no telemetry from API 0.2.0 and CLI 0.3.0 on. The Space Station paragraph below records 8 October 2026.
+
 Apps backup `backups/20261008T143156Z.tar.gz`, SHA-256 `df7f06b9cca9ea8eb3aee617985bba0fb494b7d340007b4cb8d1e94173ca9e08`, was restored into scratch storage. SQLite integrity passed with zero foreign-key errors, the Apps catalog remained published, and **both package objects** matched their stored digests. The scratch restore was removed afterward.
 
 Accounts' pre-cutover backup `backups/predeploy-20261008T142732Z.dump`, SHA-256 `e891291f36b1804cadc6f963b2907fb7a1dd2f637c1b79518490f7ff2efeaa5c`, was restored into a separate PostgreSQL database. Migration 7, the genuine account, three registered apps, membership and Apps ownership were checked before removing that database. Its newer redundant backup `backups/predeploy-20261008T143304Z.dump` was uploaded but was not the restored copy.

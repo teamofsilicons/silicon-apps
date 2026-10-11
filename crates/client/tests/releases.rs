@@ -26,9 +26,6 @@ fn server_config(dir: &std::path::Path) -> ServerConfig {
         runner_targets: vec![],
         mail_url: None,
         mail_token: None,
-        telemetry_url: None,
-        telemetry_enabled: false,
-        telemetry_table_key: None,
         import_accounts: false,
         historical_app_ids: Default::default(),
         rate_limit_reads_per_minute: 600,
@@ -64,9 +61,7 @@ async fn signed_installs_show_scripts_and_leave_withdrawn_releases() {
     let base = format!("http://{}", listener.local_addr().unwrap());
     let app = router(state.clone()).into_make_service_with_connect_info::<std::net::SocketAddr>();
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    let alice = Client::new(&base, Some("dev:alice:c:alice".into()))
-        .unwrap()
-        .with_telemetry(false);
+    let alice = Client::new(&base, Some("dev:alice:c:alice".into())).unwrap();
     alice
         .create("fixture", "Fixture", &"d".repeat(200), None, None)
         .await
@@ -164,7 +159,7 @@ async fn signed_installs_show_scripts_and_leave_withdrawn_releases() {
         server: base.clone(),
         ..Config::default()
     };
-    let anyone = Client::new(&base, None).unwrap().with_telemetry(false);
+    let anyone = Client::new(&base, None).unwrap();
     let keys = anyone.signing_keys().await.unwrap();
     assert_eq!(keys["active_key_id"], state.signer.active_id());
     let outcome = install::install(&anyone, &local, &config, &"fixture".parse().unwrap(), false)

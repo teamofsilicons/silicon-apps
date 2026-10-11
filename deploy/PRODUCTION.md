@@ -106,9 +106,13 @@ The API secret requires `APPS_ACCOUNTS_APP_SECRET`,
 allowed origins (`APPS_ALLOWED_ORIGINS` must include
 `https://apps.teamofsilicons.com`, the Origin the store sends with every visitor
 write) and `APPS_SIGNING_KEYS`. Its data directory is `/var/lib/silicon-apps`.
-The worker secret contains only its runner token. Configure a dedicated Space
-Station table key for telemetry. Mail defaults to the official Accounts
-integration. The store needs no secret.
+The worker secret contains only its runner token. Mail defaults to the official
+Accounts integration. The store needs no secret.
+
+Silicon Apps records no telemetry. The API ignores the retired `APPS_TELEMETRY`,
+`APPS_TELEMETRY_*`, `SPACE_STATION_URL` and `SPACE_STATION_HOME` keys and names
+any still set when it starts (`Ignoring retired settings: …`), so they can be
+removed from the secret.
 
 `APPS_HISTORICAL_APP_IDS` is optional. It reserves historical Silicon Accounts
 app IDs of 1 or 2 characters, which new apps cannot use, for the one account

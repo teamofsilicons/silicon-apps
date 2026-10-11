@@ -35,9 +35,11 @@ export async function api<T>(
   } = {},
 ): Promise<T> {
   const method = options.method || "GET";
-  const headers: Record<string, string> = { Accept: "application/json" };
-  if (localStorage.getItem("apps.telemetry") === "false")
-    headers["X-Apps-Telemetry"] = "off";
+  // Silicon Apps records no telemetry; `off` keeps older APIs from recording.
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "X-Apps-Telemetry": "off",
+  };
   if (method !== "GET")
     headers["Idempotency-Key"] = options.key || crypto.randomUUID();
   let body: BodyInit | undefined;

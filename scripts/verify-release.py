@@ -37,7 +37,7 @@ def main():
                 binary.write_bytes(source.read())
         binary.chmod(0o755)
         environment = os.environ.copy()
-        for name in ('APPS_TOKEN', 'ACCOUNTS_URL', 'APPS_TELEMETRY_KEY', 'APPS_TELEMETRY_TABLE_KEY'):
+        for name in ('APPS_TOKEN', 'ACCOUNTS_URL'):
             environment.pop(name, None)
         environment['SILICON_HOME'] = str(home)
         environment['APPS_URL'] = 'http://127.0.0.1:9'

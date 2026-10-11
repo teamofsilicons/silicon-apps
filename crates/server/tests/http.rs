@@ -31,9 +31,6 @@ fn config(dir: &std::path::Path) -> Config {
         runner_targets: vec![],
         mail_url: None,
         mail_token: None,
-        telemetry_url: None,
-        telemetry_enabled: false,
-        telemetry_table_key: None,
         import_accounts: false,
         historical_app_ids: Default::default(),
         rate_limit_reads_per_minute: 600,
@@ -773,7 +770,7 @@ async fn private_metadata_release_download_and_media_are_authorized_independentl
     );
 }
 #[tokio::test]
-async fn csrf_and_telemetry_optout_are_enforced() {
+async fn csrf_is_enforced_and_telemetry_is_gone() {
     let dir = tempfile::tempdir().unwrap();
     let app = router(AppState::new(config(dir.path())).unwrap());
     let request = Request::builder()
@@ -786,17 +783,95 @@ async fn csrf_and_telemetry_optout_are_enforced() {
         .body(Body::from(r#"{"target":"linux-x86_64"}"#))
         .unwrap();
     assert_eq!(app.clone().oneshot(request).await.unwrap().status(), 403);
+    // Silicon Apps records no telemetry: the old event route is not a route.
     let (status, body) = call(
         &app,
         "POST",
         "/v1/telemetry",
-        None,
-        json!({"step":"page_view","progress":"complete","access_token":"must-not-store"}),
+        Some("dev:alice:c:alice"),
+        json!({"step":"page_view","progress":"complete"}),
         Some("telemetry-key"),
     )
     .await;
-    assert_eq!(status, 200);
-    assert_eq!(body["accepted"], false);
+    assert_eq!(status, 404, "{body}");
+    // Installed CLIs and the store still send X-Apps-Telemetry. Any value, or
+    // none, is accepted and ignored, on reads and on writes.
+    for value in [Some("on"), Some("off"), Some("anything else"), None] {
+        let mut read = Request::builder().uri("/v1/apps");
+        let mut write = Request::builder()
+            .method("POST")
+            .uri("/v1/platforms")
+            .header("Authorization", "Bearer dev:alice:c:alice")
+            .header("Content-Type", "application/json")
+            .header(
+                "Idempotency-Key",
+                format!("platform-{}", value.unwrap_or("none").replace(' ', "-")),
+            );
+        if let Some(value) = value {
+            read = read.header("X-Apps-Telemetry", value);
+            write = write.header("X-Apps-Telemetry", value);
+        }
+        let response = app
+            .clone()
+            .oneshot(read.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200, "{value:?}");
+        let response = app
+            .clone()
+            .oneshot(
+                write
+                    .body(Body::from(r#"{"target":"linux-x86_64"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200, "{value:?}");
+    }
+}
+#[tokio::test]
+async fn telemetry_queued_by_an_older_release_is_discarded_unsent() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut cfg = config(dir.path());
+    // Any send would fail here, so a delivered row proves nothing was sent.
+    cfg.mail_url = Some("http://127.0.0.1:9/never".into());
+    let state = AppState::new(cfg).unwrap();
+    state
+        .store
+        .lock()
+        .unwrap()
+        .connection
+        .execute(
+            "INSERT INTO outbox(id,kind,body,created_at) VALUES('legacy-event','telemetry','{\"step\":\"page_view\"}','2026-10-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+    silicon_apps_server::start_background(state.clone())
+        .await
+        .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let (delivered, error): (Option<String>, Option<String>) = state
+            .store
+            .lock()
+            .unwrap()
+            .connection
+            .query_row(
+                "SELECT delivered_at,last_error FROM outbox WHERE id='legacy-event'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        if delivered.is_some() {
+            assert_eq!(error, None);
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "legacy row was not retired: {error:?}"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
 }
 #[tokio::test]
 async fn oauth_login_uses_only_configured_origins_and_binds_state_to_browser() {

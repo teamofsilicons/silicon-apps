@@ -12,6 +12,14 @@ async fn main() {
 }
 async fn run() -> silicon_apps_server::error::Result<()> {
     let config = Config::from_env()?;
+    let retired =
+        silicon_apps_server::config::retired_variables(|name| std::env::var_os(name).is_some());
+    if !retired.is_empty() {
+        eprintln!(
+            "Ignoring retired settings: {}. Silicon Apps records no telemetry; remove them from the environment.",
+            retired.join(", ")
+        );
+    }
     if !config.historical_app_ids.is_empty() {
         eprintln!(
             "Historical app IDs, each creatable only by its configured owner: {}.",

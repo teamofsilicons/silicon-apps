@@ -20,7 +20,6 @@ jobs:
     timeout-minutes: 30
     env:
       CARGO_TERM_COLOR: always
-      APPS_TELEMETRY_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -71,7 +70,6 @@ jobs:
     timeout-minutes: 30
     env:
       CARGO_TERM_COLOR: always
-      APPS_TELEMETRY_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

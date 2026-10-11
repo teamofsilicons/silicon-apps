@@ -20,6 +20,10 @@ use url::Url;
 pub const APP_ID: &str = "silicon-apps";
 pub const DEFAULT_URL: &str = "https://apps.teamofsilicons.com";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Silicon Apps records no telemetry. Every request still says
+/// `X-Apps-Telemetry: off`, so a server from before the removal records
+/// nothing either; current servers ignore the header.
+const TELEMETRY_HEADER: (&str, &str) = ("X-Apps-Telemetry", "off");
 
 #[derive(Clone)]
 pub struct Client {
@@ -29,7 +33,6 @@ pub struct Client {
     stream_http: HttpClient,
     base: Url,
     token: Option<String>,
-    telemetry: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -145,7 +148,6 @@ impl Client {
             stream_http,
             base,
             token,
-            telemetry: true,
         })
     }
     pub fn authenticated(&self, token: Option<String>) -> Self {
@@ -154,12 +156,15 @@ impl Client {
             stream_http: self.stream_http.clone(),
             base: self.base.clone(),
             token,
-            telemetry: self.telemetry,
         }
     }
-    /// Apply diagnostic opt-out to every Apps API request, including uploads and downloads.
-    pub fn with_telemetry(mut self, enabled: bool) -> Self {
-        self.telemetry = enabled;
+    /// Does nothing. Silicon Apps records no telemetry, so there is nothing to
+    /// turn on or off; every request says `X-Apps-Telemetry: off`.
+    #[deprecated(
+        since = "0.3.0",
+        note = "Silicon Apps records no telemetry; this does nothing and can be removed."
+    )]
+    pub fn with_telemetry(self, _enabled: bool) -> Self {
         self
     }
     pub fn base_url(&self) -> &str {
@@ -189,10 +194,10 @@ impl Client {
             url.query_pairs_mut()
                 .extend_pairs(query.iter().map(|(k, v)| (*k, v.as_str())));
         }
-        let mut request = self.http.request(method.clone(), url).header(
-            "X-Apps-Telemetry",
-            if self.telemetry { "on" } else { "off" },
-        );
+        let mut request = self
+            .http
+            .request(method.clone(), url)
+            .header(TELEMETRY_HEADER.0, TELEMETRY_HEADER.1);
         if let Some(token) = &self.token {
             request = request.bearer_auth(token);
         }
@@ -365,10 +370,7 @@ impl Client {
             .http
             .post(self.url(&["v1", "apps", app, "packages", target])?)
             .header("Content-Type", "application/gzip")
-            .header(
-                "X-Apps-Telemetry",
-                if self.telemetry { "on" } else { "off" },
-            )
+            .header(TELEMETRY_HEADER.0, TELEMETRY_HEADER.1)
             .header("Idempotency-Key", &operation_key);
         if let Some(author) = author {
             request = request
@@ -398,10 +400,10 @@ impl Client {
             url.origin() == self.base.origin(),
             "server returned a download URL on another origin; refusing to expose credentials"
         );
-        let mut req = self.http.get(url).header(
-            "X-Apps-Telemetry",
-            if self.telemetry { "on" } else { "off" },
-        );
+        let mut req = self
+            .http
+            .get(url)
+            .header(TELEMETRY_HEADER.0, TELEMETRY_HEADER.1);
         if let Some(token) = &self.token {
             req = req.bearer_auth(token);
         }
@@ -556,10 +558,7 @@ impl Client {
             .stream_http
             .get(url)
             .header("Accept", "text/event-stream")
-            .header(
-                "X-Apps-Telemetry",
-                if self.telemetry { "on" } else { "off" },
-            );
+            .header(TELEMETRY_HEADER.0, TELEMETRY_HEADER.1);
         if let Some(id) = last_event_id {
             request = request.header("Last-Event-ID", id);
         }

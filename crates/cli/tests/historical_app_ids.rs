@@ -25,9 +25,6 @@ fn config(dir: &Path) -> Config {
         runner_targets: vec![],
         mail_url: None,
         mail_token: None,
-        telemetry_url: None,
-        telemetry_enabled: false,
-        telemetry_table_key: None,
         import_accounts: false,
         historical_app_ids: HistoricalAppIds::parse("dm:alice").unwrap(),
         rate_limit_reads_per_minute: 0,
@@ -44,14 +41,7 @@ async fn run(home: &Path, server: &str, token: Option<&str>, args: &[&str]) -> (
         .args(["--json", "--home"])
         .arg(home)
         .args(["--server", server]);
-    for name in [
-        "APPS_TOKEN",
-        "APPS_URL",
-        "ACCOUNTS_URL",
-        "SILICON_HOME",
-        "APPS_TELEMETRY_KEY",
-        "APPS_TELEMETRY_TABLE_KEY",
-    ] {
+    for name in ["APPS_TOKEN", "APPS_URL", "ACCOUNTS_URL", "SILICON_HOME"] {
         command.env_remove(name);
     }
     if let Some(token) = token {

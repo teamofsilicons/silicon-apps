@@ -25,9 +25,6 @@ fn config(dir: &Path, runner: &str) -> Config {
             .collect(),
         mail_url: None,
         mail_token: None,
-        telemetry_url: None,
-        telemetry_enabled: false,
-        telemetry_table_key: None,
         import_accounts: false,
         historical_app_ids: Default::default(),
         rate_limit_reads_per_minute: 0,
@@ -47,8 +44,6 @@ fn cli(home: &Path, server: &str, token: &str) -> Command {
         "APPS_URL",
         "ACCOUNTS_URL",
         "SILICON_HOME",
-        "APPS_TELEMETRY_KEY",
-        "APPS_TELEMETRY_TABLE_KEY",
         "SILICON_APPS_NO_DAEMON",
     ] {
         command.env_remove(name);

@@ -1,6 +1,6 @@
 # Operate Silicon Apps
 
-The repository provides application code and local development tooling. A deployment still needs Accounts registration and the corresponding Accounts server integration, persistent storage, HTTPS for both websites, authenticated isolated target workers, mail delivery, and a Space Station destination when telemetry is enabled. The example configuration does not provision those services.
+The repository provides application code and local development tooling. A deployment still needs Accounts registration and the corresponding Accounts server integration, persistent storage, HTTPS for both websites, authenticated isolated target workers and mail delivery. The example configuration does not provision those services.
 
 ## Start the full stack
 
@@ -98,7 +98,7 @@ Use [deploy/api.env.example](../deploy/api.env.example) as a starting point. Emp
 | Variable                      | Default                               | Meaning                                                                                                 |
 | ----------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `APPS_BIND`                   | `127.0.0.1:4310`                      | Rust HTTP listener. Use a reverse proxy for public TLS.                                                 |
-| `APPS_DATA_DIR`               | `.data`                               | Persistent SQLite, package, media and telemetry files. Use an absolute path in supervised deployments.  |
+| `APPS_DATA_DIR`               | `.data`                               | Persistent SQLite, package and media files. Use an absolute path in supervised deployments.             |
 | `APPS_PUBLIC_URL`             | `http://<bind>`                       | Canonical Apps URL and secure-cookie policy. Set to the actual HTTPS store origin for deployment.       |
 | `APPS_ALLOWED_ORIGINS`        | Canonical public origin               | Additional comma-separated HTTP(S) origins, with no path/query/fragment. Include both website origins.  |
 | `APPS_DEV_AUTH`               | Off                                   | `1` enables explicit loopback fixture bearer identities. Never expose this mode through a public proxy. |
@@ -112,10 +112,8 @@ Use [deploy/api.env.example](../deploy/api.env.example) as a starting point. Emp
 | `APPS_RUNNER_TARGETS`         | Empty                                 | Comma-separated targets for which an execution worker is actually configured.                           |
 | `APPS_MAIL_URL`               | Unset                                 | Optional alternative mail adapter. Unset uses the Accounts private mail bridge.                         |
 | `APPS_MAIL_TOKEN`             | Unset                                 | Optional bearer credential for the alternative mail adapter.                                            |
-| `APPS_TELEMETRY_ENABLED`      | On                                    | `0`, `false`, or `off` disables backend telemetry.                                                      |
-| `APPS_TELEMETRY_TABLE_KEY`    | Unset                                 | Space Station table key for the native client integration and local telemetry spool.                    |
-| `APPS_TELEMETRY_URL`          | Unset                                 | Optional HTTP telemetry adapter destination.                                                            |
-| `SPACE_STATION_URL`           | Space Station client default          | Overrides the native Space Station service URL.                                                         |
+
+Silicon Apps records no telemetry. The retired `APPS_TELEMETRY`, `APPS_TELEMETRY_ENABLED`, `APPS_TELEMETRY_KEY`, `APPS_TELEMETRY_TABLE_KEY`, `APPS_TELEMETRY_URL`, `SPACE_STATION_URL` and `SPACE_STATION_HOME` variables are ignored; the API names any that are set when it starts so they can be removed.
 
 The frontend’s preferred production configuration leaves `VITE_APPS_API_URL` unset and proxies `/v1` on each website to the same backend. `APPS_API_PROXY` changes the Vite development proxy target. A cross-origin `VITE_APPS_API_URL` additionally needs correctly configured credentialed proxy/CORS/cookie behavior; the deployment examples use same-origin requests.
 
@@ -219,7 +217,7 @@ The example omits the other two entries for brevity; every real response must in
 
 The package library permits at most 512 MiB compressed and 1 GiB expanded archives. The bundled runner is stricter: 128 MiB compressed, 512 MiB expanded and 20,000 entries. The effective upload limit is the smallest configured proxy/API/worker limit. Media uploads accept PNG, JPEG, WebP, GIF, MP4 or WebM up to 100 MiB; new SVG uploads are rejected. Existing Accounts inline logos are handled by the migration path.
 
-## Mail, invitations and telemetry
+## Mail and invitations
 
 Email and `c:id` author invitations use a durable outbox. The preferred transport is Accounts’ private `/v1/internal/apps/mail` bridge, authenticated with the service token. Accounts resolves a Carbon UUID to its verified email and sends the invitation; private contact data is not returned to Apps. A Carbon without a verified email cannot receive the corresponding email delivery until that is corrected. Silicon invitations remain account invitations and do not invent an email address.
 
@@ -229,9 +227,7 @@ Set `ACCOUNTS_SILICON_APPS_URL` in the **Accounts service's** environment to the
 
 An optional `APPS_MAIL_URL` adapter receives `{id,kind,data}` with `Idempotency-Key: <outbox-id>` and the optional mail bearer token. It must implement idempotent processing for `mail.invite` and `mail.report`, including private Carbon contact resolution where needed. The durable worker retries undelivered records every ten seconds. Inspect `outbox.attempts`, `last_error` and `delivered_at`; do not delete pending records to hide a delivery failure.
 
-For the native Space Station integration, set `APPS_TELEMETRY_TABLE_KEY` and optionally `SPACE_STATION_URL`. The service writes source, route template, step, progress and operation context; frontend input is allowlisted and raw identities/secrets are excluded. The CLI also uses `APPS_TELEMETRY_TABLE_KEY` and its selected `.apps/telemetry` spool; `APPS_TELEMETRY_KEY` remains a legacy alias. Telemetry is opted in by default, but no configured destination means no remote delivery. The frontend returns to normal work even when telemetry is unavailable.
-
-Browser settings persist telemetry opt-out locally and send `X-Apps-Telemetry: off`. CLI users run `silicon-apps config telemetry off`; operators can disable service telemetry with `APPS_TELEMETRY_ENABLED=false`. Registered platform counts are maintained separately from diagnostic telemetry. The Packages step’s market counts describe distinct observed registered accounts, including deduplicated reach across selected targets; they do not estimate every ecosystem user.
+Registered platform counts are product data, not telemetry. The Packages step’s market counts describe distinct observed registered accounts, including deduplicated reach across selected targets; they do not estimate every ecosystem user.
 
 ## Host both websites
 
@@ -312,13 +308,13 @@ For crates.io distribution, publish dependency crates in order: a compatible off
 
 ## Back up, restore and diagnose
 
-`APPS_DATA_DIR/apps.sqlite` contains the catalog, author/invite/release/history records, browser sessions, OAuth attempts, idempotency responses and delivery outbox. Packages are addressed by checksum under `packages/`; media and MIME metadata live under `media/`; native telemetry may have a local spool. Treat the whole directory as private service data: session tokens and short-lived secret replay responses are present. Preserve the database and matching artifacts together.
+`APPS_DATA_DIR/apps.sqlite` contains the catalog, author/invite/release/history records, browser sessions, OAuth attempts, idempotency responses and delivery outbox. Packages are addressed by checksum under `packages/`; media and MIME metadata live under `media/`; a `telemetry/` directory left by an earlier release is no longer used. Treat the whole directory as private service data: session tokens and short-lived secret replay responses are present. Preserve the database and matching artifacts together.
 
 Take a consistent backup using SQLite’s backup API or stop the API and copy the entire directory. Copying only a live database file while ignoring WAL state is not a consistent backup. Restore to a separate reviewed location and test catalog, private access and artifact downloads before switching traffic. Keep Accounts backups and deployment versions available because app registration, users and webhook delivery remain owned by Accounts.
 
 Replays of ordinary catalog mutations are durable. Create/rotate/webhook responses containing a secret are replayable for ten minutes; then plaintext is removed and retry returns `secret_replay_expired` without executing the action again. Save one-time secrets promptly. Never log them in release notes, reports or CI output.
 
-`GET /health` proves the process responds, not that Accounts, workers, mail or Space Station are functioning. A complete deployment verification exercises:
+`GET /health` proves the process responds, not that Accounts, workers or mail are functioning. A complete deployment verification exercises:
 
 - Accounts browser sign-in on each hostname, CLI login/refresh/logout, invalid-audience rejection, and sign-in return paths.
 - Real app creation and Accounts registration, imported IDs/users, accepted authors and admin-only access changes.
@@ -327,7 +323,6 @@ Replays of ordinary catalog mutations are durable. Create/rotate/webhook respons
 - Development/production promotion, fresh installation, receipt counting, channel switching, update and uninstall.
 - Incoming/cancelled/declined invitations, private email delivery, one review per account and persisted audit history.
 - Accounts webhook generation before the endpoint, saved subscriptions without unexpected rotation, signed delivery, and explicit secret rotation.
-- Telemetry opt-out and a configured destination’s actual receipt.
 - Persistent data recovery and the installed updater’s behavior after a host reboot.
 
 These checks depend on operator-provisioned services and hardware. Local unit tests, fixture browser tests and a successful web build remain useful evidence, but do not substitute for these external outcomes.

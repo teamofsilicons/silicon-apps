@@ -4,7 +4,7 @@ Create a virtual environment, install `requirements.txt`, set `APPS_RUNNER_TOKEN
 secret of at least 32 ASCII characters without spaces, then run `python runner/server.py`.
 `APPS_RUNNER_HOST` defaults to `127.0.0.1`; `APPS_RUNNER_PORT` defaults to `4312`.
 The Apps API sends authenticated `POST /validate` requests. Workers need no Accounts,
-database, telemetry or cloud credentials. Run them on dedicated worker machines.
+database or cloud credentials. Run them on dedicated worker machines.
 
 ## Route targets to workers
 

@@ -1309,7 +1309,7 @@ fn valid_email(value: &str) -> bool {
 pub(crate) fn mutation_route_exists(method: &str, p: &[&str]) -> bool {
     matches!(
         (method, p),
-        ("POST", ["apps" | "platforms" | "reports" | "telemetry"])
+        ("POST", ["apps" | "platforms" | "reports"])
             | ("PATCH", ["apps", _])
             | ("POST", ["invites", _, "accept" | "decline"])
             | ("PUT", ["apps", _, "access" | "webhook" | "review"])
