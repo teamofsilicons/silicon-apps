@@ -5,13 +5,13 @@
  * signed-out visitor to log in, and never shows a private app to anyone it was not shared with (the API decides).
  */
 import type { Metadata } from "next";
-import { permanentRedirect } from "next/navigation";
+import { permanentRedirect, redirect } from "next/navigation";
 import { Lock, Search as SearchIcon } from "lucide-react";
 import { AppList } from "@/components/store/app-card";
 import { Breadcrumbs, EmptyState, Notice, Pagination, StructuredData, styles } from "@/components/store/parts";
 import { SearchFilters } from "@/components/store/search-form";
 import { Action } from "@/components/site/action";
-import { parseSearch, search, type SearchInput, type SearchResult } from "@/lib/catalog";
+import { activeFilters, parseSearch, search, type SearchInput, type SearchResult } from "@/lib/catalog";
 import { targetLabel } from "@/lib/format";
 import { absolute, breadcrumbLd, itemListLd, pageMetadata } from "@/lib/seo";
 import { getAccount, signInHref } from "@/lib/session";
@@ -30,6 +30,11 @@ function hrefFor(input: SearchInput, page = 1): string {
   if (input.q) params.set("q", input.q);
   if (input.target) params.set("target", input.target);
   if (input.visibility !== "all") params.set("visibility", input.visibility);
+  if (input.added) params.set("added", input.added);
+  if (input.released) params.set("released", input.released);
+  if (input.minInstalls) params.set("installs", String(input.minInstalls));
+  if (input.minRating) params.set("rating", String(input.minRating));
+  if (input.sort !== "relevance") params.set("sort", input.sort);
   if (page > 1) params.set("page", String(page));
   const query = params.toString();
   return `/search${query ? `?${query}` : ""}`;
@@ -43,9 +48,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     : input.target
       ? `Apps on Silicon Apps with a package for ${targetLabel(input.target)}. Every app installs with one command and keeps itself up to date.`
       : "Every app on Silicon Apps: command line apps for Carbons and Silicons that install with one command and keep themselves up to date.";
-  // Typed searches and the private view are not indexed; the full list and platform pages are.
-  const index = !input.q && input.visibility === "all" && input.page === 1;
-  return pageMetadata({ title, description, path: hrefFor({ ...input, q: "", visibility: "all", page: 1 }), index });
+  // Typed searches, the private view and the additional filters are not indexed; the full list and platform pages are.
+  const plain = { ...input, q: "", visibility: "all" as const, added: "" as const, released: "" as const, minInstalls: 0, minRating: 0, sort: "relevance" as const, page: 1 };
+  const index = !input.q && input.page === 1 && activeFilters(input) === (input.target ? 1 : 0);
+  return pageMetadata({ title, description, path: hrefFor(plain), index });
 }
 
 /** An old tag address (/search?tag=x) becomes a plain search for x, keeping the other parameters. */
@@ -62,6 +68,10 @@ export default async function SearchPage({ searchParams }: Props) {
   const moved = tagRedirect(params);
   if (moved) permanentRedirect(moved);
   const input = parseSearch(params);
+  // The filters form submits every control, empty and default ones too; answer with the tidy address instead.
+  const clean = hrefFor(input, input.page);
+  const asked = new URLSearchParams(Object.entries(params).flatMap(([key, value]) => (value === undefined ? [] : [[key, Array.isArray(value) ? value[0] : value]]))).toString();
+  if (`/search${asked ? `?${asked}` : ""}` !== clean) redirect(clean);
   const account = await getAccount();
   const title = heading(input);
   const needsSignIn = input.visibility === "private" && !account;
@@ -75,14 +85,14 @@ export default async function SearchPage({ searchParams }: Props) {
       failed = true;
     }
   }
-  const filtered = Boolean(input.q || input.target || input.visibility !== "all");
+  const filtered = Boolean(input.q || activeFilters(input));
   const path = hrefFor(input, input.page);
 
   return (
     <div className={styles.page}>
       <StructuredData
         graph={[
-          breadcrumbLd([{ name: "Home", path: "/" }, { name: "Apps", path: "/search" }, ...(filtered ? [{ name: title, path: hrefFor(input) }] : [])]),
+          breadcrumbLd([{ name: "Home", path: "/" }, { name: "Apps", path: "/search" }, ...(filtered && title !== "Apps" ? [{ name: title, path: hrefFor(input) }] : [])]),
           {
             "@type": input.q ? "SearchResultsPage" : "CollectionPage",
             "@id": `${absolute(hrefFor(input))}#page`,
@@ -92,7 +102,7 @@ export default async function SearchPage({ searchParams }: Props) {
           },
         ]}
       />
-      <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "Apps", href: "/search" }, ...(filtered ? [{ name: title }] : [])]} />
+      <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "Apps", href: "/search" }, ...(filtered && title !== "Apps" ? [{ name: title }] : [])]} />
       <header className={styles.pageHead}>
         <h1 className={styles.pageTitle}>{title}</h1>
         <p className={styles.lede}>

@@ -45,6 +45,21 @@ test("the full list and platform pages are indexable collections", async ({ requ
   expect(resultIds(combined)).toEqual(["ring"]);
 });
 
+test("the additional filters narrow and sort the list, and the address stays tidy", async ({ request }) => {
+  const popular = await html(request, "/search?installs=1000");
+  expect(resultIds(popular).sort()).toEqual(["briefcase", "dm"]);
+  const rated = await html(request, "/search?rating=4.5");
+  expect(resultIds(rated)).toEqual(["briefcase"]);
+  const sorted = await html(request, "/search?sort=installs");
+  expect(resultIds(sorted)[0]).toBe("briefcase");
+  // Filtered views point search engines at the plain list and are not indexed themselves.
+  expectPageBasics(popular, { canonical: `${ORIGIN}/search`, indexed: false });
+  // The form submits empty and default values; the page answers with the tidy address.
+  const messy = await request.get("/search?q=&target=&visibility=all&added=&installs=&sort=", { maxRedirects: 0 });
+  expect(messy.status()).toBe(307);
+  expect(messy.headers().location).toBe("/search");
+});
+
 test("a search with no results says what to try", async ({ request }) => {
   const page = await html(request, "/search?q=zzzzqqqq");
   expect(resultIds(page)).toEqual([]);
@@ -59,6 +74,9 @@ test.describe("with JavaScript off", () => {
     await page.goto("/search");
     const form = page.getByRole("search", { name: "Search and filter apps" });
     await form.getByLabel("Search", { exact: true }).fill("notes");
+    // The additional filters wait behind a native disclosure, closed until one is set.
+    await expect(form.getByLabel("Platform")).toBeHidden();
+    await form.getByText("Filters").click();
     await form.getByLabel("Platform").selectOption("linux-x86_64");
     await form.getByRole("radio", { name: "Public" }).check();
     await form.getByRole("button", { name: "Show apps" }).click();
