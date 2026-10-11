@@ -144,3 +144,13 @@ SSM `e16f7f56-08c5-46b4-acf1-37475b77f85b`, backup `backups/20261011T150854Z.tar
 Live: `icon.svg` carries the dark-scheme rule; `/apps/hook` sizes its logo to the text; `/apps/briefcase` shows the
 signing line and no Signatures row; `/search` shows the filter row and the star picker opens and previews; no console
 errors; `/`, `/search`, `/apps/briefcase`, `/health` 200.
+
+## Store release 433c538: one page
+
+PR #13: search and the list are one page at `/` with every app in batches of 24 ("Show more apps" adds the next in
+place; `?page=N` = the first N batches); Get the CLI and For Silicons follow the list on the plain view; no visible app
+count; `/search?…` answers 308 to `/?…`. Store only; the archive carried the live API binary (`6240eac8…`).
+Archive `releases/433c538f3eed738fc7905e5f1d7259c69142a259.tar.gz`, SHA-256
+`99ee1c5016a45b6a90dfae611c148c16a4e2bbefa06b65bf241a4a545133e4d5`, S3 version `ZZVuNwzJGtcUQzUQRHt470B1OxjARgUi`.
+SSM `9e909f2a-ca68-45f8-84c5-a86122a19570`, backup `backups/20261011T153126Z.tar.gz`. CI green, e2e 36 passed. Live:
+`/`, `/?q=dm`, `/apps/dm`, `/health` 200; `/search?q=dm` 308 to `/?q=dm`.
