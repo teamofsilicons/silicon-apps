@@ -33,10 +33,10 @@
   --accent-foreground: #FFFFFF;
   --accent-ink: #1F5CB1;
 
-  --primary: #1E1E1C;
-  --primary-hover: #33322F;
-  --primary-pressed: #000000;
-  --primary-foreground: #FFFDF9;
+  --primary: #1F5CB1;
+  --primary-hover: #1A4F99;
+  --primary-pressed: #164383;
+  --primary-foreground: #FFFFFF;
 
   --control-on: #1F5CB1;
   --control-glyph: #FFFFFF;
