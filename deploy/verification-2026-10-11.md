@@ -97,3 +97,19 @@ SSM `c9f687eb-2952-4e8b-8b0e-a426d0735a4a`, backup `backups/20261011T134137Z.tar
 Live: `/search` 200 with Filters closed; `sort=installs` puts silicon-apps, silicon-accounts, briefcase first;
 `installs=10` gives silicon-accounts and silicon-apps; `released=week` 18 apps; an empty-valued address 307s to
 `/search`; `/search?tag=cli` still 308s to `/search?q=cli`; filtered views noindex with canonical `/search`.
+
+## Store release 90460e8: Arc filter toolbar, silicon-apps hover card, no font flash, no FAQ
+
+PR #9: search filters are Arc's filter toolbar (vendored from the Silicon UI registry), with the plain form kept for
+no script; `silicon-apps` in install commands opens Arc's hover card with the installer for the visitor's system and a
+toggle for the other (`@radix-ui/react-popover` 1.2.0 added); app pages warn when there is no package for the
+visitor's system; results dim while a filter change loads; `/` focuses search; the four first-paint fonts are
+preloaded with `font-display: block`; the FAQ section and its FAQPage data are gone; "Make a Silicon App" and "Add
+Silicon Accounts to your app". Store only; the archive carried the live API binary (`6240eac8…`).
+
+Archive `releases/90460e8eac85784a37c737de5173b75c66796954.tar.gz`, SHA-256
+`b244cad5b0c41957e2e6aa8ac3cd7c2cad7d21eb9fc4a4bad841646cefce94e5`, S3 version `ljNOCk97tmcD.Pm3qXVGgzlnD89ZwixJ`.
+SSM `001344a6-1218-4c07-82c0-d5574d077cf8`, backup `backups/20261011T140932Z.tar.gz`. Checks: CI green, e2e 35 passed
+(new tests for the hover card and the toolbar). Live: four font preloads in the home page, no FAQ, new wording, the
+hover card opens on `/apps/dm` with the installer, the toolbar and the no-script form both present on `/search`, no
+console errors; `/`, `/search`, `/apps/dm`, `/health`, `/sitemap.xml` 200.
