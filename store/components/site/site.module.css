@@ -49,11 +49,14 @@
 .brandMark svg { width: 22px; height: 22px; }
 .brandText { white-space: nowrap; }
 
-/* The navigation: one pill, as on teamofsilicons.com. */
+/* The navigation: one pill, as on teamofsilicons.com. ul.navList outranks base.css's ul[role="list"] padding reset,
+   so the current item keeps an even 4 px of the pill around it; its radius is the pill's minus that inset, so the
+   two curves stay concentric. */
 .nav { min-width: 0; margin-left: auto; }
-.navList {
+ul.navList {
   --sq-r: 11px;
   --sq-fill: color-mix(in oklab, var(--surface) 72%, transparent);
+  box-sizing: border-box;
   --sq-stroke: var(--border);
   display: flex;
   height: 38px;
@@ -67,7 +70,7 @@
   box-shadow: var(--shadow-raised);
 }
 .navLink {
-  --sq-r: 7px;
+  --sq-r: 8px;
   --sq-fill: transparent;
   position: relative;
   display: inline-flex;

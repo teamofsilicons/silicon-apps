@@ -19,7 +19,7 @@
   font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.25rem);
   font-weight: 400;
   letter-spacing: -.01em;
-  line-height: 1.06;
+  line-height: 1.18;
   text-wrap: balance;
 }
 .lede { margin: 0; color: var(--text-secondary); font-size: 1.0625rem; line-height: 1.6; text-wrap: pretty; }

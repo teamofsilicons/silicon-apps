@@ -7,7 +7,7 @@
 /* Hero ------------------------------------------------------------------------------------------------------------ */
 .hero { display: grid; gap: 20px; }
 .kicker { margin: 0; color: var(--text-muted); font-family: var(--font-pixel); font-size: .8125rem; letter-spacing: .03em; text-transform: uppercase; }
-.title { margin: 0; color: var(--accent-ink); font-family: var(--font-serif); font-size: clamp(2.375rem, 1.6rem + 3.4vw, 3.5rem); font-weight: 400; letter-spacing: -.01em; line-height: 1.06; text-wrap: balance; }
+.title { margin: 0; color: var(--accent-ink); font-family: var(--font-serif); font-size: clamp(2.375rem, 1.6rem + 3.4vw, 3.5rem); font-weight: 400; letter-spacing: -.01em; line-height: 1.2; text-wrap: balance; }
 .lede { max-width: 54ch; margin: 0 0 8px; color: var(--text-secondary); font-size: 1.125rem; line-height: 1.6; text-wrap: pretty; }
 
 /* The tags to try: plain underlined words, a little space between them. */
