@@ -83,3 +83,17 @@ offset`; agent card says tags are matched through q; `/health` ok (0.1.4), store
 
 Follow-up for the Carbon: `silicon-accounts/developer/llms/llms-full.md` (around line 1753) still lists `tags=` in the
 `/v1/apps` route; that file is Carbon-edited only.
+
+## Store release a14c5d1: search is just search, filters behind Filters
+
+PR #8: the search page shows only the search field; a native "Filters" disclosure (closed until one is set, with a
+count) holds platform, visibility, added, last release, minimum installs, minimum rating and sort. Sort goes to the
+API; the rest narrow its results in the store. The page redirects the form's address to its tidy form; filtered views
+are noindex with `/search` as canonical. Store only; the archive carried the live API binary (`6240eac8…`).
+
+Archive `releases/a14c5d1a14c7a6e82174d52e0f8c69b670de0467.tar.gz`, SHA-256
+`4a6b802bba65497bbffdafef95ed78c6f467f27980ed5f07b0f17a7e2c91bbff`, S3 version `8cw9gGOO.op87UgjM9ssYKyGCh6VuZNl`.
+SSM `c9f687eb-2952-4e8b-8b0e-a426d0735a4a`, backup `backups/20261011T134137Z.tar.gz`. Checks: CI green, e2e 33 passed.
+Live: `/search` 200 with Filters closed; `sort=installs` puts silicon-apps, silicon-accounts, briefcase first;
+`installs=10` gives silicon-accounts and silicon-apps; `released=week` 18 apps; an empty-valued address 307s to
+`/search`; `/search?tag=cli` still 308s to `/search?q=cli`; filtered views noindex with canonical `/search`.
