@@ -1,7 +1,8 @@
 /**
  * The Silicon Apps mark: seven hexagons, one in the middle and six around it. The header draws the bare glyph in ink
- * beside the wordmark, as Silicon Writings does; BrandMark is the app icon (cream hexagons on #181818), the same
- * drawing as public/icon.svg and the PNG icons. Plain SVG, server-rendered.
+ * beside the wordmark, as Silicon Writings does; BrandMark is the app icon in its light colours (#181818 hexagons on
+ * cream #EDE8E0), as the PNG icons draw it. public/icon.svg is the same drawing and swaps to cream on #181818 when the
+ * browser is dark. Plain SVG, server-rendered.
  */
 const HEXAGONS = [
   "M77 100L88.5 80.0814H111.5L123 100L111.5 119.919H88.5L77 100Z",
@@ -22,12 +23,12 @@ export function BrandGlyph() {
   );
 }
 
-/** The app icon: the hexagons in cream on a #181818 square. */
+/** The app icon in its light colours: #181818 hexagons on a cream square. */
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 200 200" aria-hidden="true" focusable="false">
-      <rect width="200" height="200" fill="#181818" />
-      {HEXAGONS.map(d => <path key={d} d={d} fill="#EDE8E0" />)}
+      <rect width="200" height="200" fill="#EDE8E0" />
+      {HEXAGONS.map(d => <path key={d} d={d} fill="#181818" />)}
     </svg>
   );
 }
