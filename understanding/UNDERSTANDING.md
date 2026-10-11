@@ -278,7 +278,7 @@ There are two kinds of docs: instructive and informative. Instructive docs come 
 
 # Telemetry
 
-Use Space Station for telemetry. It's opted in by default and can be opted out of from settings. Push context-rich, self-contained events with the source, step and progress in each one.
+Silicon Apps records no telemetry.
 
 # Configurability
 
