@@ -12,7 +12,7 @@ import { Rich } from "@/components/store/rich";
 import { SearchBox } from "@/components/store/search-form";
 import { Action } from "@/components/site/action";
 import { CodeBlock } from "@/components/site/code-block";
-import { listAll, tagCounts } from "@/lib/catalog";
+import { listAll } from "@/lib/catalog";
 import { FAQ, plainAnswer } from "@/lib/content";
 import { faqLd, itemListLd, pageMetadata } from "@/lib/seo";
 import { CANONICAL_ORIGIN, INSTALL_UNIX, INSTALL_WINDOWS, LINKS, SITE_DESCRIPTION } from "@/lib/site";
@@ -38,7 +38,6 @@ export default async function Home() {
     failed = true;
   }
   const shown = ranked(apps).slice(0, SHOWN);
-  const tags = tagCounts(apps);
 
   return (
     <div className={styles.page}>
@@ -58,24 +57,11 @@ export default async function Home() {
           command installs it, and it keeps itself up to date.
         </p>
         <SearchBox id="hero-q" />
-        {tags.length ? (
-          <div className={styles.tags}>
-            <span className={styles.tagsLabel}>Try</span>
-            <ul role="list" aria-label="Popular tags">
-              {tags.slice(0, 5).map(({ tag }) => (
-                <li key={tag}><a href={`/search?tag=${encodeURIComponent(tag)}`}>{tag}</a></li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
       </header>
 
       <section className={styles.section} aria-labelledby="apps-title">
         <div className={styles.head}>
           <h2 id="apps-title" className={styles.heading}>Apps</h2>
-          {apps.length > SHOWN ? (
-            <a className={styles.more} href="/search">All {apps.length}<ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" /></a>
-          ) : null}
         </div>
         {failed ? (
           <Notice tone="danger" title="The catalog is not answering right now">
@@ -86,7 +72,12 @@ export default async function Home() {
             <p>Apps show up here the moment their authors publish them.</p>
           </EmptyState>
         ) : (
-          <AppList apps={shown} label="Apps" />
+          <>
+            <AppList apps={shown} label="Apps" />
+            <div>
+              <Action href="/search" variant="secondary">View all {apps.length} apps<ArrowRight size={15} strokeWidth={1.75} aria-hidden="true" /></Action>
+            </div>
+          </>
         )}
       </section>
 

@@ -4,7 +4,7 @@ import { expectPageBasics, html, jsonLd, mainText, typesOf } from "./helpers";
 
 const ORIGIN = "https://apps.teamofsilicons.com";
 
-test("the home page is server-rendered with what Silicon Apps is, search, featured, popular, new and tags", async ({ request }) => {
+test("the home page is server-rendered with what Silicon Apps is, search, the apps and the questions", async ({ request }) => {
   const page = await html(request, "/");
   // Next writes the root's canonical address without its trailing slash; both name the same page.
   const meta = expectPageBasics(page, { canonical: ORIGIN });
@@ -21,7 +21,9 @@ test("the home page is server-rendered with what Silicon Apps is, search, featur
   const searchForm = (page.match(/<form [^>]*>/g) ?? []).find(tag => tag.includes('role="search"'));
   expect(searchForm).toContain('action="/search"');
   expect(searchForm).toContain('method="get"');
-  expect(page).toContain('href="/search?tag=productivity"');
+  // Tags are never links or filters; the list ends with a way to every app.
+  expect(page).not.toContain("/search?tag=");
+  expect(text).toContain("View all 9 apps");
   // "Make an app" and "Add sign-in" point to the developer portal.
   expect(page).toContain('href="https://developers.teamofsilicons.com/docs/apps"');
   expect(page).toContain('href="https://developers.teamofsilicons.com/docs/accounts"');
@@ -35,7 +37,7 @@ test("the home page is server-rendered with what Silicon Apps is, search, featur
 test.describe("with JavaScript off", () => {
   test.use({ javaScriptEnabled: false });
 
-  test("the home page works and its search and tags are plain links and forms", async ({ page }) => {
+  test("the home page works and its search is a plain form", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Apps for Carbons and Silicons" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Apps" })).toBeVisible();
@@ -44,9 +46,9 @@ test.describe("with JavaScript off", () => {
     await expect(page).toHaveURL(/\/search\?q=briefcase$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Apps matching “briefcase”");
     await page.goto("/");
-    await page.getByRole("list", { name: "Popular tags" }).getByRole("link", { name: "productivity" }).click();
-    await expect(page).toHaveURL(/\/search\?tag=productivity$/);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Apps tagged productivity");
+    await page.getByRole("link", { name: /View all 9 apps/ }).click();
+    await expect(page).toHaveURL(/\/search$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Apps");
   });
 
   test("an app card opens the app's page", async ({ page }) => {
@@ -100,7 +102,7 @@ test("unknown pages answer 404 with a way back", async ({ request }) => {
 test("no page scrolls sideways at 320 pixels", async ({ browser, baseURL }) => {
   const context = await browser.newContext({ viewport: { width: 320, height: 800 }, baseURL });
   const page = await context.newPage();
-  for (const path of ["/", "/search", "/search?tag=productivity", "/apps/briefcase", "/apps/orbit", "/authors/shubham", "/settings", "/search?visibility=private"]) {
+  for (const path of ["/", "/search", "/search?q=productivity", "/apps/briefcase", "/apps/orbit", "/authors/shubham", "/settings", "/search?visibility=private"]) {
     await page.goto(path);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, path).toBe(0);

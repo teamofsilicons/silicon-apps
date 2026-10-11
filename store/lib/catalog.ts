@@ -1,7 +1,8 @@
 /**
  * Catalog reads built on the API's search (`GET /v1/apps`): it already ranks exact ids and names first, then prefixes,
- * substrings and typo matches, and only returns apps the visitor may see. Tag and platform filters are applied here,
- * on top of that ranking, because the API has no parameters for them.
+ * substrings and typo matches, and only returns apps the visitor may see. Tags are matched through the query text
+ * (the API searches ids, names, descriptions and tags); they are never a filter of their own. The platform filter is
+ * applied here, on top of that ranking.
  */
 import { api } from "./api";
 import { TARGETS } from "./format";
@@ -14,7 +15,6 @@ export type Visibility = "all" | "public" | "private";
 
 export type SearchInput = {
   q: string;
-  tag: string;
   target: string;
   visibility: Visibility;
   page: number;
@@ -57,7 +57,6 @@ export function parseSearch(params: Record<string, string | string[] | undefined
   const page = Math.floor(Number(one("page")) || 1);
   return {
     q: one("q").slice(0, 200),
-    tag: one("tag").toLowerCase().slice(0, 60),
     target: (TARGETS as readonly string[]).includes(target) ? target : "",
     visibility: visibility === "public" || visibility === "private" ? visibility : "all",
     page: Math.min(Math.max(page, 1), 1000),
@@ -66,15 +65,11 @@ export function parseSearch(params: Record<string, string | string[] | undefined
 
 export async function search(input: SearchInput): Promise<SearchResult> {
   const offset = (input.page - 1) * PAGE_SIZE;
-  if (!input.tag && !input.target) {
+  if (!input.target) {
     const result = await listPage(input.q, input.visibility, PAGE_SIZE, offset);
     return { items: result.items, total: result.total, page: input.page, pages: Math.max(1, Math.ceil(result.total / PAGE_SIZE)) };
   }
-  const matching = (await listAll(input.q, input.visibility)).filter(
-    (app) =>
-      (!input.tag || app.tags.some((tag) => tag.toLowerCase() === input.tag)) &&
-      (!input.target || app.targets.includes(input.target)),
-  );
+  const matching = (await listAll(input.q, input.visibility)).filter((app) => app.targets.includes(input.target));
   return {
     items: matching.slice(offset, offset + PAGE_SIZE),
     total: matching.length,
@@ -83,11 +78,6 @@ export async function search(input: SearchInput): Promise<SearchResult> {
   };
 }
 
-export function tagCounts(apps: App[]): { tag: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const app of apps) for (const tag of new Set(app.tags.map((t) => t.toLowerCase().trim()).filter(Boolean))) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-  return [...counts.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-}
 
 /** A Bayesian average, so one five-star review does not outrank fifty four-star ones. */
 function score(app: App): number {

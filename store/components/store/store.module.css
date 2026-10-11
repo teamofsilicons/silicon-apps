@@ -100,6 +100,8 @@ img.logo { border: 1px solid var(--border-subtle); }
 }
 .chip:hover, .chip:focus-visible { --sq-fill: var(--surface-muted); --sq-stroke: var(--border-strong); color: var(--foreground); }
 .chip[aria-current] { --sq-fill: var(--surface-pressed); --sq-stroke: var(--border-strong); color: var(--foreground); }
+/* An app's tags: plain words in the pixel face, not links. */
+.tag { color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; letter-spacing: .02em; }
 .chipCount { color: var(--text-muted); font-family: var(--font-pixel); font-size: .6875rem; font-variant-numeric: tabular-nums; }
 
 /* App rows: the one way apps are listed (components/store/app-card.tsx) ------------------------------------------ */
@@ -263,8 +265,7 @@ a.pageLink:hover, a.pageLink:focus-visible { --sq-fill: var(--surface-muted); co
 /* The search page's filters: one form, the field on top and the filters in a row under it. */
 /* On paper, between two hairlines, like the filter row on Writings: no box around it. */
 .filters { --sq-r: 0; --sq-fill: transparent; --sq-stroke: transparent; display: grid; gap: var(--space-4); border-block: 1px solid var(--border); padding: var(--space-5) 0; background: transparent; }
-.filterRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: var(--space-4); }
-.filterRow > .filterSubmit { justify-self: end; }
+.filterRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: var(--space-4); }
 .filterSubmit { min-width: 120px; }
 
 /* Segmented control: Arc's segmented control as radio buttons. */
