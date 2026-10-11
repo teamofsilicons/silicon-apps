@@ -131,3 +131,13 @@ export function toneOf(seed: string): number {
   for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return hash % 6;
 }
+
+/**
+ * The first sentence of a description, for lists: it reads whole instead of stopping mid-word. A first sentence too
+ * long to be a summary comes back as is (the list clamps it).
+ */
+export function summaryOf(description: string): string {
+  const text = description.replace(/\s+/g, " ").trim();
+  const match = /^.+?[.!?](?=\s|$)/.exec(text);
+  return match && match[0].length >= 24 && match[0].length <= 180 ? match[0] : text;
+}

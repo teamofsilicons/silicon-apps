@@ -1,95 +1,37 @@
 /**
- * The store's footer (server-rendered), in the quiet style of Silicon Writings: the wordmark and one line about the
- * store, then four short columns (the store, where to build, everything a Silicon can read or call here, the rest of
- * the ecosystem), and a last line with the copyright in the pixel face and the theme choice (System, Light, Dark).
+ * The store's footer (server-rendered), one quiet line as on Silicon Writings: the copyright in the pixel face, a few
+ * links (making an app, what a Silicon can read here, the code and the service status), and the theme choice (System,
+ * Light, Dark).
  */
-import { ArrowUpRight } from "lucide-react";
 import { LINKS } from "@/lib/site";
-import { BrandGlyph } from "./brand";
 import { ThemePicker } from "./theme-controls";
 import styles from "./site.module.css";
 
-const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string; external?: boolean }> }> = [
-  {
-    title: "Store",
-    links: [
-      { href: "/", label: "Home" },
-      { href: "/search", label: "Every app" },
-      { href: "/search?visibility=private", label: "Private apps" },
-      { href: "/#get-the-cli", label: "Get the CLI" },
-      { href: "/settings", label: "Settings" },
-    ],
-  },
-  {
-    title: "Build",
-    links: [
-      { href: LINKS.appsDocs, label: "Make an app", external: true },
-      { href: LINKS.accountsDocs, label: "Add sign-in", external: true },
-      { href: LINKS.developers, label: "Silicon Developer", external: true },
-    ],
-  },
-  {
-    title: "For Silicons",
-    links: [
-      { href: "/llms.txt", label: "llms.txt" },
-      { href: "/llms-full.txt", label: "llms-full.txt" },
-      { href: "/openapi.json", label: "OpenAPI" },
-      { href: "/.well-known/agent.json", label: "Agent card" },
-    ],
-  },
-  {
-    title: "Ecosystem",
-    links: [
-      { href: LINKS.accounts, label: "Silicon Accounts", external: true },
-      { href: LINKS.teamOfSilicons, label: "Team of Silicons", external: true },
-      { href: LINKS.status, label: "Status", external: true },
-      { href: LINKS.appsGithub, label: "Apps on GitHub", external: true },
-    ],
-  },
+const LINKS_ROW: Array<{ href: string; label: string; external?: boolean }> = [
+  { href: LINKS.appsDocs, label: "Make an app", external: true },
+  { href: LINKS.accountsDocs, label: "Add sign-in", external: true },
+  { href: "/llms.txt", label: "llms.txt" },
+  { href: "/openapi.json", label: "API" },
+  { href: "/settings", label: "Settings" },
+  { href: LINKS.status, label: "Status", external: true },
+  { href: LINKS.appsGithub, label: "GitHub", external: true },
 ];
 
 export function SiteFooter() {
   return (
     <footer className={styles.footer}>
       <div className={styles.footerInner}>
-        <div className={styles.footerTop}>
-          <div className={styles.footerIntro}>
-            <a href="/" className={styles.footerBrand}>
-              <span className={styles.brandMark} aria-hidden="true"><BrandGlyph /></span>
-              <span>Silicon Apps</span>
-            </a>
-            <p className={styles.tagline}>
-              The app store of the Silicon ecosystem. Every app is made for Carbons and Silicons, installs with one command
-              and keeps itself up to date.
-            </p>
-          </div>
-          <nav className={`${styles.columns} ${styles.columnsFour}`} aria-label="Footer">
-            {COLUMNS.map(column => (
-              <section key={column.title} className={styles.column} aria-labelledby={`footer-${column.title.toLowerCase().replace(/\s+/g, "-")}`}>
-                <h2 id={`footer-${column.title.toLowerCase().replace(/\s+/g, "-")}`}>{column.title}</h2>
-                <ul role="list">
-                  {column.links.map(link => (
-                    <li key={link.href}>
-                      <a href={link.href} className={styles.footerLink} target={link.external ? "_blank" : undefined} rel={link.external ? "noopener noreferrer" : undefined}>
-                        {link.label}
-                        {link.external ? <ArrowUpRight size={13} strokeWidth={1.75} aria-hidden="true" className={styles.externalIcon} /> : null}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+        <p className={styles.copyright}>© {new Date().getFullYear()} Team of Silicons</p>
+        <nav aria-label="Footer">
+          <ul role="list" className={styles.footerLinks}>
+            {LINKS_ROW.map(link => (
+              <li key={link.href}>
+                <a href={link.href} className={styles.footerLink} target={link.external ? "_blank" : undefined} rel={link.external ? "noopener noreferrer" : undefined}>{link.label}</a>
+              </li>
             ))}
-          </nav>
-        </div>
-        <div className={styles.footerBottom}>
-          <p className={styles.copyright}>
-            <span className={styles.copyrightMark}>© {new Date().getFullYear()} Team of Silicons</span>
-            <span>
-              Open source under the MIT license, so we have nothing to hide: <a href={LINKS.appsGithub} target="_blank" rel="noopener noreferrer">read the code on GitHub</a>.
-            </span>
-          </p>
-          <ThemePicker />
-        </div>
+          </ul>
+        </nav>
+        <ThemePicker />
       </div>
     </footer>
   );

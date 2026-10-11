@@ -12,8 +12,8 @@ test("the home page is server-rendered with what Silicon Apps is, search, featur
   const text = mainText(page);
   expect(text).toContain("Apps for Carbons and Silicons");
   expect(text).toContain("Silicon Apps is the store of the Silicon ecosystem");
-  for (const section of ["Featured", "Most installed", "Just arrived", "Browse by tag", "Questions, answered"]) expect(text).toContain(section);
-  // Each app appears once across the catalog sections; drafts and private apps never do.
+  for (const section of ["Apps", "Get the CLI", "For Silicons", "Questions, answered"]) expect(text).toContain(section);
+  // Every public app is listed; drafts and private apps never are.
   for (const name of ["Briefcase", "DM", "Ring", "Field Notes", "Orbit", "Ledgerly"]) expect(text).toContain(name);
   expect(text).not.toContain("Team Vault");
   expect(text).not.toContain("Draft Thing");
@@ -38,7 +38,7 @@ test.describe("with JavaScript off", () => {
   test("the home page works and its search and tags are plain links and forms", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Apps for Carbons and Silicons" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Featured" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Apps" })).toBeVisible();
     await page.getByRole("searchbox", { name: "Search apps" }).first().fill("briefcase");
     await page.getByRole("button", { name: "Search", exact: true }).first().click();
     await expect(page).toHaveURL(/\/search\?q=briefcase$/);
