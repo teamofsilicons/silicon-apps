@@ -47,3 +47,39 @@ Install: SSM `ea0b3a7e-3d08-4994-ac6f-055ea0ceafb2` checked the archive (`OK`) b
 
 Public checks: `/`, `/search`, `/apps/silicon-apps`, its `og.png`, `/health`, `/llms.txt`, `/robots.txt`,
 `/sitemap.xml`, `/.well-known/silicon-apps-keys.json` and the serif font 200; `/developer` 308. No console errors.
+
+## Store release 5fa09f5: polish, light only, no tag filters
+
+PR #6: looser serif titles, the nav pill's padding restored (base.css's `ul[role="list"]` reset had removed it),
+light only (`lib/boot.ts` pins `data-theme="light"`; the theme switch and Settings appearance are gone), author photos
+by the byline, a View all apps button ending the home list, and tags no longer links or filters (`/search?tag=x`
+answers 308 to `/search?q=x`; tag pages left the sitemap). Store only; the archive carried the live API binary
+(`27dbdc6f…`).
+
+Archive `releases/5fa09f54368837711f9084a4505f3d792487d6ff.tar.gz`, SHA-256
+`452bb29bbe6bc401a240b690b3967044e859936559824a8b6e480670411f104e`, S3 version `NmDsqwIHwg9qhFDl8oKJ10aiiL03gzg6`.
+SSM `c526ed46-9a38-43a5-88c0-446eab9821e1`, backup `backups/20261011T131625Z.tar.gz`. Checks: CI green, e2e 32 passed;
+live `/`, `/search`, `/apps/briefcase`, `/settings`, `/sitemap.xml` 200, `/search?tag=cli` 308 to `/search?q=cli`,
+no `search?tag=` links and no tag entries in the sitemap, the boot script pins light.
+
+## API release 0861354: tags are never a search filter
+
+PR #7: `GET /v1/apps` drops `tags`; tag words are matched through `q`, and a request that still sends `tags` gets
+`400 invalid_input` with `details {"field":"tags","use":"q"}`. Agent card, capabilities and OpenAPI updated;
+UNDERSTANDING.md edited at the Carbon's request. No migration.
+
+API binary: the CI artifact of `9f0cd51` (run 38142896295, SHA-256
+`6240eac88346bd9d331e69212aab35920c6110907821ac6b4955ec5255283ac2`; the merge commit's crates are identical). Archive
+`releases/08613547eb955bc339f984eefbafaf76ce6d8337.tar.gz`, SHA-256
+`9b6d8c756dbeb8acb6ab8094e219129015563c600e1e626ff12612699c4943cf`, S3 version `un2azpg9CIQoCXDuuISvFHaRj9ndLZPp`.
+Checks: CI green (including the ARM64 build), `cargo test -p silicon-apps-server`, store e2e 32 passed against the new
+binary.
+
+Install: SSM `f2696b2c-e014-4a9e-9c93-d7fdd3d5ed24` checked the archive (`OK`), uploaded
+`backups/20261011T132920Z.tar.gz`, switched `current` to `releases/0861354…` (previous `5fa09f5` retained), recorded
+`deployment.json`; API, store and Caddy active. Live: `/v1/apps?tags=cli` 400 with the message pointing to `q`;
+`/v1/apps?q=cli` 15 results; typo `q=productivty` 8 results; OpenAPI parameters `q,target,visibility,mine,sort,limit,
+offset`; agent card says tags are matched through q; `/health` ok (0.1.4), store pages and signing keys 200.
+
+Follow-up for the Carbon: `silicon-accounts/developer/llms/llms-full.md` (around line 1753) still lists `tags=` in the
+`/v1/apps` route; that file is Carbon-edited only.
