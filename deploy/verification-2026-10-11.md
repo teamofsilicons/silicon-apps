@@ -113,3 +113,18 @@ SSM `001344a6-1218-4c07-82c0-d5574d077cf8`, backup `backups/20261011T140932Z.tar
 (new tests for the hover card and the toolbar). Live: four font preloads in the home page, no FAQ, new wording, the
 hover card opens on `/apps/dm` with the installer, the toolbar and the no-script form both present on `/search`, no
 console errors; `/`, `/search`, `/apps/dm`, `/health`, `/sitemap.xml` 200.
+
+## Store release 4f01f1c: the seven-hexagon mark
+
+PR #10: the Carbon's new mark replaces the four-tile glyph in the header, `icon.svg`, `favicon.ico`, the PNG and
+maskable icons, `og.png` and the per-app Open Graph images. Store only; the archive carried the live API binary
+(`6240eac8…`).
+
+Archive `releases/4f01f1cf2bbecf5105483681aaf683a0ffe7df7a.tar.gz`, SHA-256
+`32c26fda7cb435d2ebb47448be0747f5774e67ee58776ac3d7ee6bb966818774`, S3 version `ml3Igh1RTINRASwvASiHMzsKpS6qhGd1`.
+SSM `2ac1d663-f7fa-47e4-8b34-6ba5ca6f0d89`, backup `backups/20261011T142919Z.tar.gz`. Checks: CI green, e2e 35 passed.
+Live: `icon.svg`, `favicon.ico`, `icon-192.png`, `apple-touch-icon.png` and `og.png` byte-identical to the repository;
+the header draws the new glyph; `/apps/dm/og.png` renders with the new mark.
+
+Same day, Accounts `38fab27` took the tag filter out of the developer site's `llms-full.txt` and Apps API reference
+(silicon-accounts deploy/verification-2026-10-11.md).
