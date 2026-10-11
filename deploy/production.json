@@ -12,10 +12,10 @@
   "DeveloperUrl": "https://developers.teamofsilicons.com",
   "AccountsDeveloperUrl": "https://developers.teamofsilicons.com",
   "Runtime": "native-systemd",
-  "ApiSourceRevision": "94c2a403d2600584d901308f90dde59436ee9f1c",
-  "ApiArchiveSha256": "166db9338759e793fc8d22decf32ed2aaedaa860722fceaa5154fdac763f9008",
-  "ApiBinarySha256": "6240eac88346bd9d331e69212aab35920c6110907821ac6b4955ec5255283ac2",
-  "ApiVersion": "0.1.2",
+  "ApiSourceRevision": "9332344aed5b2f4fd45e0d93d308964c45e28969",
+  "ApiArchiveSha256": "f85721370d7ff871b574d25f12ac1ba683b7af238e142bc43adbd5ebbe5713b8",
+  "ApiBinarySha256": "fe61aba873a024c968ae17d197775981d40fa2fe3177c455f3ac5ed155c13404",
+  "ApiVersion": "0.2.0",
   "WorkerSourceRevision": "1d92c9a659420d4754e8f8b5de71ae16cc74a69e",
   "PreviousWorkerSourceRevision": "b2a3db8e575701575dfc283ba8bab0ed51a1cb60",
   "WorkerArchiveKey": "releases/1d92c9a659420d4754e8f8b5de71ae16cc74a69e.tar.gz",
@@ -95,7 +95,7 @@
   ],
   "OwnerPublicId": "c:saket",
   "OwnerAccountsUuid": "zQo",
-  "CliCatalogVersion": "0.2.0",
+  "CliCatalogVersion": "0.3.0",
   "CliCatalogTargets": [
     "linux-aarch64",
     "linux-armv7hf",
@@ -108,7 +108,7 @@
     "windows-x86_64"
   ],
   "CliGithubTargets": 9,
-  "CliCatalogProductionReleaseId": "e199fcca-acb4-53b3-a282-cbc66e66baae",
+  "CliCatalogProductionReleaseId": "45894356-2a99-5f94-9e42-aab37b7decf5",
   "CliLoginVerified": true,
   "BrowserLoginVerified": true,
   "BackupRestoreVerified": true,
@@ -124,8 +124,8 @@
     "https://developer.teamofsilicons.com",
     "https://developer.accounts.teamofsilicons.com"
   ],
-  "CliSourceRevision": "1f6c4c935d7e51880f6681f9498f1d11899ce6eb",
-  "ClientCrateVersion": "0.2.0",
+  "CliSourceRevision": "9332344aed5b2f4fd45e0d93d308964c45e28969",
+  "ClientCrateVersion": "0.3.0",
   "PackageCrateVersion": "0.2.0",
   "RestoredPackageObjects": 2,
   "StoreBrowserTests": 25,
@@ -157,16 +157,16 @@
   "SharedDocsPages": 52,
   "SharedDocsPublicHttpVerified": true,
   "SharedDocsPublicBrowserVerified": true,
-  "InstallCommandId": "172be4f5-0f66-4fe6-9d71-eb7aeea03c3c",
+  "InstallCommandId": "a78bc1fe-b16c-403b-a384-a3c1a5f52355",
   "VerificationCommandId": "a0ed68f6-9123-41fa-8d17-508f65406204",
   "LatestBackupKey": "backups/20261009T212315Z.tar.gz",
   "CliCommand": "silicon-apps",
-  "CliGithubVersion": "0.2.0",
+  "CliGithubVersion": "0.3.0",
   "CatalogInstallVerificationCommandId": "c41ad415-9b82-41dc-b40c-ac6d14c79d0c",
   "InstallScriptsAutomatic": true,
   "InstallScriptPermissionSettingRemoved": true,
   "DefaultDocsLogin": "silicon-apps login --slt TOKEN",
-  "CliNativeBuildRun": 37901917804,
+  "CliNativeBuildRun": 38177247302,
   "CliCiRun": 37901900629,
   "CliPathAndReinstallVerified": true,
   "CliGracefulStopRestartVerified": true,
@@ -181,7 +181,7 @@
   ],
   "FirstPartyPublicationCommandId": "fadb6b81-854c-4589-aff8-a1fa07964f9d",
   "FirstPartyPrePublicationBackupKey": "backups/20261009T100153Z.tar.gz",
-  "AccountsCliCatalogVersion": "0.4.0",
+  "AccountsCliCatalogVersion": "0.6.0",
   "AccountsCliCatalogTargets": [
     "linux-aarch64",
     "linux-armv7hf",
@@ -193,8 +193,8 @@
     "windows-i686",
     "windows-x86_64"
   ],
-  "AccountsCliCatalogProductionReleaseId": "8a3489a1-e8fd-571c-9625-d4003d10749e",
-  "AccountsCliNativeBuildRun": 37899202356,
+  "AccountsCliCatalogProductionReleaseId": "98c359ba-55b5-5f87-b9f7-93d7d5902806",
+  "AccountsCliNativeBuildRun": 38177249577,
   "CliCatalogPackages": [
     {
       "id": "20110eb6-2d6e-58e1-81eb-d686f908a0ac",
@@ -325,11 +325,11 @@
     "checked_at": "2026-10-08T23:46:25.576Z"
   },
   "StoreAuthorProfileServerTests": 30,
-  "ApiArchiveSize": 80449182,
+  "ApiArchiveSize": 96673117,
   "ApiArchiveFiles": 1419,
   "ApiArchiveSymlinks": 28,
-  "PreviousApiSourceRevision": "ce17f5729c67a21f042bc8f6d11c17ca5c8f9404",
-  "PreviousApiArchiveSha256": "a91d9c6b4a388371f13eb3c65baf06a6fc0a86bde8a8accd1735b6c089e2d261",
+  "PreviousApiSourceRevision": "94c2a403d2600584d901308f90dde59436ee9f1c",
+  "PreviousApiArchiveSha256": "166db9338759e793fc8d22decf32ed2aaedaa860722fceaa5154fdac763f9008",
   "ApiMigrations": [
     "001_catalog",
     "002_events",
@@ -342,7 +342,7 @@
   "StoreUser": "silicon-apps-store",
   "StoreFramework": "Next.js 16.3.8",
   "StoreNodeVersion": "24.21.0",
-  "StoreBuildId": "94Vd_nNcw0f7IuUaMGdsy",
+  "StoreBuildId": "1Qh2-Nntaqd33V3zV8qE8",
   "StoreBuild": "built",
   "SigningKeyId": "apps-2026-10",
   "SigningPublicKey": "5WC06dtS61w+mPv3E0xNVz5ZoNQNMpX5/8YutuLZ3DU=",
@@ -356,7 +356,7 @@
   "PreDeployBackupKey": "backups/20261009T212212Z.tar.gz",
   "PreDeployBackupSize": 180227569,
   "PreDeployBackupVersionId": "qIy0U2_p29SoHqdc_iH497LQ1LwFH9M4",
-  "InstallerBackupKey": "backups/20261009T212315Z.tar.gz",
+  "InstallerBackupKey": "backups/20261011T213201Z.tar.gz",
   "ReleasedCliCompatibility": {
     "cli": "0.1.10",
     "installer": "https://apps.teamofsilicons.com/install.sh",
@@ -379,8 +379,8 @@
     "1b762e7b-69ee-48a0-8ef8-d4b1d885f4b3"
   ],
   "PreSigningBackupKey": "backups/20261009T070318Z.tar.gz",
-  "ApiArchiveKey": "releases/ce17f5729c67a21f042bc8f6d11c17ca5c8f9404.tar.gz",
-  "ApiArchiveVersionId": "E_FjE3NvJyY54vzw7jlqoUj5HIiRN47T",
+  "ApiArchiveKey": "releases/9332344aed5b2f4fd45e0d93d308964c45e28969.tar.gz",
+  "ApiArchiveVersionId": "81f7kDSQ9NPTlEx7tO5pzQ_aWqgRAiyF",
   "StoreWebMcp": false,
   "StoreWebMcpRemovedRevision": "606a30c",
   "StoreWebMcpPublicScan": {
@@ -410,7 +410,7 @@
     "mit_wording": true,
     "home_faq_open_source": true
   },
-  "PreviousApiBinarySha256": "6d26a415926a6090e221478b9e3ceb6146d2b95b8f921e6e2a860fc8f7aaf55f",
+  "PreviousApiBinarySha256": "6240eac88346bd9d331e69212aab35920c6110907821ac6b4955ec5255283ac2",
   "McpServer": false,
   "McpRemovedRevision": "ce17f57",
   "McpRemovalPublicCheck": {
@@ -429,5 +429,6 @@
     "robots_mcp_lines": 0,
     "require_mcp": 422
   },
-  "InstallerBackupVersionId": "1A933h1c7aQRUnopJm5VKxPj7WjUONxN"
+  "InstallerBackupVersionId": "1A933h1c7aQRUnopJm5VKxPj7WjUONxN",
+  "Telemetry": "none"
 }
