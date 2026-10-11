@@ -1,5 +1,5 @@
 /**
- * Search, as plain GET forms to /search: they work with no script, and every result page has its own URL. The field
+ * Search, as plain GET forms to the home page (/): they work with no script, and every result page has its own URL. The field
  * is Arc's search field; the additional filters are native selects and a segmented control behind a disclosure.
  */
 import { Search, SlidersHorizontal } from "lucide-react";
@@ -12,7 +12,7 @@ import { styles } from "./parts";
 
 export function SearchBox({ q = "", large = false, id = "search-q", label = "Search apps" }: { q?: string; large?: boolean; id?: string; label?: string }) {
   return (
-    <form className={`${styles.search} ${large ? styles.searchLarge : ""}`} method="get" action="/search" role="search" aria-label={label}>
+    <form className={`${styles.search} ${large ? styles.searchLarge : ""}`} method="get" action="/" role="search" aria-label={label}>
       <label htmlFor={id} className="sr-only">{label}</label>
       <div className={styles.searchShell} data-sq="surface">
         <Search size={large ? 20 : 18} strokeWidth={1.75} aria-hidden="true" />
@@ -56,8 +56,8 @@ export function SearchFilters({ input }: { input: SearchInput }) {
     </div>
   );
   return (
-    <form className={styles.filters} method="get" action="/search" role="search" aria-label="Search and filter apps">
-      <label htmlFor="filter-q" className="sr-only">Search</label>
+    <form className={styles.filters} method="get" action="/" role="search" aria-label="Search and filter apps">
+      <label htmlFor="filter-q" className="sr-only">Search apps</label>
       <div className={styles.searchShell} data-sq="surface">
         <Search size={18} strokeWidth={1.75} aria-hidden="true" />
         <input id="filter-q" name="q" type="search" className={styles.searchInput} defaultValue={input.q} placeholder="Search apps" autoComplete="off" spellCheck={false} enterKeyHint="search" maxLength={200} aria-keyshortcuts="/" />
@@ -91,7 +91,7 @@ export function SearchFilters({ input }: { input: SearchInput }) {
             </div>
           </fieldset>
           <div className={`${styles.moreActions} ${styles.moreWide}`}>
-            {active ? <a href={input.q ? `/search?q=${encodeURIComponent(input.q)}` : "/search"} className={styles.clear}>Clear filters</a> : null}
+            {active ? <a href={input.q ? `/?q=${encodeURIComponent(input.q)}` : "/"} className={styles.clear}>Clear filters</a> : null}
             <button type="submit" className={`${buttonStyles.button} ${buttonStyles.secondary} ${buttonStyles.md}`}>Show apps</button>
           </div>
         </div>

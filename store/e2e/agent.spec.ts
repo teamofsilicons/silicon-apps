@@ -25,7 +25,7 @@ test("sitemap.xml lists the home page, every public app and their authors, with 
   const body = await response.text();
   expect(body.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
   const locations = [...body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
-  for (const path of ["/", "/search", "/apps/briefcase", "/apps/dm", "/apps/orbit", "/authors/shubham", "/authors/head_of_growth", "/llms.txt"]) {
+  for (const path of ["/", "/apps/briefcase", "/apps/dm", "/apps/orbit", "/authors/shubham", "/authors/head_of_growth", "/llms.txt"]) {
     expect(locations).toContain(path === "/" ? `${ORIGIN}/` : `${ORIGIN}${path}`);
   }
   expect(body).not.toContain("team-vault");
@@ -69,7 +69,7 @@ test("the API's own paths reach the Apps API (Caddy's job in production)", async
 });
 
 test("pages register no tools in the browser: no modelContext script, and nothing registers when it is offered", async ({ page, request }) => {
-  for (const path of ["/", "/search", "/apps/briefcase"]) {
+  for (const path of ["/", "/?q=notes", "/apps/briefcase"]) {
     const source = await (await request.get(path)).text();
     expect(source, path).not.toContain("modelContext");
     expect(source, path).not.toContain("registerTool");
@@ -84,7 +84,7 @@ test("pages register no tools in the browser: no modelContext script, and nothin
       configurable: true,
     });
   });
-  await page.goto("/search");
+  await page.goto("/?q=notes");
   await page.waitForLoadState("networkidle");
   const calls = await page.evaluate(() => (window as unknown as { __calls: string[] }).__calls);
   expect(calls).toEqual([]);

@@ -26,7 +26,7 @@ export async function NotFoundView() {
           icon={<Lock {...ICON} />}
           title="We could not find that app"
           headingLevel={1}
-          actions={account ? <Action href="/search" variant="secondary">See all apps</Action> : <Action href={signInHref(path)} rel="nofollow">Sign in to see private apps</Action>}
+          actions={account ? <Action href="/" variant="secondary">See all apps</Action> : <Action href={signInHref(path)} rel="nofollow">Sign in to see private apps</Action>}
         >
           <p>
             {account
@@ -42,7 +42,7 @@ export async function NotFoundView() {
   if (pathname.startsWith("/authors/")) {
     return (
       <div className={`${styles.page} ${styles.narrow}`}>
-        <EmptyState icon={<UserRound {...ICON} />} title="We could not find that author" headingLevel={1} actions={<Action href="/search" variant="secondary">See all apps</Action>}>
+        <EmptyState icon={<UserRound {...ICON} />} title="We could not find that author" headingLevel={1} actions={<Action href="/" variant="secondary">See all apps</Action>}>
           <p>Authors are listed by their permanent Silicon Accounts id. Find one of their apps instead:</p>
           <SearchBox id="not-found-q" />
         </EmptyState>

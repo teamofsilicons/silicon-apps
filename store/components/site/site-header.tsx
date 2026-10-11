@@ -15,20 +15,20 @@ import { BrandGlyph } from "./brand";
 import styles from "./site.module.css";
 
 const NAV: Array<{ href: string; label: string; external?: boolean }> = [
-  { href: "/search", label: "Apps" },
-  { href: "/search?visibility=private", label: "Private" },
+  { href: "/", label: "Apps" },
+  { href: "/?visibility=private", label: "Private" },
   { href: LINKS.appsDocs, label: "Make a Silicon App", external: true },
 ];
 
-/** "page" on the link to this very page, nothing on the others (an app page belongs to Apps). */
+/** "page" on the link to this very page, "true" on its section (an app or author page belongs to Apps). */
 function currentOf(href: string, path: string): "page" | "true" | undefined {
   const [pathname, query = ""] = path.split("?");
   const visibility = new URLSearchParams(query).get("visibility");
-  if (href === "/search") {
-    if (pathname === "/search" && visibility !== "private") return query ? "true" : "page";
+  if (href === "/") {
+    if (pathname === "/" && visibility !== "private") return query ? "true" : "page";
     return pathname.startsWith("/apps/") || pathname.startsWith("/authors/") ? "true" : undefined;
   }
-  if (href === "/search?visibility=private") return pathname === "/search" && visibility === "private" ? "page" : undefined;
+  if (href === "/?visibility=private") return pathname === "/" && visibility === "private" ? "page" : undefined;
   return undefined;
 }
 
@@ -83,7 +83,6 @@ export function SiteHeader({ path, account }: SiteHeaderProps) {
         </div>
         <nav aria-label="Main menu" className={styles.menuNav}>
           <ul role="list">
-            <li><a href="/" className={styles.menuLink} data-sq="surface" aria-current={path.split("?")[0] === "/" ? "page" : undefined}>Home</a></li>
             {NAV.map(item => (
               <li key={item.href}>
                 <a href={item.href} className={styles.menuLink} data-sq="surface" aria-current={currentOf(item.href, path)} target={item.external ? "_blank" : undefined} rel={item.external ? "noopener noreferrer" : undefined}>
