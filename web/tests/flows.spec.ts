@@ -32,25 +32,6 @@ test("review creates one account review and confirms the result", async ({
     changes.find((change) => change.path.endsWith("/review"))?.body,
   ).toMatchObject({ rating: 5, text: "Useful" });
 });
-test("telemetry opt-out persists and suppresses following page events", async ({
-  page,
-}) => {
-  const changes = await mock(page, true);
-  await page.goto("/settings");
-  await page.getByRole("switch", { name: "Share usage telemetry" }).click();
-  await expect(
-    page.getByRole("switch", { name: "Share usage telemetry" }),
-  ).not.toBeChecked();
-  const count = changes.filter((c) => c.path === "/telemetry").length;
-  await page.getByRole("link", { name: "Discover", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Explore apps" }),
-  ).toBeVisible();
-  expect(changes.filter((c) => c.path === "/telemetry")).toHaveLength(count);
-  expect(
-    await page.evaluate(() => localStorage.getItem("apps.telemetry")),
-  ).toBe("false");
-});
 for (const width of [390, 768, 1024, 1440])
   test(`store remains within ${width}px viewport`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });

@@ -25,7 +25,7 @@ test("store creation links leave the store and never expose creation controls", 
     "href",
     portal + "/apps/test-app/publishing",
   );
-  expect(mutations.filter((m) => m.path !== "/telemetry")).toEqual([]);
+  expect(mutations).toEqual([]);
 });
 
 for (const [legacy, destination] of [
@@ -49,7 +49,7 @@ for (const [legacy, destination] of [
     await expect(
       page.getByRole("heading", { name: "Shared developer portal" }),
     ).toBeVisible();
-    expect(mutations.filter((m) => m.path !== "/telemetry")).toEqual([]);
+    expect(mutations).toEqual([]);
   });
 }
 

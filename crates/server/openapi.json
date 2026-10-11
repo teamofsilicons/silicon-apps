@@ -69,7 +69,7 @@
     },
     {
       "name": "Accounts",
-      "description": "Who you are, platforms, telemetry and bug reports."
+      "description": "Who you are, platforms and bug reports."
     },
     {
       "name": "Auth",
@@ -5581,123 +5581,6 @@
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
-          }
-        }
-      }
-    },
-    "/v1/telemetry": {
-      "post": {
-        "operationId": "recordTelemetry",
-        "summary": "Record a telemetry event",
-        "description": "A sanitized usage event. `X-Apps-Telemetry: off` opts out.",
-        "tags": [
-          "Accounts"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "sessionCookie": []
-          },
-          {}
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "step": {
-                    "type": "string"
-                  },
-                  "progress": {},
-                  "event": {
-                    "type": "string"
-                  },
-                  "path": {
-                    "type": "string"
-                  },
-                  "target": {
-                    "type": "string"
-                  },
-                  "status_code": {
-                    "type": "integer"
-                  },
-                  "duration_ms": {
-                    "type": "integer"
-                  },
-                  "item_count": {
-                    "type": "integer"
-                  },
-                  "byte_count": {
-                    "type": "integer"
-                  },
-                  "error_code": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "step",
-                  "progress"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "accepted": {
-                      "type": "boolean"
-                    },
-                    "reason": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "accepted"
-                  ]
-                }
-              }
-            },
-            "headers": {
-              "RateLimit-Limit": {
-                "$ref": "#/components/headers/RateLimitLimit"
-              },
-              "RateLimit-Remaining": {
-                "$ref": "#/components/headers/RateLimitRemaining"
-              },
-              "RateLimit-Reset": {
-                "$ref": "#/components/headers/RateLimitReset"
-              },
-              "Apps-Version": {
-                "$ref": "#/components/headers/AppsVersion"
-              },
-              "Idempotent-Replayed": {
-                "$ref": "#/components/headers/IdempotentReplayed"
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
           }
         }
       }

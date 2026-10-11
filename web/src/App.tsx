@@ -19,7 +19,7 @@ import { developerUrl, legacyDeveloperUrl, docsUrl } from "./portal";
 import { AppDetail, AuthorProfile, Store } from "./Store";
 import { ThemeSwitch } from "./components/silicon-ui/theme-switch/theme-switch";
 import { useTheme } from "./use-theme";
-import { Settings, telemetry } from "./Settings";
+import { Settings } from "./Settings";
 import { Button, Empty, ErrorNotice, IconLogo } from "./ui";
 function DeveloperRedirect() {
   const location = useLocation();
@@ -84,7 +84,6 @@ function Shell() {
     setMobile(false);
     window.scrollTo(0, 0);
     document.title = "Silicon Apps";
-    void telemetry("page_view", { path: location.pathname });
   }, [location.pathname]);
   const handleNavigation = (event: MouseEvent<HTMLDivElement>) => {
     if (

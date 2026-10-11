@@ -11,7 +11,6 @@ pub mod routes;
 pub mod signing;
 pub mod store;
 pub mod subscriptions;
-mod telemetry;
 
 use axum::{
     Extension, Json, Router,
@@ -38,7 +37,6 @@ pub struct AppState {
     pub accounts: AccountsClient,
     pub http: reqwest::Client,
     pub mutation_gate: tokio::sync::Mutex<()>,
-    pub telemetry: Option<Arc<space_station::SpaceClient>>,
     pub identity_cache: Mutex<BTreeMap<String, (std::time::Instant, Identity)>>,
     pub limiter: ratelimit::Limiter,
     /// Signs every release package Apps serves.
@@ -95,14 +93,16 @@ impl AppState {
             }
         }
         store.signer = Some(signer.clone());
-        let accounts =
-            AccountsClient::new(&config.accounts_url).map_err(|e| ApiError::bad(e.to_string()))?;
+        // Silicon Apps records no telemetry, and asks Accounts not to record
+        // its calls either (`X-Accounts-Telemetry: off`).
+        let accounts = AccountsClient::new(&config.accounts_url)
+            .map_err(|e| ApiError::bad(e.to_string()))?
+            .with_telemetry(false);
         let http = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(180))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| ApiError::bad(e.to_string()))?;
-        let telemetry = telemetry::build(&config)?;
         let limiter = ratelimit::Limiter::new(
             config.rate_limit_reads_per_minute,
             config.rate_limit_writes_per_minute,
@@ -113,7 +113,6 @@ impl AppState {
             signer,
             runner_probe: Mutex::new(None),
             config,
-            telemetry,
             identity_cache: Mutex::new(BTreeMap::new()),
             store: Mutex::new(store),
             accounts,
@@ -167,10 +166,8 @@ async fn handle(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let start = std::time::Instant::now();
-    let enabled = headers.get("X-Apps-Telemetry").is_none_or(|v| v != "off");
-    let route = telemetry::route_template(uri.path());
-    let verb = method.to_string();
+    // Silicon Apps records no telemetry. Installed CLIs and the store still
+    // send `X-Apps-Telemetry` (on, off or absent); it is accepted and ignored.
     let client = client
         .map(|Extension(key)| key)
         .unwrap_or(ratelimit::ClientKey(None));
@@ -198,12 +195,6 @@ async fn handle(
     result
         .headers_mut()
         .insert("Vary", "Authorization, Cookie, Origin".parse().unwrap());
-    if enabled {
-        telemetry::record(
-            &s,
-            json!({"source":"silicon-apps.server","version":env!("CARGO_PKG_VERSION"),"step":"api.response","progress":1,"context":{"method":verb,"route":route,"status_code":result.status().as_u16(),"duration_ms":start.elapsed().as_millis()}}),
-        );
-    }
     result
 }
 
@@ -466,26 +457,6 @@ async fn dispatch(
     }
     if media {
         return upload_media(&s, p[1], actor, key, &fingerprint, &headers, raw).await;
-    }
-    if path == "telemetry" {
-        if headers.get("X-Apps-Telemetry").is_some_and(|v| v == "off")
-            || !s.config.telemetry_enabled
-        {
-            return Ok(Json(json!({"accepted":false,"reason":"opted_out"})).into_response());
-        }
-        let event = telemetry::frontend_event(&body)?;
-        if s.telemetry.is_none() && s.config.telemetry_url.is_none() {
-            return Ok(Json(json!({"accepted":false,"reason":"not_configured"})).into_response());
-        }
-        if s.telemetry.is_some() {
-            telemetry::record(&s, event);
-        } else {
-            let store = s.store.lock().unwrap();
-            store.connection.execute("INSERT OR IGNORE INTO outbox(id,kind,body,created_at) VALUES(?1,'telemetry',?2,?3)",rusqlite::params![key,event.to_string(),now()])?;
-        }
-        let result = json!({"accepted":true});
-        s.store.lock().unwrap().connection.execute("INSERT INTO idempotency(actor,key,fingerprint,response,created_at) VALUES(?1,?2,?3,?4,?5)",rusqlite::params![actor,key,fingerprint,result.to_string(),now()])?;
-        return Ok(Json(result).into_response());
     }
 
     let mut prepared = Prepared::default();

@@ -69,7 +69,7 @@ jobs:
               origin = f'http://127.0.0.1:{port}'
               env = dict(os.environ, APPS_DATA_DIR=state, APPS_BIND=f'127.0.0.1:{port}', APPS_PUBLIC_URL=origin,
                          APPS_ALLOWED_ORIGINS=origin, APPS_DEV_AUTH='1', APPS_IMPORT_ACCOUNTS='0',
-                         APPS_ACCOUNTS_URL='http://127.0.0.1:9', APPS_TELEMETRY_ENABLED='false')
+                         APPS_ACCOUNTS_URL='http://127.0.0.1:9')
               with open(pathlib.Path(state)/'server.log', 'w+') as log:
                   process = subprocess.Popen([str(binary)], env=env, stdout=log, stderr=log)
                   try:

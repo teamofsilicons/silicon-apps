@@ -111,6 +111,6 @@ npx playwright install --with-deps chrome
 npm test
 ```
 
-Browser tests use API fixtures to verify contract behavior, private views, one-time secrets, review writes, upload failures, save failure recovery, keyboard focus, telemetry opt-out, and responsive layouts. They do not prove a deployed Accounts flow or a provisioned native runner. macOS runner isolation tests execute only on supported macOS hosts; native Windows and all Linux target execution need their own provisioned validation evidence.
+Browser tests use API fixtures to verify contract behavior, private views, one-time secrets, review writes, upload failures, save failure recovery, keyboard focus and responsive layouts. They do not prove a deployed Accounts flow or a provisioned native runner. macOS runner isolation tests execute only on supported macOS hosts; native Windows and all Linux target execution need their own provisioned validation evidence.
 
 CI runs these checks. A manually triggered package-artifact workflow builds a limited native target matrix and retains archives/checksums as workflow artifacts. It does not publish an app, push a GitHub release, publish crates, or deploy either domain. See [release delivery](docs/operations.md#build-and-deliver-releases) for the remaining operations and external integration checks.

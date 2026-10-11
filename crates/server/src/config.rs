@@ -81,6 +81,29 @@ impl HistoricalAppIds {
     }
 }
 
+/// Environment variables that no longer do anything. Silicon Apps records no
+/// telemetry, so these are ignored; the API names any that are still set when
+/// it starts, so they can be removed from the deployment.
+pub const RETIRED_VARIABLES: &[&str] = &[
+    "APPS_TELEMETRY",
+    "APPS_TELEMETRY_ENABLED",
+    "APPS_TELEMETRY_KEY",
+    "APPS_TELEMETRY_TABLE_KEY",
+    "APPS_TELEMETRY_URL",
+    "SPACE_STATION_HOME",
+    "SPACE_STATION_URL",
+];
+
+/// The retired variables for which `is_set` is true, in [`RETIRED_VARIABLES`]
+/// order. At startup `is_set` checks the process environment.
+pub fn retired_variables(is_set: impl Fn(&str) -> bool) -> Vec<&'static str> {
+    RETIRED_VARIABLES
+        .iter()
+        .copied()
+        .filter(|name| is_set(name))
+        .collect()
+}
+
 #[derive(Clone)]
 pub struct Config {
     pub bind: SocketAddr,
@@ -96,9 +119,6 @@ pub struct Config {
     pub runner_targets: Vec<String>,
     pub mail_url: Option<String>,
     pub mail_token: Option<String>,
-    pub telemetry_url: Option<String>,
-    pub telemetry_enabled: bool,
-    pub telemetry_table_key: Option<String>,
     pub import_accounts: bool,
     /// `APPS_HISTORICAL_APP_IDS`: 1–2 character Accounts app IDs and the one
     /// account each may be created by. Empty unless configured.
@@ -228,10 +248,6 @@ impl Config {
                 .collect(),
             mail_url: get("APPS_MAIL_URL"),
             mail_token: get("APPS_MAIL_TOKEN"),
-            telemetry_url: get("APPS_TELEMETRY_URL"),
-            telemetry_enabled: get("APPS_TELEMETRY_ENABLED")
-                .is_none_or(|v| !["0", "false", "off"].contains(&v.as_str())),
-            telemetry_table_key: get("APPS_TELEMETRY_TABLE_KEY"),
             import_accounts: get("APPS_IMPORT_ACCOUNTS")
                 .map(|v| v == "1")
                 .unwrap_or(!dev_auth && get("APPS_ACCOUNTS_SERVICE_TOKEN").is_some()),
@@ -270,6 +286,17 @@ mod tests {
         let error = HistoricalAppIds::parse(raw).unwrap_err();
         assert_eq!(error.code, "invalid_historical_app_ids", "{raw}");
         error.message
+    }
+
+    #[test]
+    fn retired_telemetry_variables_are_named_and_never_read() {
+        let set = ["SPACE_STATION_URL", "APPS_TELEMETRY_ENABLED", "APPS_BIND"];
+        assert_eq!(
+            retired_variables(|name| set.contains(&name)),
+            ["APPS_TELEMETRY_ENABLED", "SPACE_STATION_URL"]
+        );
+        assert!(retired_variables(|_| false).is_empty());
+        assert_eq!(retired_variables(|_| true), RETIRED_VARIABLES);
     }
 
     #[test]

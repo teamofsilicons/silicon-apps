@@ -26,9 +26,6 @@ fn config(dir: &std::path::Path) -> Config {
         runner_targets: vec![],
         mail_url: None,
         mail_token: None,
-        telemetry_url: None,
-        telemetry_enabled: false,
-        telemetry_table_key: None,
         import_accounts: false,
         historical_app_ids: Default::default(),
         rate_limit_reads_per_minute: 600,
@@ -44,13 +41,7 @@ fn cli(home: &std::path::Path, server: &str, token: &str) -> Command {
         .args(["--json", "--home"])
         .arg(home)
         .args(["--server", server]);
-    for name in [
-        "APPS_URL",
-        "ACCOUNTS_URL",
-        "SILICON_HOME",
-        "APPS_TELEMETRY_KEY",
-        "APPS_TELEMETRY_TABLE_KEY",
-    ] {
+    for name in ["APPS_URL", "ACCOUNTS_URL", "SILICON_HOME"] {
         command.env_remove(name);
     }
     command.env("APPS_TOKEN", token);

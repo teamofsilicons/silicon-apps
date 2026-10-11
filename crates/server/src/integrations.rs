@@ -524,7 +524,9 @@ pub async fn outbox_worker(s: Shared) {
     }
 }
 async fn deliver(s: &Shared, id: &str, kind: &str, body: &Value) -> Result<()> {
-    if kind == "telemetry" && (!s.config.telemetry_enabled || s.config.telemetry_url.is_none()) {
+    // Silicon Apps records no telemetry. Rows an older release queued with
+    // this kind are marked delivered without sending anything.
+    if kind == "telemetry" {
         return Ok(());
     }
     if kind == "accounts.sync" {
@@ -548,20 +550,15 @@ async fn deliver(s: &Shared, id: &str, kind: &str, body: &Value) -> Result<()> {
             .map_err(accounts_error)?;
         return Ok(());
     }
-    let url = if kind == "telemetry" {
-        s.config.telemetry_url.as_ref()
-    } else {
-        s.config.mail_url.as_ref()
-    }
-    .ok_or_else(|| ApiError::unavailable(format!("No delivery endpoint configured for {kind}.")))?;
+    let url = s.config.mail_url.as_ref().ok_or_else(|| {
+        ApiError::unavailable(format!("No delivery endpoint configured for {kind}."))
+    })?;
     let mut request = s
         .http
         .post(url)
         .header("Idempotency-Key", id)
         .json(&json!({"id":id,"kind":kind,"data":body}));
-    if kind != "telemetry"
-        && let Some(token) = &s.config.mail_token
-    {
+    if let Some(token) = &s.config.mail_token {
         request = request.bearer_auth(token);
     }
     let response = request

@@ -356,8 +356,6 @@ op("DELETE","/v1/keys/{key_id}","revokeAuthorKey","Revoke an author key","Releas
 # Other
 op("POST","/v1/platforms","registerPlatform","Record your platform","Accounts","Records the signed-in account's target for target populations.",{"200":ok(obj({"registered":B,"target":S},["registered","target"]))},security=AUTH,body=json_body(obj({"target":{"type":"string","enum":TARGETS}},["target"])),errors=MUT_ERR,mutation=True)
 op("POST","/v1/reports","reportBug","Report a bug","Accounts","Mails a bug report to the maintainers, with an optional pull request link.",{"200":ok(obj({"id":S,"status":{"type":"string","const":"queued"}},["id","status"]))},body=json_body(obj({"message":{"type":"string","minLength":1,"maxLength":20000},"pr":S},["message"])),errors=("BadRequest","Unauthorized","Conflict","RateLimited","Unavailable"),mutation=True)
-op("POST","/v1/telemetry","recordTelemetry","Record a telemetry event","Accounts","A sanitized usage event. `X-Apps-Telemetry: off` opts out.",{"200":ok(obj({"accepted":B,"reason":S},["accepted"]))},
-   body=json_body(obj({"step":S,"progress":{},"event":S,"path":S,"target":S,"status_code":I,"duration_ms":I,"item_count":I,"byte_count":I,"error_code":S},["step","progress"])),errors=("BadRequest","Conflict","RateLimited"),mutation=True)
 
 # Auth
 redirect = {"303":{"description":"Redirect.","headers":{"Location":{"description":"Where to go next.","schema":{"type":"string"}}}}}
@@ -401,7 +399,7 @@ doc = {
    {"name":"Reviews","description":"One review per account per app."},
    {"name":"Events","description":"The append-only event log as JSON pages and server-sent event streams."},
    {"name":"Subscriptions","description":"Follow apps and your account feed by signed webhook or stream."},
-   {"name":"Accounts","description":"Who you are, platforms, telemetry and bug reports."},
+   {"name":"Accounts","description":"Who you are, platforms and bug reports."},
    {"name":"Auth","description":"Browser sign-in and token exchange through Silicon Accounts."}
  ],
  "paths": paths,

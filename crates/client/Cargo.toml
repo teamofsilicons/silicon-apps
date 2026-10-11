@@ -1,6 +1,6 @@
 [package]
 name = "silicon-apps-client"
-version = "0.2.2"
+version = "0.3.0"
 edition.workspace = true
 license.workspace = true
 description = "Stateless primary Silicon Apps API, authentication and local installation library"
@@ -17,13 +17,11 @@ hex.workspace = true
 hmac = "0.12"
 rand.workspace = true
 reqwest.workspace = true
-rustls = { version = "0.23", default-features = false, features = ["ring"] }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 silicon-accounts-client.workspace = true
 silicon-apps-package.workspace = true
-space-station.workspace = true
 tempfile.workspace = true
 tokio.workspace = true
 url.workspace = true
@@ -32,6 +30,3 @@ uuid.workspace = true
 [dev-dependencies]
 axum.workspace = true
 silicon-apps-server = { path = "../server" }
-
-[target.'cfg(windows)'.dev-dependencies]
-uds_windows = "1.2.1"

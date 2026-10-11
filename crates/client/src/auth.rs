@@ -17,9 +17,11 @@ pub struct SavedSession {
     pub accounts_url: String,
 }
 pub fn accounts(config: &Config) -> Result<AccountsClient> {
+    // Silicon Apps records no telemetry, and asks Accounts not to record its
+    // calls either (`X-Accounts-Telemetry: off`).
     Ok(AccountsClient::builder()
         .base_url(&config.accounts_url)
-        .telemetry(config.telemetry)
+        .telemetry(false)
         .build()?)
 }
 pub async fn begin_device(config: &Config) -> Result<DeviceAuthorization> {
@@ -128,7 +130,7 @@ pub async fn authenticated_client(
     config: &Config,
     explicit_token: Option<String>,
 ) -> Result<Client> {
-    let base = Client::new(&config.server, None)?.with_telemetry(config.telemetry);
+    let base = Client::new(&config.server, None)?;
     if let Some(token) = explicit_token {
         return Ok(base.authenticated(Some(token)));
     }

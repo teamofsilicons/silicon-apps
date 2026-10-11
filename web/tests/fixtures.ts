@@ -60,7 +60,6 @@ export async function mock(
     let status = 200;
     if (path === "/session")
       result = { authenticated: signedIn, account: signedIn ? account : null };
-    else if (path === "/telemetry") result = { status: "queued" };
     else if (path === "/apps" && method === "GET")
       result = { items: [], total: 0 };
     else if (path.startsWith("/apps/availability/"))

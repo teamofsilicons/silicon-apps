@@ -71,7 +71,6 @@ pub const ROUTES: &[(&str, &str)] = &[
     ("DELETE", "/v1/keys/{key_id}"),
     ("POST", "/v1/platforms"),
     ("POST", "/v1/reports"),
-    ("POST", "/v1/telemetry"),
     ("GET", "/v1/auth/login"),
     ("GET", "/v1/auth/callback"),
     ("POST", "/v1/auth/exchange"),

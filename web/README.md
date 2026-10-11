@@ -18,7 +18,7 @@ npm run test:e2e
 
 Serve `dist/` with history fallback to `index.html`, proxy `/v1` to the service, and configure Accounts redirects on the store origin. The build also copies the reviewed `scripts/install.sh` and `scripts/install.ps1` into `dist/` for same-origin installer downloads; the scripts' network installation requires published release artifacts. The root route resolves to `/store`. Legacy `/developer` routes redirect to the plural shared portal, preserving app IDs and setup steps. Set `VITE_DEVELOPERS_URL` at build time when testing a local shared portal.
 
-Store authentication uses the backend `/v1/auth/login` redirect, `/v1/auth/callback`, `/v1/session`, and `/v1/auth/logout` endpoints. Tokens and app credentials are never stored in browser local storage. The only persisted preferences are theme and telemetry opt-out. The shared developer portal retains its Accounts sign-in and sealed server-side session.
+Store authentication uses the backend `/v1/auth/login` redirect, `/v1/auth/callback`, `/v1/session`, and `/v1/auth/logout` endpoints. Tokens and app credentials are never stored in browser local storage. The only persisted preference is the theme. The shared developer portal retains its Accounts sign-in and sealed server-side session.
 
 ## Screens
 
@@ -26,7 +26,7 @@ Store authentication uses the backend `/v1/auth/login` redirect, `/v1/auth/callb
 - App details with linked co-authors beneath the title, media, platforms, release commands and editable account reviews.
 - Author profiles at `/authors/:uuid`, with current Accounts names and IDs, paginated published apps and the same private access rules as discovery.
 - The shared developer portal’s Arc theme switch in the header, with light, dark and system preferences synchronized with Settings and restored before first paint.
-- Theme, telemetry opt-out and bug reports. Documentation lives in the shared portal at `https://developers.teamofsilicons.com/docs/apps`; legacy store `/docs` routes redirect there.
+- Theme and bug reports. Documentation lives in the shared portal at `https://developers.teamofsilicons.com/docs/apps`; legacy store `/docs` routes redirect there.
 
 The shared portal owns creation, seven-step publishing setup, packages, releases, access, media, Accounts configuration, webhooks, authors, invitations and audit history. Developer management tests were moved to `silicon-accounts/developer/e2e`; this project's tests cover store behavior and the boundary between the two origins.
 
@@ -42,7 +42,7 @@ This requires the development dependencies and Chrome used by Playwright. It ver
 
 ## Telemetry
 
-Telemetry is enabled by default and posts context to `/v1/telemetry`, where the service delivers to the configured Space Station integration. Events include source, step, progress and route context, with no app form values or secrets. Opting out in Settings prevents subsequent browser telemetry requests.
+The store records no telemetry. It sends no page view events, and every API call carries `X-Apps-Telemetry: off`, so an older API records nothing either. There is no telemetry setting.
 
 ## Silicon UI registry (2026-10-10)
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Bug, Check, ExternalLink, LogOut } from "lucide-react";
 import { api, login, useMutation } from "./api";
 import { useTheme, type ThemePreference } from "./use-theme";
@@ -9,44 +9,16 @@ import {
   Input,
   PageTitle,
   Section,
-  Switch,
   Textarea,
 } from "./ui";
-export function telemetryEnabled() {
-  return localStorage.getItem("apps.telemetry") !== "false";
-}
-export async function telemetry(
-  event: string,
-  context: Record<string, unknown> = {},
-) {
-  if (!telemetryEnabled()) return;
-  try {
-    await api("/telemetry", {
-      method: "POST",
-      body: {
-        source: "apps-web",
-        step: event,
-        progress: "complete",
-        event,
-        ...context,
-      },
-    });
-  } catch {
-    /* Telemetry is best effort and never interrupts app work. */
-  }
-}
 export function Settings() {
   const { preference, change } = useTheme();
   const { account, refresh } = useSession();
-  const [telemetryOn, setTelemetryOn] = useState(true);
   const [message, setMessage] = useState("");
   const [pr, setPr] = useState("");
   const [sent, setSent] = useState(false);
   const mutation = useMutation();
   const logout = useMutation(refresh);
-  useEffect(() => {
-    setTelemetryOn(telemetryEnabled());
-  }, []);
   return (
     <>
       <PageTitle
@@ -108,27 +80,6 @@ export function Settings() {
               <option value="dark">Dark</option>
             </select>
           </label>
-        </Section>
-        <Section
-          title="Telemetry"
-          description="Help improve Silicon Apps by sending usage events to Space Station. Events describe the source, step, and progress; app secrets and form contents are never included."
-        >
-          <div className="row between">
-            <div>
-              <strong>Share usage telemetry</strong>
-              <p className="small muted">
-                Enabled by default. This preference applies to this browser.
-              </p>
-            </div>
-            <Switch
-              aria-label="Share usage telemetry"
-              checked={telemetryOn}
-              onCheckedChange={(value) => {
-                setTelemetryOn(value);
-                localStorage.setItem("apps.telemetry", String(value));
-              }}
-            />
-          </div>
         </Section>
         <Section
           title="Report a problem"

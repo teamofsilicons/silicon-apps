@@ -26,16 +26,24 @@ pub(crate) fn windows_shell_path(path: &Path) -> String {
 pub struct Config {
     pub server: String,
     pub accounts_url: String,
+    /// Ignored. Silicon Apps records no telemetry. Configuration files that
+    /// still carry `telemetry` load as before, and it is no longer written.
+    #[deprecated(
+        since = "0.3.0",
+        note = "Silicon Apps records no telemetry; this field is ignored."
+    )]
+    #[serde(skip_serializing)]
     pub telemetry: bool,
     pub install_script_timeout_seconds: u64,
     pub update_interval_seconds: u64,
 }
 impl Default for Config {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             server: crate::DEFAULT_URL.into(),
             accounts_url: "https://accounts.teamofsilicons.com".into(),
-            telemetry: true,
+            telemetry: false,
             install_script_timeout_seconds: 120,
             update_interval_seconds: 60,
         }

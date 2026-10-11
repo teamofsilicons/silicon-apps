@@ -33,9 +33,6 @@ fn config(dir: &std::path::Path) -> Config {
         runner_targets: vec![],
         mail_url: None,
         mail_token: None,
-        telemetry_url: None,
-        telemetry_enabled: false,
-        telemetry_table_key: None,
         import_accounts: false,
         historical_app_ids: Default::default(),
         rate_limit_reads_per_minute: 600,
@@ -55,9 +52,7 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     let base = format!("http://{}", listener.local_addr().unwrap());
     let app = router(state.clone()).into_make_service_with_connect_info::<std::net::SocketAddr>();
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    let alice = Client::new(&base, Some("dev:alice:c:alice".into()))
-        .unwrap()
-        .with_telemetry(false);
+    let alice = Client::new(&base, Some("dev:alice:c:alice".into())).unwrap();
     let bob = alice.authenticated(Some("dev:bob:c:bob".into()));
 
     let capabilities = alice

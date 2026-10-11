@@ -701,46 +701,20 @@ pub fn defer_self_uninstall(state: &LocalState, config: &Config) -> Result<Optio
     }
 }
 
+/// Does nothing. Silicon Apps records no telemetry; this stays so code written
+/// against earlier releases still compiles.
+#[deprecated(
+    since = "0.3.0",
+    note = "Silicon Apps records no telemetry; this does nothing and can be removed."
+)]
 pub fn telemetry(
-    state: &LocalState,
-    config: &Config,
-    event: &str,
-    step: &str,
-    progress: f64,
-    context: Value,
+    _state: &LocalState,
+    _config: &Config,
+    _event: &str,
+    _step: &str,
+    _progress: f64,
+    _context: Value,
 ) {
-    if !config.telemetry {
-        return;
-    }
-    let Ok(key) =
-        std::env::var("APPS_TELEMETRY_TABLE_KEY").or_else(|_| std::env::var("APPS_TELEMETRY_KEY"))
-    else {
-        return;
-    };
-    // Accounts enables aws-lc while Space Station enables ring. Its WebSocket
-    // transport requires a process provider when both are linked. Retain the
-    // provider already selected by an embedding application.
-    let _ = rustls::crypto::ring::default_provider().install_default();
-    // Windows AF_UNIX reports NetworkDown when a socket parent is missing.
-    // Create the intended home before the SDK probes for its local daemon;
-    // the SDK applies its private ACL before writing the credential spool.
-    #[cfg(windows)]
-    if fs::create_dir_all(state.root.join("telemetry")).is_err() {
-        return;
-    }
-    if let Ok(client) = space_station::SpaceClient::builder(&key)
-        .home(state.root.join("telemetry"))
-        .url(
-            std::env::var("SPACE_STATION_URL")
-                .unwrap_or_else(|_| space_station::DEFAULT_URL.into()),
-        )
-        .flush_timeout(Duration::from_millis(100))
-        .on_error(|_| {})
-        .build()
-    {
-        client.record(json!({"source":"silicon-apps-cli","version":crate::VERSION,"step":step,"progress":progress,"event":event,"context":context}));
-        let _ = client.flush();
-    }
 }
 
 #[cfg(test)]

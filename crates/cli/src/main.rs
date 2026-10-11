@@ -8,6 +8,8 @@ use std::{
 };
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
+const TELEMETRY_REMOVED: &str =
+    "Telemetry was removed from Silicon Apps; there is nothing to turn on or off.";
 
 const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login --slt TOKEN\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Only isolated server runners\nexecute upload validation. Bundled install scripts run automatically during installation and updates.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
 
@@ -227,7 +229,7 @@ enum Command {
     Logout,
     /// Identify this app and its Accounts integration (required discovery command).
     Accounts,
-    /// Inspect or change configuration; telemetry is on by default.
+    /// Inspect or change configuration.
     Config {
         #[command(subcommand)]
         action: ConfigAction,
@@ -474,9 +476,12 @@ enum ConfigAction {
     Accounts {
         url: String,
     },
+    /// Retired: Silicon Apps records no telemetry. Accepted with any
+    /// arguments, changes nothing and exits 0.
+    #[command(hide = true)]
     Telemetry {
-        #[arg(value_parser=["on","off"])]
-        enabled: String,
+        #[arg(num_args = 0..)]
+        ignored: Vec<String>,
     },
     Set {
         #[arg(value_parser=["install_script_timeout_seconds","update_interval_seconds"])]
@@ -576,6 +581,12 @@ async fn execute(cli: &Cli) -> Result<Value> {
         println!("{content}");
         return Ok(Value::Null);
     }
+    if let Command::Config {
+        action: ConfigAction::Telemetry { .. },
+    } = &cli.command
+    {
+        return Ok(json!({"telemetry":"removed","message":TELEMETRY_REMOVED}));
+    }
     if let Command::Accounts = &cli.command {
         return Ok(
             json!({"app_id":apps::APP_ID,"version":CLI_VERSION,"accounts_url":cli.accounts_url.as_deref().unwrap_or("https://accounts.teamofsilicons.com"),"client":"silicon-accounts-client"}),
@@ -606,7 +617,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
     );
     let token = std::env::var("APPS_TOKEN").ok();
     let client = if local {
-        Client::new(&config.server, None)?.with_telemetry(config.telemetry)
+        Client::new(&config.server, None)?
     } else {
         auth::authenticated_client(&state, &config, token.clone()).await?
     };
@@ -1177,7 +1188,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
                     auth::accounts(&candidate)?;
                     config = candidate;
                 }
-                ConfigAction::Telemetry { enabled } => config.telemetry = enabled == "on",
+                ConfigAction::Telemetry { .. } => unreachable!(),
                 ConfigAction::Set { key, value } => match key.as_str() {
                     "install_script_timeout_seconds" => {
                         ensure!(
@@ -1314,14 +1325,6 @@ async fn execute(cli: &Cli) -> Result<Value> {
         },
         Command::Docs { .. } | Command::Accounts => unreachable!(),
     };
-    updater::telemetry(
-        &state,
-        &config,
-        "command_completed",
-        "complete",
-        1.0,
-        json!({"os":std::env::consts::OS,"architecture":std::env::consts::ARCH,"cli_version":CLI_VERSION,"client_version":apps::VERSION}),
-    );
     Ok(result)
 }
 fn read_json(path: &PathBuf) -> Result<Value> {
@@ -1372,7 +1375,12 @@ fn bundled_docs(topic: &str) -> String {
                 "\n=== {prefix} ===\n{}\n",
                 command.render_long_help()
             ));
-            let children = command.get_subcommands().cloned().collect::<Vec<_>>();
+            // Hidden commands (retired ones kept for compatibility) stay out of the tree.
+            let children = command
+                .get_subcommands()
+                .filter(|child| !child.is_hide_set())
+                .cloned()
+                .collect::<Vec<_>>();
             for child in children.into_iter().rev() {
                 let name = child.get_name().to_owned();
                 pending.push((child, format!("{prefix} {name}")));

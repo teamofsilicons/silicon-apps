@@ -6,14 +6,7 @@ use tokio::process::Command;
 fn apps(home: &std::path::Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_silicon-apps"));
     command.args(["--json", "--home"]).arg(home);
-    for name in [
-        "APPS_TOKEN",
-        "APPS_URL",
-        "ACCOUNTS_URL",
-        "SILICON_HOME",
-        "APPS_TELEMETRY_KEY",
-        "APPS_TELEMETRY_TABLE_KEY",
-    ] {
+    for name in ["APPS_TOKEN", "APPS_URL", "ACCOUNTS_URL", "SILICON_HOME"] {
         command.env_remove(name);
     }
     command
@@ -64,7 +57,8 @@ async fn docs_are_bundled_machine_readable_and_include_the_traversable_command_t
         }
         if topic == "tree" {
             assert!(content.contains("silicon-apps authors invite"));
-            assert!(content.contains("silicon-apps config telemetry"));
+            assert!(content.contains("silicon-apps config accounts"));
+            assert!(!content.to_lowercase().contains("telemetry"));
             assert!(content.contains("--idempotency-key"));
         } else {
             assert_eq!(content, silicon_apps_client::docs::guide(topic));
@@ -73,6 +67,79 @@ async fn docs_are_bundled_machine_readable_and_include_the_traversable_command_t
     assert!(
         !home.path().join(".apps").exists(),
         "reading docs created local state"
+    );
+}
+
+#[tokio::test]
+async fn retired_telemetry_command_and_variables_change_nothing() {
+    const REMOVED: &str =
+        "Telemetry was removed from Silicon Apps; there is nothing to turn on or off.";
+    let home = tempfile::tempdir().unwrap();
+    for args in [
+        &["config", "telemetry"][..],
+        &["config", "telemetry", "off"],
+        &["config", "telemetry", "on"],
+    ] {
+        let output = apps(home.path()).args(args).output().await.unwrap();
+        assert!(
+            output.status.success(),
+            "{args:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(value["message"], REMOVED, "{args:?}");
+    }
+    let output = Command::new(env!("CARGO_BIN_EXE_silicon-apps"))
+        .arg("--home")
+        .arg(home.path())
+        .args(["config", "telemetry", "off"])
+        .env_remove("SILICON_HOME")
+        .output()
+        .await
+        .unwrap();
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap().trim_end(),
+        REMOVED
+    );
+    assert!(output.stderr.is_empty());
+    assert!(
+        !home.path().join(".apps").exists(),
+        "the retired command wrote local state"
+    );
+
+    // Packagers' release environments may still set the old variables.
+    let package = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sample-package");
+    let out = tempfile::tempdir().unwrap();
+    let archive = out.path().join("hello-apps.tar.gz");
+    let output = apps(home.path())
+        .args(["pack"])
+        .arg(&package)
+        .arg("--output")
+        .arg(&archive)
+        .env("APPS_TELEMETRY", "0")
+        .env("APPS_TELEMETRY_ENABLED", "false")
+        .env("APPS_TELEMETRY_KEY", "retired")
+        .env("APPS_TELEMETRY_TABLE_KEY", "retired")
+        .env("SPACE_STATION_URL", "http://127.0.0.1:9")
+        .env("SPACE_STATION_HOME", out.path())
+        .output()
+        .await
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        value["sha256"],
+        silicon_apps_client::package::sha256(&std::fs::read(&archive).unwrap())
+    );
+    assert_eq!(
+        std::fs::read_dir(out.path()).unwrap().count(),
+        1,
+        "only the archive was written"
     );
 }
 

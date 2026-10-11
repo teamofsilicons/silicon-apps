@@ -112,7 +112,6 @@
   "CliLoginVerified": true,
   "BrowserLoginVerified": true,
   "BackupRestoreVerified": true,
-  "TelemetryDeliveryVerified": true,
   "RestoredBackupKey": "backups/20261008T143156Z.tar.gz",
   "RestoredBackupSha256": "df7f06b9cca9ea8eb3aee617985bba0fb494b7d340007b4cb8d1e94173ca9e08",
   "CatalogInstallVerified": true,
@@ -135,10 +134,6 @@
   "AccountsSourceRevision": "0940a941d4101d5cbee6031c25d5bc047ec43f0a",
   "AccountsApiBinarySha256": "bb82d925d90c23570ed74e48a176fd30dfa6fbc5b633286ad3fd4a7d74190f7b",
   "AccountsArchiveSha256": "454971d31b0dee7ee6df42ecc846d3c77c1534f7bdf521744f08baa491ddd47b",
-  "TelemetrySpoolSequence": 170,
-  "TelemetrySpoolCursor": 170,
-  "TelemetryPendingRecords": 0,
-  "TelemetrySpoolCheckedAt": "2026-10-08T14:38:13.811019+00:00",
   "BrowserLoginEvidence": "Genuine Chrome session on developers.teamofsilicons.com showed signed-in owner Saket Gupta and Silicon Apps in Your apps after user refreshed local Unbound DNS cache.",
   "StoreStyle": "Shared developer portal typography, warm palette, header and controls",
   "StoreVisualChecks": {

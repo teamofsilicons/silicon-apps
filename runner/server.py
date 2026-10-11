@@ -270,7 +270,7 @@ def mac_command(root, binary, args):
 def execute(root, binary, args, target, images):
     scratch = root / ".scratch"
     scratch.mkdir(exist_ok=True)
-    env = {"PATH": "/usr/bin:/bin", "HOME": str(scratch), "TMPDIR": str(scratch), "LANG": "C", "APPS_TELEMETRY": "0", "SILICON_HOME": str(scratch)}
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(scratch), "TMPDIR": str(scratch), "LANG": "C", "SILICON_HOME": str(scratch)}
     if target == native_target() and Path("/usr/bin/sandbox-exec").is_file():
         return bounded_run(mac_command(root, binary, args), root, env, limit_process=True)
     image = images.get(target)
@@ -283,7 +283,7 @@ def execute(root, binary, args, target, images):
                "--network=none", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=32",
                "--memory=256m", "--cpus=1", "--user=65534:65534", "--tmpfs=/tmp:rw,noexec,nosuid,size=16m",
                "--mount", f"type=bind,source={root},target=/package,readonly", "--workdir=/package",
-               "--env=HOME=/tmp", "--env=SILICON_HOME=/tmp", "--env=APPS_TELEMETRY=0",
+               "--env=HOME=/tmp", "--env=SILICON_HOME=/tmp",
                "--entrypoint", "/package/" + binary, image, *args]
     if target.startswith("windows-"):
         # A fresh Hyper-V utility VM owns the container kernel. Package files are
@@ -293,7 +293,7 @@ def execute(root, binary, args, target, images):
                    "--isolation=hyperv", "--platform", WINDOWS_PLATFORMS[target], "--network=none", "--memory=1g", "--cpu-count=1",
                    "--user=ContainerUser", "--mount", f"type=bind,source={root},target=C:\\package,readonly",
                    "--workdir=C:\\Users\\ContainerUser", "--env=HOME=C:\\Users\\ContainerUser",
-                   "--env=SILICON_HOME=C:\\Users\\ContainerUser", "--env=APPS_TELEMETRY=0",
+                   "--env=SILICON_HOME=C:\\Users\\ContainerUser",
                    "--entrypoint", "C:\\package\\" + binary.replace("/", "\\"), image, *args]
     try:
         # Only the Docker client sees the host environment; it is not forwarded into containers.

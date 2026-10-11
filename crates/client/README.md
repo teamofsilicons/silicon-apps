@@ -34,7 +34,7 @@ Every installed record also binds the app to its registry URL. Updating against 
 
 `updater::run` takes explicit state and checks installed channels each minute, including `apps`. `updater::service_definition` produces launchd, systemd or Windows Task Scheduler configuration; `install_service` activates it when requested. Windows startup resolves the stable installed command and runs a separate executable copy so installed app executables can be replaced. A successful Apps update hands off to the latest executable, and the next startup also picks up that version. Unix updaters reload with the same process ID so their launchd/systemd supervisor continues managing the current code. Interactive Windows self-installs return a scheduled receipt and continue through a helper, with the final result in `self-update.log`.
 
-Telemetry is configurable and default-on. The optional `APPS_TELEMETRY_TABLE_KEY` (legacy alias `APPS_TELEMETRY_KEY`) routes source/step/progress/context events to Space Station; no events are emitted when disabled or when the deployment key is absent. Signed-in platform registration supplies aggregate target population independently of diagnostic telemetry.
+Silicon Apps records no telemetry. `Client::with_telemetry`, `Config::telemetry` and `updater::telemetry` remain as deprecated no-ops, so code written against 0.2 still compiles. Signed-in platform registration supplies the aggregate target population shown by `silicon-apps targets` and the developer portal's Packages step.
 
 The package intentionally has no endpoints for isolated-runner verdict submission, account migration or other service-internal administration.
 
