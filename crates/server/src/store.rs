@@ -386,17 +386,14 @@ impl Store {
             if query.len() > 512 {
                 return Err(ApiError::bad("Search query is limited to 512 bytes."));
             }
-            let tags: Vec<String> = q
-                .get("tags")
-                .map(|v| {
-                    v.split(',')
-                        .map(|t| t.trim().to_lowercase())
-                        .filter(|t| !t.is_empty())
-                        .collect()
-                })
-                .unwrap_or_default();
-            if tags.len() > 20 {
-                return Err(ApiError::bad("Filter by at most 20 tags."));
+            // Tags help apps get found and let the store categorise them; they are matched through `q`, never
+            // filtered by on their own. A caller still sending `tags` is told where the tag belongs.
+            if q.contains_key("tags") {
+                let mut error = ApiError::bad(
+                    "Tags are not a search filter. Put the tag in q, for example /v1/apps?q=productivity.",
+                );
+                error.details = json!({"field":"tags","use":"q"});
+                return Err(error);
             }
             let target = q.get("target").filter(|v| !v.is_empty());
             if target.is_some_and(|t| !TARGETS.contains(&t.as_str())) {
@@ -427,10 +424,6 @@ impl Store {
                     }
                 })
                 .filter(|a| visibility.is_none_or(|v| v == &a.visibility))
-                .filter(|a| {
-                    tags.iter()
-                        .all(|tag| a.tags.iter().any(|t| t.eq_ignore_ascii_case(tag)))
-                })
                 .filter(|a| target.is_none_or(|t| a.targets().contains(t)))
                 .filter_map(|a| search_score(a, &query).map(|s| (s, a)))
                 .collect();

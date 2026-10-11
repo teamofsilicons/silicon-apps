@@ -238,7 +238,7 @@ pub async fn agent_card(State(s): State<Shared>) -> Response {
         "defaultInputModes":["application/json"],
         "defaultOutputModes":["application/json","text/event-stream"],
         "skills":[
-            {"id":"search-apps","name":"Search apps","description":"Find apps by ID, name, description or tags, with typo tolerance, tag, target and visibility filters, sorting and pagination. GET /v1/apps?q=&tags=&target=&sort=.","tags":["search","catalog","discovery"],"examples":["Find a terminal app that runs on macos-aarch64","GET /v1/apps?q=terminal&target=macos-aarch64"],"inputModes":["application/json"],"outputModes":["application/json"]},
+            {"id":"search-apps","name":"Search apps","description":"Find apps by ID, name, description or tags, with typo tolerance, target and visibility filters, sorting and pagination. Tags are matched through q, never a filter of their own. GET /v1/apps?q=&target=&sort=.","tags":["search","catalog","discovery"],"examples":["Find a terminal app that runs on macos-aarch64","GET /v1/apps?q=terminal&target=macos-aarch64"],"inputModes":["application/json"],"outputModes":["application/json"]},
             {"id":"get-app","name":"Get an app","description":"Read an app's page: authors, targets, latest production and development releases, links, media alt text, rating and installs. GET /v1/apps/{app_id}.","tags":["catalog","details"],"examples":["Show briefcase","GET /v1/apps/briefcase"],"inputModes":["application/json"],"outputModes":["application/json"]},
             {"id":"install-app","name":"Install an app","description":"Resolve the release for your target and download its package: GET /v1/apps/{app_id}/resolve?target=, then the download_path. Check the SHA-256 and the Ed25519 signature against /.well-known/silicon-apps-keys.json before you run anything. The silicon-apps CLI does all of this with `silicon-apps install APP` and keeps it updated.","tags":["install","packages"],"examples":["silicon-apps install briefcase","GET /v1/apps/briefcase/resolve?target=linux-x86_64"],"inputModes":["application/json"],"outputModes":["application/json","application/gzip"]},
             {"id":"publish-release","name":"Publish a release","description":"For an app's authors: upload a package per target for isolated validation of --help, accounts --json and login status --json, create a development release, promote it to production and publish the app. Watch validation step by step on the app's event stream. Withdraw a bad release with POST /v1/apps/{app_id}/releases/{release_id}/withdraw.","tags":["publish","releases","authoring"],"examples":["POST /v1/apps/ring/packages/macos-aarch64","POST /v1/apps/ring/releases/{release_id}/promote"],"inputModes":["application/json","application/gzip"],"outputModes":["application/json","text/event-stream"]},
@@ -340,7 +340,7 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
             "checked_at":probe.as_ref().map(|(_,at)|at.clone()),
             "commands":crate::model::COMMANDS
         },
-        "search":{"route":"/v1/apps","parameters":["q","tags","target","visibility","mine","sort","limit","offset"],"sort":crate::store::SORTS,"max_limit":100},
+        "search":{"route":"/v1/apps","parameters":["q","target","visibility","mine","sort","limit","offset"],"sort":crate::store::SORTS,"max_limit":100},
         "streaming":{
             "sse":true,
             "routes":["/v1/events/stream","/v1/apps/{app_id}/events/stream"],
@@ -441,7 +441,7 @@ fn requirement(document: &Value, name: &str) -> (bool, String) {
         ("subscriptions", "") => yes("POST /v1/subscriptions.".into()),
         ("webhooks", "") => yes("Signed webhook deliveries for subscriptions.".into()),
         ("idempotency", "") => yes("Idempotency-Key on every mutation.".into()),
-        ("search", "") => yes("GET /v1/apps with q, tags, target, visibility, sort and pagination.".into()),
+        ("search", "") => yes("GET /v1/apps with q (which also matches tags), target, visibility, sort and pagination.".into()),
         ("rate_limits", "") => yes("429 with Retry-After and RateLimit headers.".into()),
         ("openapi", "") => yes("/openapi.json".into()),
         ("agent_card", "") => yes("/.well-known/agent.json".into()),
