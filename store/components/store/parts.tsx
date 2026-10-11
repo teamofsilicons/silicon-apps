@@ -73,15 +73,14 @@ export function Command({ value, label, large = false, wrap = false, id }: { val
   );
 }
 
-export function TagList({ tags, label = "Tags", current }: { tags: string[]; label?: string; current?: string }) {
+/** An app's tags as quiet plain words: they help apps get found and let us categorise them, and are not links or filters. */
+export function TagList({ tags, label = "Tags" }: { tags: string[]; label?: string }) {
   if (!tags.length) return null;
   return (
     <ul className={styles.chips} role="list" aria-label={label}>
       {tags.map(tag => (
         <li key={tag}>
-          <a className={styles.chip} data-sq="surface" href={`/search?tag=${encodeURIComponent(tag.toLowerCase())}`} aria-current={current === tag.toLowerCase() ? "page" : undefined}>
-            {tag}
-          </a>
+          <span className={styles.tag}>{tag}</span>
         </li>
       ))}
     </ul>

@@ -2,20 +2,15 @@
  * The Silicon look, mapped onto Silicon UI's semantic tokens (components/silicon-ui/foundation.css, imported first). It
  * is the look of Silicon Writings (writings.teamofsilicons.com) and teamofsilicons.com: warm paper, near-black ink, one
  * calm blue, Hedvig Letters Serif for titles, BDO Grotesk for everything you read and press, and Geist Pixel Square for
- * small labels. One look, two modes (light and dark, or the system's), applied to <html data-theme> and to any subtree
- * that sets data-theme itself. Floating layers (menus, dialogs) portal to <body> and follow the page.
+ * small labels. Light only, as Writings is (lib/boot.ts pins <html data-theme="light">).
  *
- * Light is paper (#FFFDF9) and ink (#1E1E1C). Dark is the same paper at night: a warm near-black (#151412) and a warm
- * off-white ink (#EDE9E0), never a cool navy. Blue (#1F5CB1, lighter in dark) is for titles and links; the one filled
- * button is ink on paper in light and paper on ink in dark, as on Writings.
+ * Paper (#FFFDF9) and ink (#1E1E1C). Blue (#1F5CB1) is for titles and links; the one filled button is ink on paper.
  *
- * Contrast (WCAG 2.2): every text token clears 4.5:1 on --background, --surface and --surface-muted in its mode. The
- * lowest pairs are light --text-muted #6B675F (5.0:1 on --surface-muted) and dark --text-muted #9A958A (5.6:1 on
- * --surface-muted). --text-faint is for decoration only (rules, separators, empty stars), never for text.
- *   --accent-ink   accent-coloured text. #1F5CB1 on the dark page is 2.9:1, so dark uses a lighter blue.
- *   --primary*     the filled button: ink on paper (light), paper on ink (dark).
+ * Contrast (WCAG 2.2): every text token clears 4.5:1 on --background, --surface and --surface-muted. The lowest pair
+ * is --text-muted #6B675F (5.0:1 on --surface-muted). --text-faint is for decoration only (rules, separators, empty
+ * stars), never for text.
  */
-:root, [data-theme="light"] {
+:root {
   color-scheme: light;
 
   --background: #FFFDF9;
@@ -92,57 +87,6 @@
   --gutter: clamp(16px, 4vw, 32px);
   --dock-height: 0px;
   --dock-clearance: calc(64px + env(safe-area-inset-bottom, 0px));
-}
-
-:root[data-theme="dark"], [data-theme="dark"] {
-  color-scheme: dark;
-  --background: #151412;
-  --surface: #1B1A17;
-  --surface-raised: #22201D;
-  --surface-muted: #24221E;
-  --surface-pressed: #2E2B26;
-  --foreground: #EDE9E0;
-  --text-secondary: #C3BEB3;
-  --text-muted: #9A958A;
-  --text-faint: #5E5A52;
-  --border: #2E2B26;
-  --border-subtle: #24221E;
-  --border-strong: #423E36;
-
-  --accent: #86AEEA;
-  --accent-strong: #B4CDF4;
-  --accent-subtle: rgb(134 174 234 / .13);
-  --accent-foreground: #151412;
-  --accent-ink: #8FB5EE;
-
-  --primary: #EDE9E0;
-  --primary-hover: #FFFDF9;
-  --primary-pressed: #D9D4C9;
-  --primary-foreground: #151412;
-
-  --control-on: #86AEEA;
-  --control-glyph: #151412;
-  --control-track: #3A362F;
-  --control-track-hover: #45403A;
-  --control-thumb: #EDE9E0;
-  --control-thumb-on: #151412;
-  --control-thumb-shadow: 0 0 0 .5px rgb(0 0 0 / .3), 0 1px 2px rgb(0 0 0 / .35), 0 2px 6px rgb(0 0 0 / .2);
-  --control-fill: var(--control-on);
-  --control-on-subtle: color-mix(in oklab, var(--control-on) 16%, transparent);
-  --focus-ring: transparent;
-
-  --success: #7FC79A;
-  --warning: #E3B55A;
-  --danger: #F4968C;
-  --star: #E3B55A;
-
-  --shadow-resting: 0 1px 2px rgb(0 0 0 / .3);
-  --shadow-raised: 0 8px 22px rgb(0 0 0 / .35);
-  --shadow-floating: 0 22px 55px rgb(0 0 0 / .5), 0 3px 10px rgb(0 0 0 / .25);
-
-  --series-1: #86AEEA; --series-2: #B99AE6; --series-3: #E3B55A; --series-4: #7FC79A;
-
-  --overlay: rgb(0 0 0 / .5);
 }
 
 /* Existing application layouts use this numeric spacing scale. Silicon UI components use semantic tokens. Panels are

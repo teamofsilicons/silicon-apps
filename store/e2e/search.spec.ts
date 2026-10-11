@@ -1,4 +1,4 @@
-/** Search: /search?q=&tag=&target=&visibility=, a plain GET form, and the private apps view. */
+/** Search: /search?q=&target=&visibility=, a plain GET form, and the private apps view. Tags are matched by the search text, never filtered by. */
 import { expect, test } from "@playwright/test";
 import { expectPageBasics, html, jsonLd, mainText, signIn, typesOf } from "./helpers";
 
@@ -20,7 +20,7 @@ test("search ranks exact matches first and forgives a typo", async ({ request })
   expect(typesOf(jsonLd(exact))).toEqual(expect.arrayContaining(["SearchResultsPage", "BreadcrumbList"]));
 });
 
-test("the full list, tag pages and platform pages are indexable collections", async ({ request }) => {
+test("the full list and platform pages are indexable collections", async ({ request }) => {
   const all = await html(request, "/search");
   expectPageBasics(all, { canonical: `${ORIGIN}/search` });
   expect(resultIds(all)).toEqual(expect.arrayContaining(["briefcase", "dm", "ring", "remind", "notes", "orbit", "ledgerly"]));
@@ -28,9 +28,12 @@ test("the full list, tag pages and platform pages are indexable collections", as
   expect(resultIds(all)).not.toContain("draft-thing");
   expect(typesOf(jsonLd(all))).toContain("CollectionPage");
 
-  const tagged = await html(request, "/search?tag=productivity");
-  expectPageBasics(tagged, { canonical: `${ORIGIN}/search?tag=productivity` });
-  expect(resultIds(tagged).sort()).toEqual(["briefcase", "notes", "remind"]);
+  // A tag is found through the search text; an old tag address moves to that search.
+  const byTag = await html(request, "/search?q=productivity");
+  expect(resultIds(byTag)).toEqual(expect.arrayContaining(["briefcase", "notes", "remind"]));
+  const old = await request.get("/search?tag=productivity", { maxRedirects: 0 });
+  expect(old.status()).toBe(308);
+  expect(old.headers().location).toBe("/search?q=productivity");
 
   // Ring has no Windows package, so it is not in the Windows list.
   const windows = await html(request, "/search?target=windows-x86_64");
@@ -38,7 +41,7 @@ test("the full list, tag pages and platform pages are indexable collections", as
   expect(resultIds(windows)).not.toContain("ring");
   expect(mainText(windows)).toContain("Apps for Windows x64");
 
-  const combined = await html(request, "/search?q=ring&tag=alerts&target=linux-x86_64&visibility=public");
+  const combined = await html(request, "/search?q=ring&target=linux-x86_64&visibility=public");
   expect(resultIds(combined)).toEqual(["ring"]);
 });
 
@@ -56,11 +59,10 @@ test.describe("with JavaScript off", () => {
     await page.goto("/search");
     const form = page.getByRole("search", { name: "Search and filter apps" });
     await form.getByLabel("Search", { exact: true }).fill("notes");
-    await form.getByLabel("Tag").selectOption("writing");
     await form.getByLabel("Platform").selectOption("linux-x86_64");
     await form.getByRole("radio", { name: "Public" }).check();
     await form.getByRole("button", { name: "Show apps" }).click();
-    await expect(page).toHaveURL(/\/search\?q=notes&tag=writing&target=linux-x86_64&visibility=public$/);
+    await expect(page).toHaveURL(/\/search\?q=notes&target=linux-x86_64&visibility=public$/);
     await expect(page.getByRole("link", { name: "Field Notes" })).toBeVisible();
     await expect(page.getByRole("status").filter({ hasText: "1 app" })).toBeVisible();
   });

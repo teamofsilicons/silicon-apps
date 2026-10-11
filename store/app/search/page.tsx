@@ -1,15 +1,17 @@
 /**
- * /search?q=&tag=&target=&visibility=&page=: search and browse, server-rendered from a plain GET form. Search ranks
- * exact ids and names first (the Apps API's order); tag and platform narrow it down. The private view asks a signed-out
- * visitor to log in, and never shows a private app to anyone it was not shared with (the API decides).
+ * /search?q=&target=&visibility=&page=: search and browse, server-rendered from a plain GET form. Search ranks exact
+ * ids and names first (the Apps API's order) and matches tags through the search text; the platform narrows it down.
+ * Tags are never a filter of their own: an old /search?tag=x address moves to /search?q=x. The private view asks a
+ * signed-out visitor to log in, and never shows a private app to anyone it was not shared with (the API decides).
  */
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import { Lock, Search as SearchIcon } from "lucide-react";
 import { AppList } from "@/components/store/app-card";
 import { Breadcrumbs, EmptyState, Notice, Pagination, StructuredData, styles } from "@/components/store/parts";
 import { SearchFilters } from "@/components/store/search-form";
 import { Action } from "@/components/site/action";
-import { listAll, parseSearch, search, tagCounts, type SearchInput, type SearchResult } from "@/lib/catalog";
+import { parseSearch, search, type SearchInput, type SearchResult } from "@/lib/catalog";
 import { targetLabel } from "@/lib/format";
 import { absolute, breadcrumbLd, itemListLd, pageMetadata } from "@/lib/seo";
 import { getAccount, signInHref } from "@/lib/session";
@@ -18,9 +20,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 
 function heading(input: SearchInput): string {
   if (input.q) return `Apps matching “${input.q}”`;
-  if (input.visibility === "private") return input.tag ? `Private apps tagged ${input.tag}` : "Private apps";
-  if (input.tag && input.target) return `Apps tagged ${input.tag} for ${targetLabel(input.target)}`;
-  if (input.tag) return `Apps tagged ${input.tag}`;
+  if (input.visibility === "private") return "Private apps";
   if (input.target) return `Apps for ${targetLabel(input.target)}`;
   return "Apps";
 }
@@ -28,7 +28,6 @@ function heading(input: SearchInput): string {
 function hrefFor(input: SearchInput, page = 1): string {
   const params = new URLSearchParams();
   if (input.q) params.set("q", input.q);
-  if (input.tag) params.set("tag", input.tag);
   if (input.target) params.set("target", input.target);
   if (input.visibility !== "all") params.set("visibility", input.visibility);
   if (page > 1) params.set("page", String(page));
@@ -41,35 +40,42 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const title = heading(input);
   const description = input.q
     ? `Apps on Silicon Apps matching ${input.q}, exact ids and names first. Every app installs with one command.`
-    : input.tag
-      ? `Apps on Silicon Apps tagged ${input.tag}: command line apps for Carbons and Silicons that install with one command and keep themselves up to date.`
-      : input.target
-        ? `Apps on Silicon Apps with a package for ${targetLabel(input.target)}. Every app installs with one command and keeps itself up to date.`
-        : "Every app on Silicon Apps: command line apps for Carbons and Silicons that install with one command and keep themselves up to date.";
-  // Typed searches and the private view are not indexed; the full list, tag pages and platform pages are.
+    : input.target
+      ? `Apps on Silicon Apps with a package for ${targetLabel(input.target)}. Every app installs with one command and keeps itself up to date.`
+      : "Every app on Silicon Apps: command line apps for Carbons and Silicons that install with one command and keep themselves up to date.";
+  // Typed searches and the private view are not indexed; the full list and platform pages are.
   const index = !input.q && input.visibility === "all" && input.page === 1;
   return pageMetadata({ title, description, path: hrefFor({ ...input, q: "", visibility: "all", page: 1 }), index });
 }
 
+/** An old tag address (/search?tag=x) becomes a plain search for x, keeping the other parameters. */
+function tagRedirect(params: Record<string, string | string[] | undefined>): string | null {
+  const raw = params.tag;
+  const tag = (Array.isArray(raw) ? raw[0] : raw)?.trim();
+  if (!tag) return null;
+  const input = parseSearch(params);
+  return hrefFor({ ...input, q: [input.q, tag.slice(0, 60)].filter(Boolean).join(" "), page: 1 });
+}
+
 export default async function SearchPage({ searchParams }: Props) {
-  const input = parseSearch(await searchParams);
+  const params = await searchParams;
+  const moved = tagRedirect(params);
+  if (moved) permanentRedirect(moved);
+  const input = parseSearch(params);
   const account = await getAccount();
   const title = heading(input);
   const needsSignIn = input.visibility === "private" && !account;
 
   let result: SearchResult | null = null;
-  let tags: string[] = [];
   let failed = false;
   if (!needsSignIn) {
     try {
-      const [found, everything] = await Promise.all([search(input), listAll()]);
-      result = found;
-      tags = tagCounts(everything).map(entry => entry.tag);
+      result = await search(input);
     } catch {
       failed = true;
     }
   }
-  const filtered = Boolean(input.q || input.tag || input.target || input.visibility !== "all");
+  const filtered = Boolean(input.q || input.target || input.visibility !== "all");
   const path = hrefFor(input, input.page);
 
   return (
@@ -98,7 +104,7 @@ export default async function SearchPage({ searchParams }: Props) {
         </p>
       </header>
 
-      {needsSignIn ? null : <SearchFilters input={input} tags={tags} />}
+      {needsSignIn ? null : <SearchFilters input={input} />}
 
       <section aria-labelledby="results-title" className={styles.results}>
         <h2 id="results-title" className="sr-only">Results</h2>

@@ -1,6 +1,6 @@
 /**
  * The root layout of apps.teamofsilicons.com: <html> and <body>, the shared faces and tokens over Arc's foundation (the
- * same files as the developer site), the no-flash theme boot script (inline, with the request's CSP nonce), the
+ * same files as the developer site), the boot script (inline, with the request's CSP nonce; the store is light only), the
  * header and footer, the one behaviour island, and the Organization and WebSite JSON-LD every page carries. Every page renders per request: the nonce and the visitor's session change each time.
  */
 import "@/components/silicon-ui/foundation.css";
@@ -17,7 +17,7 @@ import { SiteHeader } from "@/components/site/site-header";
 import { JsonLd, organizationLd, websiteLd } from "@/lib/seo";
 import { getAccount } from "@/lib/session";
 import { CANONICAL_ORIGIN, OG_IMAGE, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
-import { THEME_BOOT_SCRIPT } from "@/lib/theme";
+import { BOOT_SCRIPT } from "@/lib/boot";
 
 export const metadata: Metadata = {
   metadataBase: new URL(CANONICAL_ORIGIN),
@@ -39,10 +39,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FFFDF9" },
-    { media: "(prefers-color-scheme: dark)", color: "#151412" },
-  ],
+  themeColor: "#FFFDF9",
+  colorScheme: "light",
 };
 
 /** This page's path and query, set by proxy.ts (for the current link and for coming back after signing in). */
@@ -57,7 +55,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en" data-surface="site" suppressHydrationWarning>
       <head>
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
         {/* The text face and the title serif: the two files worth fetching before first paint. */}
         <link rel="preload" href="/fonts/bdo-grotesk/BDOGrotesk-Regular.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/hedvig-letters-serif/HedvigLettersSerif-Regular.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />

@@ -25,7 +25,6 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-size: var(--text-base);
-  transition: background-color var(--duration-standard) var(--ease-standard), color var(--duration-standard) var(--ease-standard);
 }
 
 h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd { margin: 0; }
@@ -79,7 +78,7 @@ hr { height: 1px; margin: 0; border: 0; background: var(--border); }
 .muted { color: var(--text-muted); }
 .secondary { color: var(--text-secondary); }
 
-/* Controls that only work with script (copy buttons) stay out of sight in a browser without it: the theme boot script
+/* Controls that only work with script (copy buttons) stay out of sight in a browser without it: the boot script (lib/boot.ts)
    marks <html data-js> before the first paint. */
 :root:not([data-js]) [data-js-only] { display: none !important; }
 
@@ -113,12 +112,10 @@ html[data-surface="embed"] body { min-height: 0; background: transparent; transi
  * Page changes between sections (components/foundation/shell): React's <ViewTransition> tags the leaving page and the
  * arriving one with a class per direction along the dock (page-forward / page-back) or page-fade. The dock is its own
  * layer that never moves, so only the page slides.
- * The theme change is Arc's eclipse (lib/theme.ts): the next appearance crosses the page as a disc from the switch.
  * ------------------------------------------------------------------------------------------------------------------ */
 ::view-transition { pointer-events: none; }
 
 [data-vt="dock"] { view-transition-name: sa-dock; }
-:root[data-transition="eclipse"] [data-vt="dock"] { view-transition-name: none; }
 ::view-transition-group(sa-dock) { z-index: 100; animation: none; }
 ::view-transition-old(sa-dock) { display: none; }
 ::view-transition-new(sa-dock) { animation: none; }
@@ -133,12 +130,6 @@ html[data-surface="embed"] body { min-height: 0; background: transparent; transi
 @keyframes page-in { from { opacity: 0; transform: translateX(calc(var(--page-dir, 0) * 18px)); filter: blur(3px); } }
 
 ::view-transition-old(root), ::view-transition-new(root) { mix-blend-mode: normal; }
-:root[data-transition="eclipse"]::view-transition-old(root) { animation: none; }
-:root[data-transition="eclipse"]::view-transition-new(root) { animation: eclipse-sweep var(--eclipse-duration, 720ms) var(--ease-in-out) both; }
-@keyframes eclipse-sweep {
-  from { clip-path: circle(var(--eclipse-r) at var(--eclipse-x0) var(--eclipse-y0)); }
-  to { clip-path: circle(var(--eclipse-r) at var(--eclipse-x1) var(--eclipse-y1)); }
-}
 
 @media (prefers-reduced-motion: reduce) {
   body { transition: none; }
