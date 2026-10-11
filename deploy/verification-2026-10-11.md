@@ -128,3 +128,19 @@ the header draws the new glyph; `/apps/dm/og.png` renders with the new mark.
 
 Same day, Accounts `38fab27` took the tag filter out of the developer site's `llms-full.txt` and Apps API reference
 (silicon-accounts deploy/verification-2026-10-11.md).
+
+## Store release 1b92768: theme-following icon, quiet filters, star rating, logo spans its text
+
+PRs #11 and #12: `icon.svg` swaps between the light mark (#181818 hexagons on cream) and the dark one with the browser
+theme, PNG icons and social images use the light one; the filters are one quiet row of Arc dropdown menus (Platform,
+Installs, Last release, Sort) with the rating filter as five stars (half-star steps, keyboard slider); the app page
+says who signed in one muted line under Releases (Silicon Apps signature kept, author signing optional); profile
+photos get a one-pixel line; the app logo is as tall as its name and byline. `@radix-ui/react-dropdown-menu` 2.1.25
+added, Arc's filter toolbar removed. Store only; the archive carried the live API binary (`6240eac8…`).
+
+Archive `releases/1b927682b42c8c8863985d7aa268c959a61c8bfc.tar.gz`, SHA-256
+`55d38d450bc214ba97c14457f8e9c883a6d3f439d6f92bccf047999c658ff618`, S3 version `AA8mHTHx7tlIYVxpB2Jz5w_DGDAdBbbv`.
+SSM `e16f7f56-08c5-46b4-acf1-37475b77f85b`, backup `backups/20261011T150854Z.tar.gz`. Checks: CI green, e2e 36 passed.
+Live: `icon.svg` carries the dark-scheme rule; `/apps/hook` sizes its logo to the text; `/apps/briefcase` shows the
+signing line and no Signatures row; `/search` shows the filter row and the star picker opens and previews; no console
+errors; `/`, `/search`, `/apps/briefcase`, `/health` 200.
