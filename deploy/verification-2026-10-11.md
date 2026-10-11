@@ -168,3 +168,22 @@ Live: `/`, `/apps/dm`, `/settings`, `/health` 200; `/settings` no longer mention
 
 Same day, Accounts `37d5688` took telemetry out of the account and developer sites (silicon-accounts
 deploy/verification-2026-10-11.md).
+
+## Release 94c2a40: Accounts' own apps are never synced; blue buttons
+
+PR #15. API: `sync_app` skips Silicon Accounts' own apps (`silicon-accounts`, `developer`). Accounts refuses to sync
+them, and every `PATCH /v1/apps/{id}` syncs before it is saved, so those two listings could not be edited at all
+(found setting the Silicon Accounts logo at the Carbon's request). Store: filled buttons are the calm blue
+(`--primary` #1F5CB1), as on the account and developer sites. API and store release: CI-built API binary
+`apps-server-linux-aarch64-d4d3e47…` (SHA256SUMS verified; the merge commit has no Rust change past it), binary
+SHA-256 `460ed0b3b87cfa95e24ad87a6fc955446461c114bad3d9be34105994dc2a0cd4`.
+
+Archive `releases/94c2a403d2600584d901308f90dde59436ee9f1c.tar.gz`, SHA-256
+`166db9338759e793fc8d22decf32ed2aaedaa860722fceaa5154fdac763f9008`, S3 version `3VlABMWsSBpphcQaP75ohUknFONggdYA`.
+SSM `ff4a306f-196b-4984-b88e-cca171005feb`, backup `backups/20261011T181612Z.tar.gz`. Checks: CI green (Rust, web,
+native, workers, ARM64 API), `cargo test -p silicon-apps-server` 67 passed, store e2e 36 passed.
+
+Live: `/`, `/apps/silicon-accounts`, `/apps/dm`, `/health` 200; the store's CSS carries `--primary:#1f5cb1`. Then, from
+the Carbon's `silicon-apps` session and at their request: `silicon-accounts` links renamed from the legacy `docs` key to
+`developer_docs` (same address), and the Carbon's logos set as data: URLs on `silicon-accounts` and `silicon-apps`
+(the latter before this release; it synced to Silicon Accounts at once). Both show in the store.
