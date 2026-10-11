@@ -262,11 +262,19 @@ a.pageLink:hover, a.pageLink:focus-visible { --sq-fill: var(--surface-muted); co
 .searchLarge .searchInput { font-size: 1.0625rem; }
 .searchButton { flex: none; }
 
-/* The search page's filters: one form, the field on top and the filters in a row under it. */
-/* On paper, between two hairlines, like the filter row on Writings: no box around it. */
-.filters { --sq-r: 0; --sq-fill: transparent; --sq-stroke: transparent; display: grid; gap: var(--space-4); border-block: 1px solid var(--border); padding: var(--space-5) 0; background: transparent; }
-.filterRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: var(--space-4); }
-.filterSubmit { min-width: 120px; }
+/* The search page's form: the search field, then the additional filters behind a quiet "Filters" disclosure. */
+.filters { display: grid; gap: 12px; margin: 0; }
+.more { display: grid; }
+.moreToggle { display: inline-flex; width: fit-content; align-items: center; gap: 6px; padding: 4px 0; color: var(--text-secondary); font-size: var(--text-sm); cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+.moreToggle::-webkit-details-marker { display: none; }
+.moreToggle:hover, .moreToggle:focus-visible { color: var(--foreground); }
+.moreToggle:focus-visible { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
+.moreCount { display: inline-grid; min-width: 18px; height: 18px; place-items: center; border-radius: 999px; padding: 0 5px; background: var(--foreground); color: var(--background); font-family: var(--font-pixel); font-size: .6875rem; }
+.moreBody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; border-block: 1px solid var(--border); padding: 20px 0; }
+.moreWide { grid-column: 1 / -1; }
+.moreActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px 20px; }
+.clear { color: var(--text-secondary); font-size: var(--text-sm); }
+.clear:hover { color: var(--foreground); }
 
 /* Segmented control: Arc's segmented control as radio buttons. */
 .segmented { min-width: 0; margin: 0; border: 0; padding: 0; }
@@ -281,17 +289,11 @@ a.pageLink:hover, a.pageLink:focus-visible { --sq-fill: var(--surface-muted); co
 .segment input:focus-visible + span { color: var(--foreground); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
 
 @media (max-width: 719px) {
-  .filters { padding: var(--space-4) 0; }
-  /* Tag and platform stay side by side on a phone, so the results start sooner. */
-  .filterRow { gap: var(--space-3); }
-  .filterRow > .segmented, .filterRow > .filterSubmit { grid-column: 1 / -1; justify-self: stretch; }
+  .moreBody { grid-template-columns: minmax(0, 1fr); }
   /* Full width like the fields above it, three equal segments. */
   .segmented .segmentTrack { display: flex; }
   .segment { flex: 1 1 0; }
   .segment span { width: 100%; }
-}
-@media (max-width: 399px) {
-  .filterRow { grid-template-columns: minmax(0, 1fr); }
 }
 /* On a phone the whole command stays visible: it wraps instead of scrolling out of sight. */
 @media (max-width: 479px) {
