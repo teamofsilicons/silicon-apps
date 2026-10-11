@@ -8,6 +8,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { HEXAGONS } from "@/components/site/brand";
 import { appsApiUrl } from "./config";
 import { formatCount, formatRating, monogramOf, operatingSystems, truncate } from "./format";
 import type { App } from "./types";
@@ -29,16 +30,12 @@ const SECONDARY = "#57544D";
 const BORDER = "#E7E3D8";
 const BLUE = "#1F5CB1";
 
+/** The Silicon Apps mark (components/site/brand.tsx): cream hexagons on #181818. */
 function Mark({ size }: { size: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64">
-      <path fill={BLUE} d="M32 0c19.6 0 25.4 1.4 28.6 3.4C62.6 6.6 64 12.4 64 32s-1.4 25.4-3.4 28.6C57.4 62.6 51.6 64 32 64S6.6 62.6 3.4 60.6C1.4 57.4 0 51.6 0 32S1.4 6.6 3.4 3.4C6.6 1.4 12.4 0 32 0Z" />
-      <g fill="#FFFFFF" transform="translate(32 32) scale(.94) translate(-32 -32)">
-        <rect x="15" y="15" width="15" height="15" rx="4.5" />
-        <rect x="34" y="15" width="15" height="15" rx="4.5" />
-        <rect x="15" y="34" width="15" height="15" rx="4.5" />
-        <rect x="34" y="34" width="15" height="15" rx="4.5" />
-      </g>
+    <svg width={size} height={size} viewBox="0 0 200 200">
+      <rect width="200" height="200" rx="36" fill="#181818" />
+      {HEXAGONS.map(d => <path key={d} d={d} fill="#EDE8E0" />)}
     </svg>
   );
 }
