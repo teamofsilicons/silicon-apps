@@ -97,7 +97,14 @@ pub async fn registry_available(s: &Shared, id: &str) -> Result<bool> {
         .ok_or_else(|| ApiError::unavailable("Accounts registry response has no apps list."))?;
     Ok(!apps.iter().any(|a| a["app_id"] == id))
 }
+/// Silicon Accounts' own apps. Accounts runs their registration itself and refuses to have them synced, so their store
+/// listings (logo, links, description) change here alone: syncing them would make every edit of those listings fail.
+pub const ACCOUNTS_OWN_APPS: [&str; 2] = ["silicon-accounts", "developer"];
+
 pub async fn sync_app(s: &Shared, app: &App, secret: Option<&str>) -> Result<()> {
+    if ACCOUNTS_OWN_APPS.contains(&app.app_id.as_str()) {
+        return Ok(());
+    }
     if s.config.dev_auth && s.config.accounts_service_token.is_none() {
         return Ok(());
     }
