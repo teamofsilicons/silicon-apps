@@ -21,8 +21,8 @@ export function GET(request: Request) {
       { src: "/icon-maskable-512.png", type: "image/png", sizes: "512x512", purpose: "maskable" },
     ],
     shortcuts: [
-      { name: "All apps", url: "/search" },
-      { name: "Private apps", url: "/search?visibility=private" },
+      { name: "Apps", url: "/" },
+      { name: "Private apps", url: "/?visibility=private" },
     ],
   };
   return publicResponse(request, `${JSON.stringify(manifest, null, 2)}\n`, { type: "application/manifest+json; charset=utf-8", maxAge: 86400 });

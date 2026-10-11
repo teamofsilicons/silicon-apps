@@ -3,7 +3,7 @@
  * The search page's filters, kept quiet: one row under the search field with no box around it. Each filter is Arc's
  * dropdown menu (components/silicon-ui/dropdown-menu) with a plain trigger ("Platform"), and one click shows its values;
  * once set, the trigger reads its value ("Linux x64") and sits on a soft fill. Sort lives at the end of the row, and
- * "Clear" appears only when something is set. Each choice moves to the matching /search address, so the server renders
+ * "Clear" appears only when something is set. Each choice moves to the matching address on the home page, so the server renders
  * the results and every view keeps its own URL. Only shown with script; without it the page keeps its plain form.
  */
 import { useRouter } from "next/navigation";
@@ -22,14 +22,14 @@ const SHOWN: Array<{ param: string; any: string }> = [
   { param: "released", any: "Any time" },
 ];
 
-/** The order /search writes its parameters in (app/search/page.tsx), so a move never needs the tidying redirect. */
+/** The order the home page writes its parameters in (app/page.tsx), so a move never needs the tidying redirect. */
 const ORDER = ["q", "target", "visibility", "added", "released", "installs", "rating", "sort"];
 
 function hrefOf(values: Record<string, string>): string {
   const params = new URLSearchParams();
   for (const key of ORDER) if (values[key]) params.set(key, values[key]);
   const query = params.toString();
-  return `/search${query ? `?${query}` : ""}`;
+  return `/${query ? `?${query}` : ""}`;
 }
 
 const mark = (on: boolean) => (on ? <Check size={15} strokeWidth={2} /> : <span />);

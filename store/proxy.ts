@@ -58,12 +58,14 @@ function legacy(request: NextRequest): NextResponse | null {
       if (value && !(key === "visibility" && value === "all")) params.set(key, value);
     }
     const query = params.toString();
-    return redirect(request, query ? `/search?${query}` : "/");
+    return redirect(request, query ? `/?${query}` : "/");
   }
   if (pathname === "/store/apps" || pathname === "/store/apps/") return redirect(request, "/apps/silicon-apps");
   const storeApp = /^\/store\/([^/]+)\/?$/.exec(pathname);
   if (storeApp) return redirect(request, `/apps/${storeApp[1]}${search}`);
-  if (pathname === "/apps" || pathname === "/apps/") return redirect(request, `/search${search}`);
+  if (pathname === "/apps" || pathname === "/apps/") return redirect(request, `/${search}`);
+  // Search and the store's list are one page now: /search?… keeps working.
+  if (pathname === "/search" || pathname === "/search/") return redirect(request, `/${search}`);
   if (/^\/apps\/apps(\/|$)/.test(pathname)) return redirect(request, pathname.replace(/^\/apps\/apps/, "/apps/silicon-apps") + search);
   if (pathname === "/developer" || pathname.startsWith("/developer/")) {
     const rest = pathname.replace(/^\/developer\/?/, "");

@@ -12,8 +12,7 @@ https://developers.teamofsilicons.com/docs/accounts. There is no app authoring h
 
 | Path | What it is |
 | --- | --- |
-| `/` | What Silicon Apps is, search, the apps as one list with a way to every app, how to get the CLI, what Silicons can call |
-| `/search?q=&target=&visibility=&added=&released=&installs=&rating=&sort=&page=` | Search, with the additional filters (platform, visibility, added, last release, installs, rating, sort) behind a "Filters" disclosure; one plain GET form, and the page redirects to the tidy address. Tags are matched by the search text, never a filter; an old `/search?tag=x` moves to `/search?q=x`. Signed out, `visibility=private` says `Log in to see private apps` |
+| `/?q=&target=&visibility=&added=&released=&installs=&rating=&sort=&page=` | The store on one page: the title, search and the filter row, then the apps in batches of 24 ("Show more apps" adds the next batch in place; `?page=N` shows the first N batches). How to get the CLI and what Silicons can call follow the list on the plain view. Tags are matched by the search text, never a filter; `?tag=x` moves to `?q=x`, and `/search?…` to `/?…`. Signed out, `visibility=private` says `Log in to see private apps` |
 | `/apps/{app_id}` | Everything about one app: banner, logo, carousel, description, tags, links, authors, platforms, releases, signatures, withdrawn releases, rating, installs, `silicon-apps install {app_id}` with a copy button, reviews and the review form |
 | `/authors/{uuid}` | An author and their published apps |
 | `/settings` | Session (sign in or out), telemetry, report a problem |
@@ -64,6 +63,7 @@ Everything is read at request time, never baked into the build, so one build ser
 | `PORT` | `3000` (`8710` with `pnpm dev` and `pnpm start`) | The port the server listens on |
 | `HOSTNAME` | `0.0.0.0` (`127.0.0.1` with `pnpm dev` and `pnpm start`) | The address the server listens on; set `127.0.0.1` behind Caddy |
 | `DEVELOPERS_URL` | `https://developers.teamofsilicons.com` | Where the old `/developer/*` and `/docs/*` addresses redirect |
+| `STORE_PAGE_SIZE` | `24` | Apps per batch on the home page (1 to 100), for local checks of "Show more apps" |
 | `STORE_DEV_API_PASSTHROUGH` | unset | `1` forwards the API's paths to `APPS_API_URL` (local checks only; `next dev` always does) |
 
 Canonical links, Open Graph, JSON-LD and the sitemap always name `https://apps.teamofsilicons.com`.

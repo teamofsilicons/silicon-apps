@@ -80,7 +80,7 @@ export function websiteLd(): Json {
     publisher: { "@id": ORGANIZATION_ID },
     potentialAction: {
       "@type": "SearchAction",
-      target: { "@type": "EntryPoint", urlTemplate: `${CANONICAL_ORIGIN}/search?q={search_term_string}` },
+      target: { "@type": "EntryPoint", urlTemplate: `${CANONICAL_ORIGIN}/?q={search_term_string}` },
       "query-input": "required name=search_term_string",
     },
   };

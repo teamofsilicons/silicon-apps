@@ -18,7 +18,7 @@ function back(appId: string, status: string, code?: string): never {
 
 function read(formData: FormData) {
   const appId = String(formData.get("app_id") ?? "");
-  if (!APP_ID_PATTERN.test(appId)) redirect("/search");
+  if (!APP_ID_PATTERN.test(appId)) redirect("/");
   const key = String(formData.get("idempotency_key") ?? "");
   return { appId, key: KEY.test(key) ? key : crypto.randomUUID() };
 }

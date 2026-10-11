@@ -25,7 +25,6 @@ export async function sitemapEntries(): Promise<Entry[]> {
   const newest = latest(apps.map(app => app.updated_at));
   const entries: Entry[] = [
     { path: "/", modified: newest, priority: 1 },
-    { path: "/search", modified: newest, priority: 0.8 },
   ];
   for (const app of apps) entries.push({ path: appPath(app.app_id), modified: app.updated_at, priority: 0.9 });
   const authors = new Map<string, string>();

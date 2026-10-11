@@ -17,7 +17,7 @@ export const AI_CRAWLERS = [
 ];
 
 export const ALLOWED = ["/", "/v1/apps/*/media/"];
-export const DISALLOWED = ["/sign-in", "/sign-out", "/settings", "/search?q=", "/v1/", "/api/"];
+export const DISALLOWED = ["/sign-in", "/sign-out", "/settings", "/?q=", "/v1/", "/api/"];
 
 export function robotsTxt(): string {
   return [

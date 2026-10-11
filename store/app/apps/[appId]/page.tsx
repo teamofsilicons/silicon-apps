@@ -96,8 +96,8 @@ export default async function AppPage({ params, searchParams }: Props) {
 
   return (
     <div className={styles.page}>
-      <StructuredData graph={[softwareApplicationLd(app, sorted), breadcrumbLd([{ name: "Home", path: "/" }, { name: "Apps", path: "/search" }, { name: app.name, path }])]} />
-      <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "Apps", href: "/search" }, { name: app.name }]} />
+      <StructuredData graph={[softwareApplicationLd(app, sorted), breadcrumbLd([{ name: "Apps", path: "/" }, { name: app.name, path }])]} />
+      <Breadcrumbs items={[{ name: "Apps", href: "/" }, { name: app.name }]} />
 
       <article className={pageStyles.article} aria-labelledby="app-name">
         <header className={pageStyles.header}>

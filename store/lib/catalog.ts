@@ -10,7 +10,8 @@ import { TARGETS } from "./format";
 import { MIN_INSTALLS, MIN_RATINGS, PERIODS, SORTS, type Period, type Sort } from "./filters";
 import type { App, AppList } from "./types";
 
-export const PAGE_SIZE = 24;
+/** Apps per batch on the home page ("Show more apps" adds one). STORE_PAGE_SIZE changes it, for local checks. */
+export const PAGE_SIZE = Math.min(100, Math.max(1, Math.floor(Number(process.env.STORE_PAGE_SIZE)) || 24));
 const MAX_SCAN = 1000;
 
 export type Visibility = "all" | "public" | "private";
@@ -31,7 +32,8 @@ export type SearchInput = {
   page: number;
 };
 
-export type SearchResult = { items: App[]; total: number; page: number; pages: number };
+/** The apps shown so far (`page` batches of PAGE_SIZE, from the first), how many match in all, and whether more wait. */
+export type SearchResult = { items: App[]; total: number; page: number; more: boolean };
 
 /** How many additional filters are set (the sort counts, the search text does not). */
 export function activeFilters(input: SearchInput): number {
@@ -84,7 +86,7 @@ export function parseSearch(params: Record<string, string | string[] | undefined
     minInstalls: (MIN_INSTALLS as readonly number[]).includes(installs) ? installs : 0,
     minRating: (MIN_RATINGS as readonly number[]).includes(rating) ? rating : 0,
     sort: (SORTS as readonly string[]).includes(sort) ? (sort as Sort) : "relevance",
-    page: Math.min(Math.max(page, 1), 1000),
+    page: Math.min(Math.max(page, 1), 40),
   };
 }
 
@@ -100,11 +102,12 @@ function within(iso: string, period: Period | "", now: number): boolean {
 }
 
 export async function search(input: SearchInput): Promise<SearchResult> {
-  const offset = (input.page - 1) * PAGE_SIZE;
+  // Batches add up: page 2 shows the first two batches, so "Show more" only ever extends the list.
+  const shown = input.page * PAGE_SIZE;
   const narrowing = input.target || input.added || input.released || input.minInstalls || input.minRating;
-  if (!narrowing) {
-    const result = await listPage(input.q, input.visibility, PAGE_SIZE, offset, false, input.sort);
-    return { items: result.items, total: result.total, page: input.page, pages: Math.max(1, Math.ceil(result.total / PAGE_SIZE)) };
+  if (!narrowing && shown <= 100) {
+    const result = await listPage(input.q, input.visibility, shown, 0, false, input.sort);
+    return { items: result.items, total: result.total, page: input.page, more: result.total > result.items.length };
   }
   const now = Date.now();
   const matching = (await listAll(input.q, input.visibility, false, input.sort)).filter(
@@ -115,10 +118,5 @@ export async function search(input: SearchInput): Promise<SearchResult> {
       app.installs >= input.minInstalls &&
       (!input.minRating || (app.review_count > 0 && (app.rating ?? 0) >= input.minRating)),
   );
-  return {
-    items: matching.slice(offset, offset + PAGE_SIZE),
-    total: matching.length,
-    page: input.page,
-    pages: Math.max(1, Math.ceil(matching.length / PAGE_SIZE)),
-  };
+  return { items: matching.slice(0, shown), total: matching.length, page: input.page, more: matching.length > shown };
 }
