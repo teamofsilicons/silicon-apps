@@ -1,7 +1,7 @@
 /*
- * The store's header, menu and footer, after Arc's site-header and site-footer blocks (the same as the developer
- * site's developer/components/site/site.module.css, plus the signed-in account chip): a calm sticky bar, a gliding
- * hover fill on links, brand-blue primary action, quiet footer columns. Every rounded surface is a squircle.
+ * The store's header, menu and footer, in the style of Silicon Writings and teamofsilicons.com: a wordmark in the pixel
+ * face, the navigation in one floating pill whose current item sits on beige, an outlined Sign in, and a quiet footer
+ * with pixel-face labels. Every rounded surface is a squircle (data-sq plus --sq-r / --sq-fill / --sq-stroke).
  */
 
 /* Header ----------------------------------------------------------------------------------------------------------- */
@@ -10,10 +10,9 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  border-bottom: 1px solid var(--border-subtle);
-  background: color-mix(in oklab, var(--background) 84%, transparent);
-  -webkit-backdrop-filter: saturate(1.5) blur(14px);
-  backdrop-filter: saturate(1.5) blur(14px);
+  background: color-mix(in oklab, var(--background) 82%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
 }
 .header[data-wide] { --header-max: 1440px; }
 .bar {
@@ -26,64 +25,78 @@
   padding: 0 var(--gutter);
 }
 
-/* The padding (taken back by the negative margin) gives keyboard focus a soft fill to show in. */
+/* The wordmark: the four-tile glyph in ink and "Silicon Apps" in the pixel face, as Writings sets its own name. The
+   padding (taken back by the negative margin) gives keyboard focus a soft fill to show in. */
 .brand {
-  --sq-r: 12px;
+  --sq-r: 10px;
   --sq-fill: transparent;
   display: inline-flex;
   min-width: 0;
   flex: none;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   margin: -6px 0 -6px -8px;
   padding: 6px 8px;
   background: var(--sq-fill);
   color: var(--foreground);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -.015em;
+  font-family: var(--font-pixel);
+  font-size: 1.0625rem;
+  letter-spacing: 0;
   text-decoration: none;
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .brand:hover { color: var(--foreground); }
 .brand:focus-visible { --sq-fill: var(--surface-muted); color: var(--foreground); }
-.brandMark { --sq-r: 9px; display: grid; width: 28px; height: 28px; flex: none; place-items: center; background: var(--primary); color: var(--primary-foreground); }
-.brandMark svg { width: 18px; height: 18px; }
+.brandMark { display: grid; width: 22px; height: 22px; flex: none; place-items: center; color: var(--foreground); }
+.brandMark svg { width: 22px; height: 22px; }
 .brandText { white-space: nowrap; }
-.brandMuted { color: var(--text-secondary); font-weight: 500; }
 
-.nav { min-width: 0; margin-left: var(--space-5); }
-.navList { display: flex; align-items: center; gap: 2px; margin: 0; padding: 0; list-style: none; }
+/* The navigation: one pill, as on teamofsilicons.com. */
+.nav { min-width: 0; margin-left: auto; }
+.navList {
+  --sq-r: 11px;
+  --sq-fill: color-mix(in oklab, var(--surface) 72%, transparent);
+  --sq-stroke: var(--border);
+  display: flex;
+  height: 38px;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  border: 1px solid var(--sq-stroke);
+  padding: 4px;
+  background: var(--sq-fill);
+  list-style: none;
+  box-shadow: var(--shadow-raised);
+}
 .navLink {
-  --sq-r: 10px;
+  --sq-r: 7px;
   --sq-fill: transparent;
   position: relative;
   display: inline-flex;
-  height: 34px;
+  height: 28px;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 10px;
   background: var(--sq-fill);
   color: var(--text-secondary);
   font-size: var(--text-sm);
-  font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
   transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 .navLink:hover, .navLink:focus-visible { --sq-fill: var(--surface-muted); color: var(--foreground); }
-.navLink[aria-current] { color: var(--foreground); }
+.navLink[aria-current] { --sq-fill: var(--surface-pressed); color: var(--foreground); }
 .navExternal { margin-left: 3px; color: var(--text-muted); }
-/* The current section: Arc's indicator line under the label. */
-.navLink[aria-current]::after { content: ""; position: absolute; right: 12px; bottom: 3px; left: 12px; height: 2px; border-radius: 2px; background: var(--accent); }
 
-.actions { display: flex; flex: none; align-items: center; gap: var(--space-2); margin-left: auto; }
+.actions { display: flex; flex: none; align-items: center; gap: var(--space-2); margin-left: var(--space-2); }
+.nav + .actions { margin-left: var(--space-3); }
 .account { flex: none; }
+/* Sign in: outlined, lifted a little, like "Book a call" on teamofsilicons.com. */
+.signIn { box-shadow: var(--shadow-raised); }
 
-/* The signed-in account: Arc's user-menu trigger as a plain link to Settings. */
+/* The signed-in account: a plain link to Settings. */
 .accountChip {
-  --sq-r: 12px;
-  --sq-fill: transparent;
+  --sq-r: 11px;
+  --sq-fill: var(--surface);
   --sq-stroke: var(--border);
   display: inline-flex;
   max-width: 220px;
@@ -95,16 +108,16 @@
   background: var(--sq-fill);
   color: var(--foreground);
   font-size: var(--text-sm);
-  font-weight: 500;
   text-decoration: none;
+  box-shadow: var(--shadow-raised);
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .accountChip:hover, .accountChip:focus-visible { --sq-fill: var(--surface-muted); color: var(--foreground); }
-.accountId { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: .8125rem; letter-spacing: 0; }
+.accountId { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-pixel); font-size: .8125rem; letter-spacing: 0; }
 
-/* Icon buttons (search, theme, menu): Arc's icon-only switch, 38 px on a 12 px squircle. */
+/* Icon buttons (search, theme, menu): 38 px on an 11 px squircle. */
 .iconButton {
-  --sq-r: 12px;
+  --sq-r: 11px;
   --sq-fill: transparent;
   --sq-stroke: transparent;
   display: inline-grid;
@@ -159,64 +172,65 @@
   .menu:not(:popover-open) { opacity: 0; transform: translateX(16px); }
 }
 .menuHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 0 0 0 var(--space-2); }
-.menuTitle { color: var(--text-muted); font-size: var(--text-sm); font-weight: 500; }
+.menuTitle { color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; }
 .menuNav ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .menuLink {
-  --sq-r: 12px;
+  --sq-r: 10px;
   --sq-fill: transparent;
   display: flex;
   min-height: 44px;
   align-items: center;
+  gap: 4px;
   padding: 0 var(--space-3);
   background: var(--sq-fill);
   color: var(--foreground);
   font-size: var(--text-base);
-  font-weight: 500;
   text-decoration: none;
 }
-.menuLink { gap: 4px; }
 .menuLink:hover, .menuLink:focus-visible { --sq-fill: var(--surface-muted); color: var(--foreground); }
-.menuLink[aria-current] { --sq-fill: var(--accent-subtle); color: var(--accent-strong); }
+.menuLink[aria-current] { --sq-fill: var(--surface-pressed); color: var(--foreground); }
 .menuExtra { border-top: 1px solid var(--border-subtle); padding-top: var(--space-3); }
 .menuFoot { display: grid; gap: var(--space-2); margin-top: auto; padding-top: var(--space-2); }
 .menuAction { width: 100%; }
 
 @media (max-width: 899px) {
   .nav { display: none; }
+  .actions, .nav + .actions { margin-left: auto; }
   .menuButton { display: inline-grid; }
 }
 @media (max-width: 479px) {
   .bar { --site-header-height: 58px; gap: 4px; }
-  .brandText { display: none; }
   .actions .account { display: none; }
 }
 
 /* Footer ----------------------------------------------------------------------------------------------------------- */
-.footer { border-top: 1px solid var(--border-subtle); background: var(--background); }
+.footer { margin-top: clamp(32px, 5vw, 64px); border-top: 1px solid var(--border-subtle); background: var(--background); }
 .footerInner { max-width: var(--page-max); margin-inline: auto; padding: var(--space-12) var(--gutter) var(--space-8); }
 .footer[data-wide] .footerInner { max-width: 1440px; }
 .footerTop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: var(--space-12); }
 .footerIntro { display: grid; align-content: start; gap: var(--space-3); }
-.footerBrand { display: inline-flex; width: max-content; align-items: center; gap: 10px; color: var(--foreground); font-family: var(--font-display); font-weight: 600; letter-spacing: -.015em; text-decoration: none; }
+.footerBrand { display: inline-flex; width: max-content; align-items: center; gap: 9px; color: var(--foreground); font-family: var(--font-pixel); font-size: 1rem; text-decoration: none; }
 .footerBrand:hover { color: var(--foreground); }
+.footerBrand .brandMark, .footerBrand .brandMark svg { width: 20px; height: 20px; }
 .tagline { max-width: 34ch; margin: 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.6; }
 .columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-6); }
 .columnsFour { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .footerTop:has(.columnsFour) { grid-template-columns: minmax(0, .8fr) minmax(0, 2fr); }
-.column h2 { margin: 0 0 var(--space-3); color: var(--foreground); font-size: var(--text-sm); font-weight: 600; }
+.column h2 { margin: 0 0 var(--space-3); color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; font-weight: 400; letter-spacing: .04em; text-transform: uppercase; }
 .column ul { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .footerLink { display: inline-flex; align-items: center; gap: 3px; padding: 2px 0; color: var(--text-secondary); font-size: var(--text-sm); text-decoration: none; transition: color var(--duration-fast) var(--ease-standard); }
 .footerLink:hover, .footerLink:focus-visible { color: var(--foreground); text-decoration: underline; text-underline-offset: .22em; }
 .externalIcon { color: var(--text-muted); }
 .footerBottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4) var(--space-6); margin-top: var(--space-10); border-top: 1px solid var(--border-subtle); padding-top: var(--space-5); }
-.copyright { margin: 0; color: var(--text-muted); font-size: var(--text-sm); }
+.copyright { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--space-4); margin: 0; color: var(--text-muted); font-size: var(--text-sm); }
+.copyrightMark { color: var(--text-secondary); font-family: var(--font-pixel); font-size: .8125rem; }
 .copyright a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: .22em; }
 .copyright a:hover, .copyright a:focus-visible { color: var(--foreground); }
 
-/* The theme choice: Arc's segmented control, three pressed buttons on one track. */
-.picker { --sq-r: 12px; --sq-fill: var(--surface-muted); display: inline-flex; gap: 2px; padding: 3px; background: var(--sq-fill); }
+/* The theme choice: a segmented control, three pressed buttons on one beige track. */
+.picker { --sq-r: 11px; --sq-fill: var(--surface-muted); display: inline-flex; gap: 2px; padding: 3px; background: var(--sq-fill); }
 .pickerOption {
-  --sq-r: 9px;
+  --sq-r: 8px;
   --sq-fill: transparent;
   display: inline-flex;
   height: 30px;
@@ -228,7 +242,6 @@
   color: var(--text-secondary);
   font: inherit;
   font-size: var(--text-xs);
-  font-weight: 500;
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }

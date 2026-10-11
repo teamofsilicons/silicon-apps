@@ -48,7 +48,7 @@ test("the app page is server-rendered with everything about the app", async ({ r
   expect(app.aggregateRating.reviewCount).toBe(4);
   expect(app.offers.price).toBe("0");
   const crumbs = nodes.find(node => node["@type"] === "BreadcrumbList") as { itemListElement: Array<{ name: string; item: string }> };
-  expect(crumbs.itemListElement.map(item => item.name)).toEqual(["Home", "All apps", "Briefcase"]);
+  expect(crumbs.itemListElement.map(item => item.name)).toEqual(["Home", "Apps", "Briefcase"]);
   expect(crumbs.itemListElement[2].item).toBe(`${ORIGIN}/apps/briefcase`);
 });
 

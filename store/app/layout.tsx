@@ -40,8 +40,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F7F8FA" },
-    { media: "(prefers-color-scheme: dark)", color: "#02040A" },
+    { media: "(prefers-color-scheme: light)", color: "#FFFDF9" },
+    { media: "(prefers-color-scheme: dark)", color: "#151412" },
   ],
 };
 
@@ -58,8 +58,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en" data-surface="site" suppressHydrationWarning>
       <head>
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
-        {/* Page titles are set in DemiBold: the one weight worth fetching before first paint. */}
-        <link rel="preload" href="/fonts/bdo-grotesk/BDOGrotesk-DemiBold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        {/* The text face and the title serif: the two files worth fetching before first paint. */}
+        <link rel="preload" href="/fonts/bdo-grotesk/BDOGrotesk-Regular.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/hedvig-letters-serif/HedvigLettersSerif-Regular.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       <body>
         <SiteHeader path={path} account={account} />

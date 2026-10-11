@@ -12,7 +12,7 @@ test("the home page is server-rendered with what Silicon Apps is, search, featur
   const text = mainText(page);
   expect(text).toContain("Apps for Carbons and Silicons");
   expect(text).toContain("Silicon Apps is the store of the Silicon ecosystem");
-  for (const section of ["Featured", "Popular", "New", "Browse by tag", "Questions, answered"]) expect(text).toContain(section);
+  for (const section of ["Featured", "Most installed", "Just arrived", "Browse by tag", "Questions, answered"]) expect(text).toContain(section);
   // Each app appears once across the catalog sections; drafts and private apps never do.
   for (const name of ["Briefcase", "DM", "Ring", "Field Notes", "Orbit", "Ledgerly"]) expect(text).toContain(name);
   expect(text).not.toContain("Team Vault");

@@ -22,7 +22,7 @@ function heading(input: SearchInput): string {
   if (input.tag && input.target) return `Apps tagged ${input.tag} for ${targetLabel(input.target)}`;
   if (input.tag) return `Apps tagged ${input.tag}`;
   if (input.target) return `Apps for ${targetLabel(input.target)}`;
-  return "All apps";
+  return "Apps";
 }
 
 function hrefFor(input: SearchInput, page = 1): string {
@@ -76,7 +76,7 @@ export default async function SearchPage({ searchParams }: Props) {
     <div className={styles.page}>
       <StructuredData
         graph={[
-          breadcrumbLd([{ name: "Home", path: "/" }, { name: "All apps", path: "/search" }, ...(filtered ? [{ name: title, path: hrefFor(input) }] : [])]),
+          breadcrumbLd([{ name: "Home", path: "/" }, { name: "Apps", path: "/search" }, ...(filtered ? [{ name: title, path: hrefFor(input) }] : [])]),
           {
             "@type": input.q ? "SearchResultsPage" : "CollectionPage",
             "@id": `${absolute(hrefFor(input))}#page`,
@@ -86,7 +86,7 @@ export default async function SearchPage({ searchParams }: Props) {
           },
         ]}
       />
-      <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "All apps", href: "/search" }, ...(filtered ? [{ name: title }] : [])]} />
+      <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "Apps", href: "/search" }, ...(filtered ? [{ name: title }] : [])]} />
       <header className={styles.pageHead}>
         <h1 className={styles.pageTitle}>{title}</h1>
         <p className={styles.lede}>

@@ -54,8 +54,8 @@ export default async function AuthorPage({ params, searchParams }: Props) {
 
   return (
     <div className={styles.page}>
-      <StructuredData graph={[profilePageLd(author, path), breadcrumbLd([{ name: "Home", path: "/" }, { name: "All apps", path: "/search" }, { name, path }])]} />
-      <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "All apps", href: "/search" }, { name }]} />
+      <StructuredData graph={[profilePageLd(author, path), breadcrumbLd([{ name: "Home", path: "/" }, { name: "Apps", path: "/search" }, { name, path }])]} />
+      <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "Apps", href: "/search" }, { name }]} />
       <article aria-labelledby="author-name">
         <header className={pageStyles.header}>
           <Avatar name={name} id={author.id} photo={author.pfp_url} size={88} />

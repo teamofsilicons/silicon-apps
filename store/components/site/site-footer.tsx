@@ -1,11 +1,11 @@
 /**
- * The store's footer (server-rendered), as on the developer site (developer/components/site/site-footer.tsx): the
- * store, where to build, everything a Silicon can read or call here, the rest of the ecosystem (service status and the
- * open source code on GitHub), and the theme choice (System, Light, Dark).
+ * The store's footer (server-rendered), in the quiet style of Silicon Writings: the wordmark and one line about the
+ * store, then four short columns (the store, where to build, everything a Silicon can read or call here, the rest of
+ * the ecosystem), and a last line with the copyright in the pixel face and the theme choice (System, Light, Dark).
  */
 import { ArrowUpRight } from "lucide-react";
 import { LINKS } from "@/lib/site";
-import { BrandMark } from "./brand";
+import { BrandGlyph } from "./brand";
 import { ThemePicker } from "./theme-controls";
 import styles from "./site.module.css";
 
@@ -13,8 +13,8 @@ const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string
   {
     title: "Store",
     links: [
-      { href: "/", label: "Discover apps" },
-      { href: "/search", label: "All apps" },
+      { href: "/", label: "Home" },
+      { href: "/search", label: "Every app" },
       { href: "/search?visibility=private", label: "Private apps" },
       { href: "/#get-the-cli", label: "Get the CLI" },
       { href: "/settings", label: "Settings" },
@@ -55,7 +55,7 @@ export function SiteFooter() {
         <div className={styles.footerTop}>
           <div className={styles.footerIntro}>
             <a href="/" className={styles.footerBrand}>
-              <BrandMark className={styles.brandMark} />
+              <span className={styles.brandMark} aria-hidden="true"><BrandGlyph /></span>
               <span>Silicon Apps</span>
             </a>
             <p className={styles.tagline}>
@@ -83,8 +83,10 @@ export function SiteFooter() {
         </div>
         <div className={styles.footerBottom}>
           <p className={styles.copyright}>
-            © {new Date().getFullYear()} Team of Silicons. Silicon Apps is open source under the MIT license, so we have
-            nothing to hide: <a href={LINKS.appsGithub} target="_blank" rel="noopener noreferrer">read the code on GitHub</a>.
+            <span className={styles.copyrightMark}>© {new Date().getFullYear()} Team of Silicons</span>
+            <span>
+              Open source under the MIT license, so we have nothing to hide: <a href={LINKS.appsGithub} target="_blank" rel="noopener noreferrer">read the code on GitHub</a>.
+            </span>
           </p>
           <ThemePicker />
         </div>

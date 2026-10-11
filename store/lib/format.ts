@@ -115,3 +115,19 @@ export function initialOf(name: string): string {
   const letter = [...name.trim()].find((char) => /\p{L}|\p{N}/u.test(char));
   return (letter ?? "?").toUpperCase();
 }
+
+/**
+ * The letter on an app's monogram: the first letter of its own name, past a leading "Silicon" (most apps here are
+ * "Silicon Something", and a shelf of S tiles tells them apart from nothing). "Silicon" alone keeps its S.
+ */
+export function monogramOf(name: string): string {
+  const own = name.trim().replace(/^silicon\s+(?=\S)/i, "");
+  return initialOf(own || name);
+}
+
+/** One of six quiet monogram tones per app (blue, green, ochre, rose, violet, clay), stable for its id. */
+export function toneOf(seed: string): number {
+  let hash = 0;
+  for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return hash % 6;
+}

@@ -1,8 +1,7 @@
 /*
  * BDO Grotesk (SIL Open Font License 1.1, public/fonts/bdo-grotesk/OFL.txt), self-hosted so the CSP keeps
- * font-src 'self'. It is the display face everywhere, and the text face wherever the system has no SF Pro (the stacks
- * in styles/tokens.css put -apple-system first for text). The root layout preloads only the DemiBold used by page
- * titles above the fold; the other weights load when text first needs them. next.config.ts serves /fonts/* with a
+ * font-src 'self'. It is the text and interface face everywhere. The root layout preloads the Regular weight and the
+ * serif used by page titles; the other weights load when text first needs them. next.config.ts serves /fonts/* with a
  * year-long immutable cache.
  */
 @font-face {
@@ -32,4 +31,24 @@
   font-weight: 700;
   font-display: swap;
   src: url("/fonts/bdo-grotesk/BDOGrotesk-Bold.woff2") format("woff2");
+}
+
+/* Hedvig Letters Serif (SIL Open Font License 1.1, public/fonts/hedvig-letters-serif/OFL.txt): the title face, as on
+   Silicon Writings. It has one weight; titles set in it are never bolded. Preloaded by the root layout. */
+@font-face {
+  font-family: "Hedvig Letters Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/hedvig-letters-serif/HedvigLettersSerif-Regular.woff2") format("woff2");
+}
+
+/* Geist Pixel Square (SIL Open Font License 1.1, public/fonts/geist-pixel/LICENSE.txt): small labels, dates, ids and
+   the wordmark. */
+@font-face {
+  font-family: "Geist Pixel Square";
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url("/fonts/geist-pixel/GeistPixel-Square.woff2") format("woff2");
 }
