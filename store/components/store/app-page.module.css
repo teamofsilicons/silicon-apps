@@ -10,8 +10,10 @@
 .identity { display: grid; gap: 8px; min-width: 0; }
 .name { margin: 0; color: var(--accent-ink); font-family: var(--font-serif); font-size: clamp(2.25rem, 1.7rem + 2.2vw, 3rem); font-weight: 400; letter-spacing: -.01em; line-height: 1.18; overflow-wrap: anywhere; }
 .byline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0; color: var(--text-secondary); font-size: .9375rem; }
-.byline a { color: var(--foreground); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: .25em; }
-.byline a:hover, .byline a:focus-visible { text-decoration-color: currentColor; }
+/* Each author with their profile photo; only the name is underlined. */
+.author { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; color: var(--foreground); text-decoration: none; }
+.author > span:last-child { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: .25em; }
+.author:hover > span:last-child, .author:focus-visible > span:last-child { text-decoration-color: currentColor; }
 .appId { color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; }
 
 /* Install --------------------------------------------------------------------------------------------------------- */

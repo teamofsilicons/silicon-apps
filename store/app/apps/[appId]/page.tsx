@@ -109,7 +109,10 @@ export default async function AppPage({ params, searchParams }: Props) {
                   {app.authors.map((author, index) => (
                     <span key={author.uuid}>
                       {index > 0 ? ", " : null}
-                      <a href={authorPath(author.uuid)} title={author.id}>{author.display_name || author.id}</a>
+                      <a href={authorPath(author.uuid)} title={author.id} className={pageStyles.author}>
+                        <Avatar name={author.display_name || author.id} id={author.id} photo={author.pfp_url} size={22} />
+                        <span>{author.display_name || author.id}</span>
+                      </a>
                     </span>
                   ))}
                 </span>
