@@ -2,7 +2,7 @@
 
 The store at `apps.teamofsilicons.com`: a server-rendered Next.js App Router site in front of the Apps API
 (`crates/server`). Every page renders its real content on the server and works with JavaScript off. Script is only
-used for small islands: the theme switch, copy buttons, the carousel buttons and the review character counter.
+used for small islands: copy buttons, the carousel buttons and the review character counter.
 
 The store is for finding and using apps. Making an app and adding sign-in live on the developer portal: "Make an app"
 links to https://developers.teamofsilicons.com/docs/apps and "Add sign-in" to
@@ -16,7 +16,7 @@ https://developers.teamofsilicons.com/docs/accounts. There is no app authoring h
 | `/search?q=&tag=&target=&visibility=&page=` | Search and filters, one plain GET form. Signed out, `visibility=private` says `Log in to see private apps` |
 | `/apps/{app_id}` | Everything about one app: banner, logo, carousel, description, tags, links, authors, platforms, releases, signatures, withdrawn releases, rating, installs, `silicon-apps install {app_id}` with a copy button, reviews and the review form |
 | `/authors/{uuid}` | An author and their published apps |
-| `/settings` | Session (sign in or out), appearance, telemetry, report a problem |
+| `/settings` | Session (sign in or out), telemetry, report a problem |
 | `/sign-in`, `/sign-out` | Sign in through Silicon Accounts with the API's browser routes (`/v1/auth/login`), sign out with a plain form post |
 | `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, `/.well-known/security.txt`, `/manifest.webmanifest` | Agent and crawler files |
 | `/og.png`, `/apps/{app_id}/og.png` | Open Graph images (the store's, and one per public app) |
@@ -120,7 +120,7 @@ pnpm typecheck
 pnpm lint
 pnpm build
 pnpm test:e2e               # needs the API binary above; starts the fixture API on 4510 and the build on 8710
-node scripts/screens.mjs    # with both running: home, search and an app page, light and dark, 320 and 1440 wide, in .screens/
+node scripts/screens.mjs    # with both running: home, search and an app page, 320 and 1440 wide, in .screens/
 ```
 
 The Playwright suite (`e2e/`) checks browsing, search and filters, the app page, signatures and withdrawn releases, the
@@ -130,7 +130,7 @@ the agent files, the API paths, that pages register no browser tools, and that `
 MCP server). It reuses servers already listening on those ports outside CI. `E2E_STORE_PORT` and `E2E_API_PORT` change
 the ports, and `E2E_DEV=1` tests `next dev` instead of the build.
 
-The look is Silicon Writings' (writings.teamofsilicons.com): warm paper and ink, blue Hedvig Letters Serif titles, BDO Grotesk text, small labels in Geist Pixel Square, with a warm dark mode. Every colour and face is a token in `styles/tokens.css`; the three fonts are self-hosted under `public/fonts/` with their licences.
+The look is Silicon Writings' (writings.teamofsilicons.com): warm paper and ink, blue Hedvig Letters Serif titles, BDO Grotesk text, small labels in Geist Pixel Square, light only. Every colour and face is a token in `styles/tokens.css`; the three fonts are self-hosted under `public/fonts/` with their licences.
 
 Copy on these pages follows the Carbon's voice in `llms/llms.md`: plain words, Carbons and Silicons, and no em or en
 dashes anywhere.

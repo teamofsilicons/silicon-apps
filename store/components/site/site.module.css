@@ -138,11 +138,6 @@ ul.navList {
 .iconButton:hover, .iconButton:focus-visible { --sq-fill: var(--surface-muted); color: var(--foreground); }
 .iconButton:active { transform: scale(.96); }
 .iconButton > svg { grid-area: 1 / 1; }
-/* The theme icon follows <html data-theme>, so the right one paints before any script runs. */
-.moon { opacity: 0; transform: rotate(-30deg) scale(.7); }
-.sun, .moon { transition: opacity var(--duration-fast) var(--ease-standard), transform var(--duration-spring) var(--ease-spring); }
-:global(:root[data-theme="dark"]) .sun { opacity: 0; transform: rotate(30deg) scale(.7); }
-:global(:root[data-theme="dark"]) .moon { opacity: 1; transform: none; }
 .menuButton { display: none; }
 
 /* Menu: a native popover sheet from the right edge. */
@@ -213,36 +208,12 @@ ul.navList {
 .footerLink:hover, .footerLink:focus-visible { color: var(--foreground); text-decoration: underline; text-underline-offset: .22em; }
 .footerInner > nav { margin-left: auto; }
 
-/* The theme choice: a segmented control, three pressed buttons on one beige track. */
-.picker { --sq-r: 11px; --sq-fill: var(--surface-muted); display: inline-flex; gap: 2px; padding: 3px; background: var(--sq-fill); }
-.pickerOption {
-  --sq-r: 8px;
-  --sq-fill: transparent;
-  display: inline-flex;
-  height: 30px;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  padding: 0 10px;
-  background: var(--sq-fill);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
-}
-.pickerOption:hover, .pickerOption:focus-visible { color: var(--foreground); }
-/* The colour change alone is too faint for keyboard focus: the label also takes the accent underline the store's
-   segmented controls use. */
-.pickerOption:focus-visible { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
-.pickerOption[aria-pressed="true"] { --sq-fill: var(--surface); color: var(--foreground); box-shadow: var(--shadow-resting); }
-
 @media (max-width: 719px) {
   .footerInner { flex-direction: column; align-items: flex-start; }
   .footerInner > nav { margin-left: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .brand, .navLink, .iconButton, .sun, .moon, .footerLink, .pickerOption, .accountChip { transition: none; }
+  .brand, .navLink, .iconButton, .footerLink, .accountChip { transition: none; }
   .iconButton:active { transform: none; }
 }

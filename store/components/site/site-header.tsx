@@ -1,7 +1,7 @@
 /**
  * The store's header (server-rendered), as on Silicon Writings and teamofsilicons.com: the wordmark on the left, and on
  * the right the navigation in one floating pill (the current page sits on a beige fill) and Sign in (or the signed-in
- * account, which opens Settings). The theme choice lives in the footer. Below 900 px the navigation moves into a menu: a native
+ * account, which opens Settings). Below 900 px the navigation moves into a menu: a native
  * popover, so it opens, closes on Escape or an outside tap, and keeps focus without any script of ours. Links are plain
  * links: every page is a full HTML document.
  */

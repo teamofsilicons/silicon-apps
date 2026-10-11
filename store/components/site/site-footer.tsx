@@ -1,10 +1,8 @@
 /**
- * The store's footer (server-rendered), one quiet line as on Silicon Writings: the copyright in the pixel face, a few
- * links (making an app, what a Silicon can read here, the code and the service status), and the theme choice (System,
- * Light, Dark).
+ * The store's footer (server-rendered), one quiet line as on Silicon Writings: the copyright in the pixel face and a
+ * few links (making an app, what a Silicon can read here, the code and the service status).
  */
 import { LINKS } from "@/lib/site";
-import { ThemePicker } from "./theme-controls";
 import styles from "./site.module.css";
 
 const LINKS_ROW: Array<{ href: string; label: string; external?: boolean }> = [
@@ -31,7 +29,6 @@ export function SiteFooter() {
             ))}
           </ul>
         </nav>
-        <ThemePicker />
       </div>
     </footer>
   );

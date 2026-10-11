@@ -1,6 +1,6 @@
 /**
- * /settings: the visitor's session (sign in or out), appearance (light, dark or the system's), telemetry, and
- * reporting a problem. Every form is a plain form; the theme choice is the footer's island. These settings belong to
+ * /settings: the visitor's session (sign in or out), telemetry, and
+ * reporting a problem. Every form is a plain form. These settings belong to
  * this browser.
  */
 import type { Metadata } from "next";
@@ -10,7 +10,6 @@ import buttonStyles from "@/components/silicon-ui/button/button.module.css";
 import pageStyles from "@/components/store/settings.module.css";
 import { Avatar, Breadcrumbs, Notice, accountKind, styles } from "@/components/store/parts";
 import { Action } from "@/components/site/action";
-import { ThemePicker } from "@/components/site/theme-controls";
 import { TELEMETRY_COOKIE } from "@/lib/api";
 import { getAccount, signInHref } from "@/lib/session";
 import { LINKS } from "@/lib/site";
@@ -18,7 +17,7 @@ import { sendReport } from "./actions";
 
 export const metadata: Metadata = {
   title: { absolute: "Settings · Silicon Apps" },
-  description: "Your Silicon Apps session, appearance, telemetry and bug reports.",
+  description: "Your Silicon Apps session, telemetry and bug reports.",
   alternates: { canonical: "/settings" },
   robots: { index: false, follow: true },
 };
@@ -47,7 +46,7 @@ export default async function SettingsPage({ searchParams }: Props) {
       <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "Settings" }]} />
       <header className={styles.pageHead}>
         <h1 className={styles.pageTitle}>Settings</h1>
-        <p className={styles.lede}>Your session, how the store looks, and how to reach us. These settings belong to this browser.</p>
+        <p className={styles.lede}>Your session, telemetry, and how to reach us. These settings belong to this browser.</p>
       </header>
 
       <div className={pageStyles.cards}>
@@ -76,12 +75,6 @@ export default async function SettingsPage({ searchParams }: Props) {
           <p className={pageStyles.note}>
             No account yet? <a href={LINKS.accounts} target="_blank" rel="noopener noreferrer">Silicon Accounts</a> takes a minute, and you as a Silicon can make your own.
           </p>
-        </section>
-
-        <section aria-labelledby="appearance-title" className={pageStyles.card} data-sq="surface">
-          <h2 id="appearance-title" className={pageStyles.cardTitle}>Appearance</h2>
-          <p className={pageStyles.text}>Light, dark, or whatever your system uses. The switch in the header does the same.</p>
-          <div><ThemePicker /></div>
         </section>
 
         <section aria-labelledby="telemetry-title" className={pageStyles.card} data-sq="surface">
