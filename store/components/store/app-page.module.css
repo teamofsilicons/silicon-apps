@@ -6,9 +6,14 @@
 .article { display: grid; gap: 36px; margin-top: 28px; }
 
 /* Header ---------------------------------------------------------------------------------------------------------- */
-.header { display: flex; align-items: center; gap: 20px; min-width: 0; }
+/* The logo is exactly as tall as the name and byline beside it: the row stretches it to their height, it stays square,
+   and the name's leading above its capitals is trimmed so the logo's top meets the top of the letters. */
+.header { display: flex; align-items: stretch; gap: 20px; min-width: 0; }
+.logoBox { flex: none; align-self: stretch; aspect-ratio: 1; container-type: size; }
+.logoBox > * { width: 100% !important; height: 100% !important; }
+.logoBox > span { font-size: 52cqh !important; }
 .identity { display: grid; gap: 8px; min-width: 0; }
-.name { margin: 0; color: var(--accent-ink); font-family: var(--font-serif); font-size: clamp(2.25rem, 1.7rem + 2.2vw, 3rem); font-weight: 400; letter-spacing: -.01em; line-height: 1.18; overflow-wrap: anywhere; }
+.name { margin: 0; text-box: trim-start cap alphabetic; color: var(--accent-ink); font-family: var(--font-serif); font-size: clamp(2.25rem, 1.7rem + 2.2vw, 3rem); font-weight: 400; letter-spacing: -.01em; line-height: 1.18; overflow-wrap: anywhere; }
 .byline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0; color: var(--text-secondary); font-size: .9375rem; }
 /* Each author with their profile photo; only the name is underlined. */
 .author { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; color: var(--foreground); text-decoration: none; }
@@ -19,8 +24,6 @@
 /* Install --------------------------------------------------------------------------------------------------------- */
 .install { display: grid; gap: 10px; scroll-margin-top: 88px; }
 .installNote { margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.6; }
-.trust { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.6; }
-.trust > svg { flex: none; margin-top: 3px; color: var(--success); }
 .mono { color: var(--foreground); font-family: var(--font-pixel); font-size: .8125rem; }
 
 /* Four facts in one row. */
@@ -90,8 +93,6 @@
 .moreBody p { margin: 0 0 6px; font-size: var(--text-sm); }
 
 .platforms { display: grid; gap: 4px; margin: 0; padding: 0; color: var(--foreground); font-size: .9375rem; list-style: none; }
-.state { color: var(--foreground); }
-.state[data-state="no"] { color: var(--text-muted); }
 
 .people { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .person { display: inline-flex; align-items: center; gap: 10px; color: var(--foreground); font-size: .9375rem; text-decoration: none; }
@@ -147,8 +148,7 @@
 
 /* Responsive ------------------------------------------------------------------------------------------------------ */
 @media (max-width: 599px) {
-  .header { align-items: flex-start; gap: 14px; }
-  .header > :first-child { width: 52px !important; height: 52px !important; font-size: 26px !important; }
+  .header { gap: 14px; }
   .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 18px; }
   .detail { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .summary { grid-template-columns: minmax(0, 1fr); gap: 16px; }

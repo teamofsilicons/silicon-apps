@@ -1,13 +1,14 @@
 /**
  * /apps/{app_id}: one app, read like an article on Silicon Writings. Its name and authors, the one command that
  * installs it, four facts, what it does (banner, description, tags, pictures), then plain label and value rows for its
- * links, releases (with withdrawn ones and their reasons), platforms, signatures and authors, and its reviews.
+ * links, releases (with withdrawn ones, their reasons and one quiet line on who signed them), platforms and authors, and
+ * its reviews. Every package carries the Silicon Apps signature; an author signature is optional.
  * Server-rendered; writing, editing and removing a review are plain forms (server actions) that work without script.
  * Unknown apps, drafts and private apps the visitor may not see all answer 404 the same way (the API decides).
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowUpRight, ChevronLeft, ChevronRight, Lock, ShieldCheck, Star } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, Lock, Star } from "lucide-react";
 import buttonStyles from "@/components/silicon-ui/button/button.module.css";
 import pageStyles from "@/components/store/app-page.module.css";
 import { AppLogo, Avatar, Breadcrumbs, Command, Notice, Stars, StructuredData, TagList, styles } from "@/components/store/parts";
@@ -100,7 +101,8 @@ export default async function AppPage({ params, searchParams }: Props) {
 
       <article className={pageStyles.article} aria-labelledby="app-name">
         <header className={pageStyles.header}>
-          <AppLogo app={app} size={64} decorative={false} />
+          {/* The logo runs the full height of the name and byline beside it, cap height to byline (app-page.module.css). */}
+          <span className={pageStyles.logoBox}><AppLogo app={app} size={64} decorative={false} /></span>
           <div className={pageStyles.identity}>
             <h1 id="app-name" className={pageStyles.name}>{app.name}</h1>
             <p className={pageStyles.byline}>
@@ -137,15 +139,6 @@ export default async function AppPage({ params, searchParams }: Props) {
             New to it? <a href="/#get-the-cli">Get the CLI</a>.
           </p>
           <SystemNotice systems={platforms.map(group => group.os)} />
-          {released && app.signed ? (
-            <p className={pageStyles.trust}>
-              <ShieldCheck size={15} strokeWidth={1.75} aria-hidden="true" />
-              <span>
-                Signed by Silicon Apps{app.signed_by_author && signedBy.length ? <> and by {signedBy.map((id, index) => <span key={id}>{index > 0 ? ", " : ""}<span className={pageStyles.mono}>{id}</span></span>)}</> : null}.
-                The CLI checks every signature before it installs.
-              </span>
-            </p>
-          ) : null}
         </div>
 
         <dl className={pageStyles.facts}>
@@ -247,6 +240,12 @@ export default async function AppPage({ params, searchParams }: Props) {
               ) : (
                 <p>No release yet. Check back soon.</p>
               )}
+              {released ? (
+                <p className={pageStyles.muted}>
+                  {app.signed ? <>Signed by Silicon Apps{signedBy.length ? <> and by {signedBy.join(", ")}</> : null}.</> : "Not signed yet."}{" "}
+                  <a href={`${LINKS.appsDocs}/learn/signed-releases`} target="_blank" rel="noopener noreferrer">How signing works</a>
+                </p>
+              ) : null}
               {withdrawn.length ? (
                 <div className={pageStyles.withdrawn}>
                   <h3 className={pageStyles.subLabel}>Withdrawn</h3>
@@ -298,18 +297,6 @@ export default async function AppPage({ params, searchParams }: Props) {
             </section>
           ) : null}
 
-          {released ? (
-            <section aria-labelledby="signatures-title" className={pageStyles.detail}>
-              <h2 id="signatures-title" className={pageStyles.label}>Signatures</h2>
-              <div className={pageStyles.value}>
-                <p>Silicon Apps: <span data-state={app.signed ? "yes" : "no"} className={pageStyles.state}>{app.signed ? "Signed every package" : "Not signed yet"}</span></p>
-                <p>Authors: <span data-state={signedBy.length ? "yes" : "no"} className={pageStyles.state}>{signedBy.length ? `${app.signed_by_author ? "All" : "Some"} packages signed by ${signedBy.join(", ")}` : "No additional author signatures"}</span></p>
-                <p className={pageStyles.muted}>
-                  For the current {production ? "production" : "development"} release. <a href={`${LINKS.appsDocs}/learn/signed-releases`} target="_blank" rel="noopener noreferrer">How signed releases work</a>
-                </p>
-              </div>
-            </section>
-          ) : null}
 
           {app.authors.length ? (
             <section aria-labelledby="authors-title" className={pageStyles.detail}>

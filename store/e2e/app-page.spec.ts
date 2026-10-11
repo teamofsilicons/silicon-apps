@@ -22,7 +22,6 @@ test("the app page is server-rendered with everything about the app", async ({ r
     "3.4.2",
     "3.5.0",
     "Signed by Silicon Apps and by c:shubham",
-    "Signed every package",
     "Withdrawn",
     "3.4.3",
     "Sync could skip files whose names contain a space",
