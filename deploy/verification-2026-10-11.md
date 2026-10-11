@@ -28,3 +28,22 @@ Public checks (`https://apps.teamofsilicons.com`): `/` 200 (the new home page: "
 paper `#FFFDF9`), `/search` 200, `/apps/silicon-apps` 200, `/apps/silicon-apps/og.png` 200, `/health` 200,
 `/llms.txt`, `/robots.txt`, `/sitemap.xml` and `/.well-known/silicon-apps-keys.json` 200, both new fonts 200 as
 `font/woff2`, `/developer` 308. No console errors in a browser.
+
+## Store release d4a83b9: the minimal store
+
+Why: `b54d810` was busy and broke in places (stray dots on wrapped meta lines, install commands cut off in scrolling
+boxes, empty featured panels, descriptions truncated mid-word). PR #5 makes every page one article-width column,
+lists apps one way everywhere and boxes almost nothing. Store only; the archive again carries the live API binary
+(`27dbdc6f…`, the `df47d7a` CI artifact).
+
+Archive `releases/d4a83b95ba0783032fb72dd9c37b063a20111ba7.tar.gz`, SHA-256
+`a81e953126422e4b0da17ff2088c5e81e941b99d3a7a5693f83f03ea784084bf`, 97,078,411 bytes, S3 version
+`BLrOAsAxVr2rox9AJaaDfo.TLi4s5uYs`; store build `kVKYj5ddXXLR4fs9gTWQ1`. Checks: CI green on PR #5, `pnpm typecheck`,
+`pnpm lint`, `pnpm test:e2e` (32 passed).
+
+Install: SSM `ea0b3a7e-3d08-4994-ac6f-055ea0ceafb2` checked the archive (`OK`) before extracting, ran
+`deploy/install.py --role api`, uploaded `backups/20261011T124445Z.tar.gz`, switched `current` to `releases/d4a83b9…`
+(previous `b54d810` retained) and recorded `deployment.json`. API, store and Caddy active.
+
+Public checks: `/`, `/search`, `/apps/silicon-apps`, its `og.png`, `/health`, `/llms.txt`, `/robots.txt`,
+`/sitemap.xml`, `/.well-known/silicon-apps-keys.json` and the serif font 200; `/developer` 308. No console errors.
