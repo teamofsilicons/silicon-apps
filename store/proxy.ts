@@ -11,7 +11,8 @@
  * - An app or author page the visitor cannot see is answered by the root not-found page (a 404 rendered in full on the
  *   server): one quick read of the API first, with the visitor's own session. A page that calls notFound() itself
  *   would only send an empty document for script to fill in, and the store must work without script.
- * - One sanitized page_view telemetry event per page, unless the visitor opted out in Settings or is a crawler.
+ * - No telemetry: the store sends no page view events, and its quick reads tell the API not to record them
+ *   (X-Apps-Telemetry: off).
  * - Local work only: under `next dev`, or with STORE_DEV_API_PASSTHROUGH=1 (the e2e suite sets it on the standalone
  *   server), the API's own paths are forwarded to APPS_API_URL, standing in for Caddy: /v1/* (the SSE streams
  *   included), /health, /openapi.json and the API's /.well-known documents. In production Caddy sends those paths to
@@ -25,7 +26,6 @@ const API = () => (process.env.APPS_API_URL?.trim() || "http://127.0.0.1:4310").
 /** Answered by the Apps API, never by the store (Caddy routes them in production). */
 const API_PATHS = /^\/(v1(\/.*)?|health|openapi\.json|\.well-known\/(agent|agent-card|silicon-apps-keys)\.json)$/;
 const passthrough = () => isDev || process.env.STORE_DEV_API_PASSTHROUGH === "1";
-const CRAWLER = /bot|crawl|spider|slurp|curl|wget|python|httpx|go-http|java\/|headless|lighthouse|preview|facebookexternalhit|embedly|monitor/i;
 
 function contentSecurityPolicy(nonce: string): string {
   return [
@@ -109,7 +109,7 @@ async function hidden(request: NextRequest): Promise<boolean> {
   if (session && /^[A-Za-z0-9_-]{8,200}$/.test(session)) headers.Cookie = `apps_session=${session}`;
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   if (forwarded && /^[0-9a-fA-F:.]{2,45}$/.test(forwarded)) headers["X-Forwarded-For"] = forwarded;
-  if (request.cookies.get("apps_telemetry")?.value === "off") headers["X-Apps-Telemetry"] = "off";
+  headers["X-Apps-Telemetry"] = "off";
   try {
     const path = app ? `/v1/apps/${encodeURIComponent(id)}` : `/v1/authors/${encodeURIComponent(id)}?limit=1`;
     const response = await fetch(`${API()}${path}`, { headers, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(5_000) });
@@ -118,22 +118,6 @@ async function hidden(request: NextRequest): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function countPageView(request: NextRequest): void {
-  if (request.method !== "GET" || request.cookies.get("apps_telemetry")?.value === "off") return;
-  if (request.headers.get("next-router-prefetch") || request.headers.get("purpose") === "prefetch") return;
-  const accept = request.headers.get("accept") || "";
-  if (!accept.includes("text/html") && request.headers.get("rsc") !== "1") return;
-  if (CRAWLER.test(request.headers.get("user-agent") || "")) return;
-  const { pathname } = request.nextUrl;
-  if (/\.(txt|xml|json|png|svg|ico|webmanifest)$/.test(pathname)) return;
-  void fetch(`${API()}/v1/telemetry`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", "Idempotency-Key": crypto.randomUUID() },
-    body: JSON.stringify({ source: "silicon-apps.store", step: "store.page_view", progress: "complete", event: "page_view", path: pathname }),
-    signal: AbortSignal.timeout(3_000),
-  }).catch(() => undefined);
 }
 
 export async function proxy(request: NextRequest) {
@@ -152,8 +136,6 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("x-store-path", `${pathname}${search}`);
   requestHeaders.set("Content-Security-Policy", csp);
-
-  countPageView(request);
 
   // An unmatched address renders the root not-found page in full, with a 404; the visitor keeps the URL they asked for.
   const response = (await hidden(request))

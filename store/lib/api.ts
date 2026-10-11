@@ -12,7 +12,6 @@ import { appsApiUrl, siteOrigin } from "./config";
 import type { ApiErrorBody } from "./types";
 
 export const SESSION_COOKIE = "apps_session";
-export const TELEMETRY_COOKIE = "apps_telemetry";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -35,11 +34,11 @@ type Options = {
   timeoutMs?: number;
 };
 
+/** The store records no telemetry: every call tells the API not to (X-Apps-Telemetry: off). */
 async function visitorHeaders(anonymous: boolean): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
+  const out: Record<string, string> = { "X-Apps-Telemetry": "off" };
   try {
     const jar = await cookies();
-    if (jar.get(TELEMETRY_COOKIE)?.value === "off") out["X-Apps-Telemetry"] = "off";
     if (!anonymous) {
       const session = jar.get(SESSION_COOKIE)?.value;
       if (session && /^[A-Za-z0-9_-]{8,200}$/.test(session)) out.Cookie = `${SESSION_COOKIE}=${session}`;

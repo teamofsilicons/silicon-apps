@@ -1,4 +1,4 @@
-/* Settings: four quiet cards (the account, appearance, telemetry, reporting a problem), one column. */
+/* Settings: quiet cards (the account, reporting a problem), one column. */
 .cards { display: grid; gap: var(--space-4); }
 .card { --sq-r: var(--radius-panel); --sq-fill: var(--surface); --sq-stroke: var(--border); display: grid; gap: var(--space-4); border: 1px solid var(--sq-stroke); padding: var(--space-6); background: var(--sq-fill); scroll-margin-top: 80px; }
 .cardTitle { margin: 0; color: var(--foreground); font-family: var(--font-serif); font-size: 1.5rem; font-weight: 400; letter-spacing: -.005em; }

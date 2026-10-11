@@ -1,4 +1,4 @@
-/** Helpers for the store's own POST routes (sign-out, theme, telemetry): same-origin checks and safe return paths. */
+/** Helpers for the store's own POST routes (sign-out): same-origin checks and safe return paths. */
 import type { NextRequest } from "next/server";
 import { siteOrigin } from "./config";
 

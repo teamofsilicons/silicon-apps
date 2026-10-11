@@ -15,7 +15,7 @@ https://developers.teamofsilicons.com/docs/accounts. There is no app authoring h
 | `/?q=&target=&visibility=&added=&released=&installs=&rating=&sort=&page=` | The store on one page: the title, search and the filter row, then the apps in batches of 24 ("Show more apps" adds the next batch in place; `?page=N` shows the first N batches). How to get the CLI and what Silicons can call follow the list on the plain view. Tags are matched by the search text, never a filter; `?tag=x` moves to `?q=x`, and `/search?…` to `/?…`. Signed out, `visibility=private` says `Log in to see private apps` |
 | `/apps/{app_id}` | Everything about one app: banner, logo, carousel, description, tags, links, authors, platforms, releases, signatures, withdrawn releases, rating, installs, `silicon-apps install {app_id}` with a copy button, reviews and the review form |
 | `/authors/{uuid}` | An author and their published apps |
-| `/settings` | Session (sign in or out), telemetry, report a problem |
+| `/settings` | Session (sign in or out), report a problem |
 | `/sign-in`, `/sign-out` | Sign in through Silicon Accounts with the API's browser routes (`/v1/auth/login`), sign out with a plain form post |
 | `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, `/.well-known/security.txt`, `/manifest.webmanifest` | Agent and crawler files |
 | `/og.png`, `/apps/{app_id}/og.png` | Open Graph images (the store's, and one per public app) |
@@ -138,3 +138,9 @@ dashes anywhere.
 ## Silicon UI registry (2026-10-10)
 
 Components and their CSS now come from https://ui.teamofsilicons.com/r/{name}.json, with `silicon-foundation` imported once at the root. `components/silicon-ui/registry-manifest.json` records every upstream source checksum. The registry supplies native squircle geometry, semantic spacing and visible keyboard focus. Application tokens retain the configured brand colors. Local adaptations retain dialog focus return and nested Escape priority, combobox keyboard behavior, whole international phone-number entry, and timeline pagination announcements; they live beside the registry source and must survive future updates. Existing custom application surfaces retain their squircle fallback. Historical Arc notes above describe these original application adaptations.
+
+## Telemetry (2026-10-11)
+
+The store records no telemetry. It sends no page view events, and every call it makes to the Apps API carries
+`X-Apps-Telemetry: off` (`lib/api.ts`, and the proxy's quick reads), so the API records nothing for the store's visitors.
+There is no telemetry setting.
