@@ -154,3 +154,17 @@ Archive `releases/433c538f3eed738fc7905e5f1d7259c69142a259.tar.gz`, SHA-256
 `99ee1c5016a45b6a90dfae611c148c16a4e2bbefa06b65bf241a4a545133e4d5`, S3 version `ZZVuNwzJGtcUQzUQRHt470B1OxjARgUi`.
 SSM `9e909f2a-ca68-45f8-84c5-a86122a19570`, backup `backups/20261011T153126Z.tar.gz`. CI green, e2e 36 passed. Live:
 `/`, `/?q=dm`, `/apps/dm`, `/health` 200; `/search?q=dm` 308 to `/?q=dm`.
+
+## Store release 0f4392b: no telemetry
+
+PR #14, at the Carbon's request: the store sends no page view events, every call it makes to the Apps API carries
+`X-Apps-Telemetry: off` (`lib/api.ts` and the proxy's quick reads), and the Settings telemetry card and
+`POST /settings/telemetry` are gone. Store only; the archive carried the live API binary (`6240eac8…`).
+
+Archive `releases/0f4392b915330a468d3b75b9d66ec756b61f7927.tar.gz`, SHA-256
+`ac31497c11532b2ad421cbd09b178ec054a89a63b0ef231176d9c8ddc4541f80`, S3 version `_85qOwHvfjCKJGgHmv9FuFIbeMBKFJHh`.
+SSM `5533a17f-45e7-4197-868e-8cb70cf9e67b`, backup `backups/20261011T162756Z.tar.gz`. Checks: CI green, e2e 36 passed.
+Live: `/`, `/apps/dm`, `/settings`, `/health` 200; `/settings` no longer mentions telemetry; `/settings/telemetry` 404.
+
+Same day, Accounts `37d5688` took telemetry out of the account and developer sites (silicon-accounts
+deploy/verification-2026-10-11.md).
