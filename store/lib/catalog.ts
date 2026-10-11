@@ -7,6 +7,7 @@
  */
 import { api } from "./api";
 import { TARGETS } from "./format";
+import { MIN_INSTALLS, MIN_RATINGS, PERIODS, SORTS, type Period, type Sort } from "./filters";
 import type { App, AppList } from "./types";
 
 export const PAGE_SIZE = 24;
@@ -14,16 +15,7 @@ const MAX_SCAN = 1000;
 
 export type Visibility = "all" | "public" | "private";
 
-/** How the API orders results: its own relevance, or one of its sorts. */
-export const SORTS = ["relevance", "installs", "rating", "newest", "updated", "name"] as const;
-export type Sort = (typeof SORTS)[number];
-
-/** A window of time back from now, for when an app was added or last released. */
-export const PERIODS = { week: 7, month: 31, year: 366 } as const;
-export type Period = keyof typeof PERIODS;
-
-export const MIN_INSTALLS = [10, 100, 1000] as const;
-export const MIN_RATINGS = [3, 4, 4.5] as const;
+export { MIN_INSTALLS, MIN_RATINGS, PERIODS, SORTS, type Period, type Sort } from "./filters";
 
 export type SearchInput = {
   q: string;

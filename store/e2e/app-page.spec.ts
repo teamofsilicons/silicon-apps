@@ -101,3 +101,15 @@ test("each app has its own Open Graph image", async ({ request }) => {
   expect(hidden.status()).toBe(307);
   expect(hidden.headers().location).toBe("/og.png");
 });
+
+test("silicon-apps in the install command shows how to install silicon-apps itself, for either system", async ({ page }) => {
+  await page.goto("/apps/briefcase");
+  const name = page.locator("#install").getByRole("link", { name: "silicon-apps" });
+  await name.hover();
+  const card = page.getByRole("tooltip");
+  await expect(card).toContainText("Get silicon-apps first");
+  await card.getByRole("button", { name: "Windows" }).click();
+  await expect(card).toContainText("install.ps1");
+  await card.getByRole("button", { name: "macOS & Linux" }).click();
+  await expect(card).toContainText("install.sh");
+});

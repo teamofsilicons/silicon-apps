@@ -261,10 +261,14 @@ a.pageLink:hover, a.pageLink:focus-visible { --sq-fill: var(--surface-muted); co
 .searchLarge .searchShell { min-height: 56px; padding: 5px 5px 5px var(--space-4); box-shadow: var(--shadow-resting); }
 .searchLarge .searchInput { font-size: 1.0625rem; }
 .searchButton { flex: none; }
+/* The "/" hint: only where there is a keyboard, and gone once you are typing. */
+.shortcut { display: none; flex: none; min-width: 22px; height: 22px; place-items: center; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-family: var(--font-mono); font-size: .75rem; }
+@media (hover: hover) and (pointer: fine) { .searchShell:not(:focus-within) .shortcut { display: inline-grid; } }
 
 /* The search page's form: the search field, then the additional filters behind a quiet "Filters" disclosure. */
 .filters { display: grid; gap: 12px; margin: 0; }
 .more { display: grid; }
+.toolbar { min-width: 0; }
 .moreToggle { display: inline-flex; width: fit-content; align-items: center; gap: 6px; padding: 4px 0; color: var(--text-secondary); font-size: var(--text-sm); cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
 .moreToggle::-webkit-details-marker { display: none; }
 .moreToggle:hover, .moreToggle:focus-visible { color: var(--foreground); }

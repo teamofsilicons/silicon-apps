@@ -17,6 +17,7 @@ import { appPath, authorPath, breadcrumbLd, pageMetadata, softwareApplicationLd 
 import { getAccount, signInHref } from "@/lib/session";
 import { LINKS, installCommand, manageAppUrl } from "@/lib/site";
 import type { App, Reviews } from "@/lib/types";
+import { SystemNotice } from "@/components/store/system-notice";
 import { removeReview, saveReview } from "./actions";
 
 type Props = { params: Promise<{ appId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -135,6 +136,7 @@ export default async function AppPage({ params, searchParams }: Props) {
                 : "There is no release to install yet."}{" "}
             New to it? <a href="/#get-the-cli">Get the CLI</a>.
           </p>
+          <SystemNotice systems={platforms.map(group => group.os)} />
           {released && app.signed ? (
             <p className={pageStyles.trust}>
               <ShieldCheck size={15} strokeWidth={1.75} aria-hidden="true" />

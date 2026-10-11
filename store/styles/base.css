@@ -81,6 +81,11 @@ hr { height: 1px; margin: 0; border: 0; background: var(--border); }
 /* Controls that only work with script (copy buttons) stay out of sight in a browser without it: the boot script (lib/boot.ts)
    marks <html data-js> before the first paint. */
 :root:not([data-js]) [data-js-only] { display: none !important; }
+/* And the plain fallbacks for those controls step aside once script runs. */
+:root[data-js] [data-nojs-only] { display: none !important; }
+/* Results dim while the next ones load after a filter change (components/store/search-toolbar.tsx). */
+[data-results] { transition: opacity var(--duration-fast) var(--ease-standard); }
+:root[data-busy] [data-results] { opacity: .45; pointer-events: none; }
 
 /* Skip link: invisible until keyboard focus reaches it. A squircle like every rounded surface: the element carries
    data-sq="surface", so its corners come from --sq-r and its paint from --sq-fill. */

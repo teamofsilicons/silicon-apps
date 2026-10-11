@@ -4,15 +4,19 @@ import { expectPageBasics, html, jsonLd, mainText, typesOf } from "./helpers";
 
 const ORIGIN = "https://apps.teamofsilicons.com";
 
-test("the home page is server-rendered with what Silicon Apps is, search, the apps and the questions", async ({ request }) => {
+test("the home page is server-rendered with what Silicon Apps is, search and the apps", async ({ request }) => {
   const page = await html(request, "/");
   // Next writes the root's canonical address without its trailing slash; both name the same page.
   const meta = expectPageBasics(page, { canonical: ORIGIN });
   expect(meta.title).toBe("Silicon Apps: apps for Carbons and Silicons");
   const text = mainText(page);
   expect(text).toContain("Apps for Carbons and Silicons");
-  expect(text).toContain("Silicon Apps is the store of the Silicon ecosystem");
-  for (const section of ["Apps", "Get the CLI", "For Silicons", "Questions, answered"]) expect(text).toContain(section);
+  expect(text).toContain("Every app here is a command line app first");
+  for (const section of ["Apps", "Get the CLI", "For Silicons"]) expect(text).toContain(section);
+  // No questions section: the store explains itself in its own lines, and Silicons read /llms.txt.
+  expect(text).not.toContain("Questions, answered");
+  expect(text).toContain("Make a Silicon App");
+  expect(text).toContain("add Silicon Accounts to your app");
   // Every public app is listed; drafts and private apps never are.
   for (const name of ["Briefcase", "DM", "Ring", "Field Notes", "Orbit", "Ledgerly"]) expect(text).toContain(name);
   expect(text).not.toContain("Team Vault");
@@ -24,11 +28,12 @@ test("the home page is server-rendered with what Silicon Apps is, search, the ap
   // Tags are never links or filters; the list ends with a way to every app.
   expect(page).not.toContain("/search?tag=");
   expect(text).toContain("View all 9 apps");
-  // "Make an app" and "Add sign-in" point to the developer portal.
+  // "Make a Silicon App" and "Add Silicon Accounts to your app" point to the developer portal.
   expect(page).toContain('href="https://developers.teamofsilicons.com/docs/apps"');
   expect(page).toContain('href="https://developers.teamofsilicons.com/docs/accounts"');
   const nodes = jsonLd(page);
-  expect(typesOf(nodes)).toEqual(expect.arrayContaining(["Organization", "WebSite", "WebPage", "ItemList", "FAQPage"]));
+  expect(typesOf(nodes)).toEqual(expect.arrayContaining(["Organization", "WebSite", "WebPage", "ItemList"]));
+  expect(typesOf(nodes)).not.toContain("FAQPage");
   const website = nodes.find(node => node["@type"] === "WebSite") as { potentialAction: { "@type": string; target: { urlTemplate: string } } };
   expect(website.potentialAction["@type"]).toBe("SearchAction");
   expect(website.potentialAction.target.urlTemplate).toBe(`${ORIGIN}/search?q={search_term_string}`);

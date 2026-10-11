@@ -24,19 +24,6 @@
 .windows summary:hover, .windows summary:focus-visible { color: var(--foreground); }
 .windows[open] summary { margin-bottom: 12px; }
 
-/* Questions: native disclosure, a hairline between them. */
-.faq { border-top: 1px solid var(--border); }
-.faqItem { border-bottom: 1px solid var(--border); scroll-margin-top: 80px; }
-.faqQuestion { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; color: var(--foreground); cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
-.faqQuestion::-webkit-details-marker { display: none; }
-.faqQuestion:focus-visible .faqHeading { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
-.faqHeading { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.45; }
-.faqIcon { flex: none; color: var(--text-muted); transition: transform var(--duration-standard) var(--ease-standard); }
-.faqItem[open] .faqIcon { transform: rotate(45deg); }
-.faqAnswer { margin: 0; padding: 0 32px 18px 0; color: var(--text-secondary); line-height: 1.7; }
-.faqAnswer a { overflow-wrap: anywhere; }
-
 .closing { margin: clamp(72px, 10vw, 112px) 0 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.6; }
 .closing a { color: var(--text-secondary); }
 
-@media (prefers-reduced-motion: reduce) { .faqIcon { transition: none; } }

@@ -6,8 +6,8 @@ import { LINKS } from "@/lib/site";
 import styles from "./site.module.css";
 
 const LINKS_ROW: Array<{ href: string; label: string; external?: boolean }> = [
-  { href: LINKS.appsDocs, label: "Make an app", external: true },
-  { href: LINKS.accountsDocs, label: "Add sign-in", external: true },
+  { href: LINKS.appsDocs, label: "Make a Silicon App", external: true },
+  { href: LINKS.accountsDocs, label: "Add Silicon Accounts to your app", external: true },
   { href: "/llms.txt", label: "llms.txt" },
   { href: "/openapi.json", label: "API" },
   { href: "/settings", label: "Settings" },

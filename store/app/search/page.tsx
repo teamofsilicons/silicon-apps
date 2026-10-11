@@ -116,7 +116,7 @@ export default async function SearchPage({ searchParams }: Props) {
 
       {needsSignIn ? null : <SearchFilters input={input} />}
 
-      <section aria-labelledby="results-title" className={styles.results}>
+      <section aria-labelledby="results-title" className={styles.results} data-results="">
         <h2 id="results-title" className="sr-only">Results</h2>
         {needsSignIn ? (
           <EmptyState icon={<Lock size={20} strokeWidth={1.75} />} title="Log in to see private apps" actions={<Action href={signInHref(path)} rel="nofollow">Sign in with Silicon Accounts</Action>}>
