@@ -19,8 +19,6 @@
 /* Install --------------------------------------------------------------------------------------------------------- */
 .install { display: grid; gap: 10px; scroll-margin-top: 88px; }
 .installNote { margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.6; }
-.trust { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.6; }
-.trust > svg { flex: none; margin-top: 3px; color: var(--success); }
 .mono { color: var(--foreground); font-family: var(--font-pixel); font-size: .8125rem; }
 
 /* Four facts in one row. */
@@ -90,8 +88,6 @@
 .moreBody p { margin: 0 0 6px; font-size: var(--text-sm); }
 
 .platforms { display: grid; gap: 4px; margin: 0; padding: 0; color: var(--foreground); font-size: .9375rem; list-style: none; }
-.state { color: var(--foreground); }
-.state[data-state="no"] { color: var(--text-muted); }
 
 .people { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .person { display: inline-flex; align-items: center; gap: 10px; color: var(--foreground); font-size: .9375rem; text-decoration: none; }

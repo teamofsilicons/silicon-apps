@@ -43,16 +43,6 @@
       "sha256": "88d0ae55bb3e241f529912a4802bbf014e4ba437025acc90ab13e012702273c5"
     },
     {
-      "file": "filter-toolbar/filter-toolbar.tsx",
-      "registry": "https://ui.teamofsilicons.com/r/filter-toolbar.json",
-      "sha256": "90fbd7b5dfca993bb6992cda514d7c17df406fcf63ecf2c04712a20c538ed1db"
-    },
-    {
-      "file": "filter-toolbar/filter-toolbar.module.css",
-      "registry": "https://ui.teamofsilicons.com/r/filter-toolbar.json",
-      "sha256": "66e3d1ce60b7ac1cffc9757bbeaf927778ca3dafbec7db737300c8447c8c9ff9"
-    },
-    {
       "file": "hover-card/hover-card.tsx",
       "registry": "https://ui.teamofsilicons.com/r/hover-card.json",
       "sha256": "8fe88d6df8541251d9827336614a5f7a87026992eb66a42d8f71679d274d89c2"
@@ -71,6 +61,21 @@
       "file": "segmented-control/segmented-control.module.css",
       "registry": "https://ui.teamofsilicons.com/r/segmented-control.json",
       "sha256": "a24527f19d8dc8036c24bfbd6208eeeff74f307ac6776bfcdb5b1a15d4cd9fd2"
+    },
+    {
+      "file": "dropdown-menu/dropdown-menu.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/dropdown-menu.json",
+      "sha256": "a9328261e68bfc45efa73496f435d09d6221c0cc6a3387e7b3496f1b34ccd9a4"
+    },
+    {
+      "file": "dropdown-menu/dropdown-menu.module.css",
+      "registry": "https://ui.teamofsilicons.com/r/dropdown-menu.json",
+      "sha256": "8c06dab6ae7107cf03ef39a4c841d30848aed69401f7818379b1dc400a6678ca"
+    },
+    {
+      "file": "lib/menu-highlight.tsx",
+      "registry": "https://ui.teamofsilicons.com/r/dropdown-menu.json",
+      "sha256": "e05dbfb0537d97d725ae1f615795195385f3e624863334fa827a8b91fb10e075"
     }
   ],
   "adapted_behavior": [],

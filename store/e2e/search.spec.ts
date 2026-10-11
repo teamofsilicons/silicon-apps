@@ -117,14 +117,17 @@ test("signed in, the private apps view shows only what is shared with you", asyn
   await nova.close();
 });
 
-test("with script, the filters are Arc's toolbar: add one from the menu, remove it from its chip", async ({ page }) => {
+test("with script, each filter is a quiet dropdown: one click to a value, one click back to any", async ({ page }) => {
   await page.goto("/search");
-  const toolbar = page.getByRole("group", { name: "Filters" });
-  await toolbar.getByRole("button", { name: "Add filter" }).click();
-  await page.getByRole("menuitem", { name: /Installs/ }).click();
-  await page.getByRole("menuitemradio", { name: "1,000 or more" }).or(page.getByRole("menuitem", { name: "1,000 or more" })).click();
+  const bar = page.getByRole("group", { name: "Filters" });
+  await bar.getByRole("button", { name: "Installs" }).click();
+  await page.getByRole("menuitem", { name: "1,000 or more" }).click();
   await expect(page).toHaveURL(/\/search\?installs=1000$/);
   await expect(page.getByRole("status").filter({ hasText: "2 apps" })).toBeVisible();
-  await toolbar.getByRole("button", { name: "Remove Installs: 1,000 or more" }).click();
+  await bar.getByRole("button", { name: "1,000 or more" }).click();
+  await page.getByRole("menuitem", { name: "Any number of installs" }).click();
   await expect(page).toHaveURL(/\/search$/);
+  await bar.getByRole("button", { name: /Sort: Best match/ }).click();
+  await page.getByRole("menuitem", { name: "Most installed" }).click();
+  await expect(page).toHaveURL(/\/search\?sort=installs$/);
 });
