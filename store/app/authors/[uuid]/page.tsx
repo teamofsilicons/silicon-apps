@@ -5,7 +5,7 @@
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { AppGrid } from "@/components/store/app-card";
+import { AppList } from "@/components/store/app-card";
 import pageStyles from "@/components/store/author.module.css";
 import { Avatar, Breadcrumbs, Pagination, StructuredData, accountKind, styles } from "@/components/store/parts";
 import { apiOrNull } from "@/lib/api";
@@ -75,7 +75,7 @@ export default async function AuthorPage({ params, searchParams }: Props) {
           <div className={styles.sectionHead}>
             <h2 id="author-apps-title" className={styles.sectionTitle}>Published apps</h2>
           </div>
-          {author.items.length ? <AppGrid apps={author.items} label={`Apps by ${name}`} /> : <p className={styles.muted}>No apps on this page. Go back to the first page to see them.</p>}
+          {author.items.length ? <AppList apps={author.items} label={`Apps by ${name}`} /> : <p className={styles.muted}>No apps on this page. Go back to the first page to see them.</p>}
           <Pagination page={page} pages={pages} href={n => (n > 1 ? `${path}?page=${n}` : path)} label="App pages" />
         </section>
       </article>

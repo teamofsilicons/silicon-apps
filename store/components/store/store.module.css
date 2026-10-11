@@ -5,7 +5,8 @@
  */
 
 /* Page frame ------------------------------------------------------------------------------------------------------ */
-.page { width: 100%; max-width: var(--page-max); margin-inline: auto; padding: clamp(24px, 4vw, 40px) var(--gutter) clamp(64px, 8vw, 104px); }
+/* Every page reads in one column the width of a Writings article. */
+.page { width: 100%; max-width: calc(var(--page-narrow) + 2 * var(--gutter)); margin-inline: auto; padding: clamp(32px, 5vw, 56px) var(--gutter) clamp(64px, 8vw, 104px); }
 .narrow { max-width: calc(var(--page-narrow) + 2 * var(--gutter)); }
 .pageHead { display: grid; gap: var(--space-3); max-width: 760px; margin: var(--space-6) 0 clamp(24px, 3vw, 36px); }
 /* Kickers and small labels: the pixel face in capitals, as on Silicon Writings. */
@@ -24,7 +25,7 @@
 .lede { margin: 0; color: var(--text-secondary); font-size: 1.0625rem; line-height: 1.6; text-wrap: pretty; }
 .muted { color: var(--text-muted); }
 .small { font-size: var(--text-sm); }
-.page :not(pre) > code:not(.commandText) { --sq-r: 6px; padding: .08em .34em; background: var(--surface-muted); color: var(--foreground); font-size: .86em; overflow-wrap: anywhere; }
+.page :not(pre) > code:not(.commandText) { padding: .08em .34em; border-radius: 5px; background: var(--surface-muted); color: var(--foreground); font-size: .86em; white-space: nowrap; }
 
 /* Breadcrumbs: "WRITINGS / ARTICLE" in the pixel face. */
 .crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 0; color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; letter-spacing: .03em; text-transform: uppercase; list-style: none; }
@@ -50,27 +51,8 @@
 /* App logos and avatars ----------------------------------------------------------------------------------------- */
 .logo { --sq-r: 24%; display: block; flex: none; object-fit: cover; background: var(--surface); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent); }
 img.logo { border: 1px solid var(--border-subtle); }
-/* An app with no logo: its own letter in the serif on a quiet tone of paper, one of six per app. */
-.monogram {
-  --tone: var(--accent);
-  --sq-r: 24%;
-  display: grid;
-  flex: none;
-  place-items: center;
-  padding-top: .06em;
-  background: color-mix(in oklab, var(--tone) 11%, var(--surface));
-  color: color-mix(in oklab, var(--tone) 82%, var(--foreground));
-  font-family: var(--font-serif);
-  font-weight: 400;
-  line-height: 1;
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 20%, transparent);
-}
-.monogram[data-tone="1"] { --tone: #2B7148; }
-.monogram[data-tone="2"] { --tone: #A86B12; }
-.monogram[data-tone="3"] { --tone: #B03A62; }
-.monogram[data-tone="4"] { --tone: #6A48B8; }
-.monogram[data-tone="5"] { --tone: #A4532B; }
-:global(:root[data-theme="dark"]) .monogram { background: color-mix(in oklab, var(--tone) 18%, var(--surface)); color: color-mix(in oklab, var(--tone) 55%, var(--foreground)); }
+/* An app with no logo: its own letter in the serif on quiet beige. */
+.monogram { --sq-r: 24%; display: grid; flex: none; place-items: center; padding-top: .06em; background: var(--surface-pressed); color: var(--text-secondary); font-family: var(--font-serif); font-weight: 400; line-height: 1; }
 .avatar { position: relative; overflow: hidden; --sq-r: 30%; display: inline-grid; flex: none; place-items: center; background: var(--surface-pressed); color: var(--foreground); font-family: var(--font-serif); font-weight: 400; }
 .avatar[data-kind="Silicon"] { background: var(--accent-subtle); color: var(--accent-ink); }
 
@@ -120,66 +102,20 @@ img.logo { border: 1px solid var(--border-subtle); }
 .chip[aria-current] { --sq-fill: var(--surface-pressed); --sq-stroke: var(--border-strong); color: var(--foreground); }
 .chipCount { color: var(--text-muted); font-family: var(--font-pixel); font-size: .6875rem; font-variant-numeric: tabular-nums; }
 
-/* App cards ----------------------------------------------------------------------------------------------------- */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-.grid > li { display: grid; min-width: 0; }
-.card {
-  --sq-r: var(--radius-panel);
-  --sq-fill: var(--surface);
-  --sq-stroke: var(--border);
-  position: relative;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: var(--space-4);
-  min-width: 0;
-  border: 1px solid var(--sq-stroke);
-  padding: var(--space-5);
-  background: var(--sq-fill);
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-standard) var(--ease-standard), transform var(--duration-standard) var(--ease-standard);
-}
-.card:hover, .card:focus-within { --sq-stroke: var(--border-strong); box-shadow: var(--shadow-raised); }
-.card:active { transform: scale(.995); }
-.cardTop { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
-.cardTitle { display: grid; gap: 4px; min-width: 0; }
-.cardName { overflow: hidden; margin: 0; color: var(--foreground); font-family: var(--font-serif); font-size: 1.3125rem; font-weight: 400; letter-spacing: -.005em; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
-.cardName a { color: inherit; text-decoration: none; }
-/* The whole card is the link's target, so the name stays the one accessible link. */
-.cardName a::after { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
-.cardName a:focus-visible { background: none; box-shadow: none; text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .25em; }
-.cardId { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; letter-spacing: .01em; }
-.cardText { display: -webkit-box; overflow: hidden; margin: 0; color: var(--text-secondary); font-size: .9375rem; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
-/* At a glance: "Oct 10 · Article · 1 min read" in the pixel face. */
-.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; margin: 0; padding: 0; color: var(--text-muted); font-family: var(--font-pixel); font-size: .6875rem; letter-spacing: .02em; list-style: none; }
-.meta li { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-/* The dot trails each item, so a wrapped line never starts with one. */
-.meta li:not(:last-child)::after { content: "·"; margin: 0 8px; color: var(--text-faint); }
-.meta .metaStar { color: var(--star); fill: currentColor; }
-
-/* Featured: the banner (or a paper panel with the logo) on top. */
-.featuredGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-.featuredGrid > li { display: grid; min-width: 0; }
-.featured { grid-template-rows: auto auto 1fr auto; padding: 0; overflow: hidden; }
-.featuredArt { --sq-r: 0; position: relative; display: grid; aspect-ratio: 16 / 7; place-items: center; overflow: hidden; border-bottom: 1px solid var(--border-subtle); background: var(--surface-muted); }
-.featuredArt img { width: 100%; height: 100%; object-fit: cover; }
-.featured .cardTop, .featured .cardText, .featured .meta { padding-inline: var(--space-5); }
-.featuredTop { padding-top: var(--space-1); }
-.featured .meta { padding-bottom: var(--space-5); }
-
-/* The numbered index of the home page: one line per app, like the list on Writings. */
-.index { display: grid; margin: 0; padding: 0; list-style: none; counter-reset: none; }
-.indexRow { position: relative; display: flex; align-items: center; gap: var(--space-3); min-width: 0; border-bottom: 1px solid var(--border-subtle); padding: var(--space-3) var(--space-2); transition: background-color var(--duration-fast) var(--ease-standard); }
-.indexRow:last-child { border-bottom: 0; }
-@media (hover: hover) and (pointer: fine) { .indexRow:hover { background: color-mix(in oklab, var(--surface-muted) 70%, transparent); } }
-.indexRow:focus-within { background: color-mix(in oklab, var(--surface-muted) 70%, transparent); }
-.indexNumber { flex: none; width: 1.5rem; color: var(--text-faint); font-family: var(--font-pixel); font-size: .75rem; font-variant-numeric: tabular-nums; }
-.indexText { display: grid; flex: 1; gap: 2px; min-width: 0; }
-.indexName { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; color: var(--foreground); font-size: .9375rem; font-weight: 500; line-height: 1.3; }
-.indexName a { overflow: hidden; color: inherit; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
-.indexName a::after { content: ""; position: absolute; inset: 0; z-index: 1; }
-.indexName a:focus-visible { background: none; box-shadow: none; text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .25em; }
-.indexLine { overflow: hidden; margin: 0; color: var(--text-muted); font-size: var(--text-sm); line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
-.indexMeta { flex: none; color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.indexUnit { color: var(--text-faint); }
+/* App rows: the one way apps are listed (components/store/app-card.tsx) ------------------------------------------ */
+.list { display: grid; margin: 0; padding: 0; border-top: 1px solid var(--border); list-style: none; }
+.list > li { border-bottom: 1px solid var(--border); }
+.row { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 18px; padding: 22px 0; }
+.rowBody { display: grid; gap: 6px; min-width: 0; padding-top: 1px; }
+.rowName { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; font-size: 1.0625rem; font-weight: 500; line-height: 1.3; }
+.rowName a { color: var(--foreground); text-decoration: none; }
+/* The whole row is the link's target, so the name stays the one accessible link. */
+.rowName a::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.rowName a:focus-visible { background: none; box-shadow: none; text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .25em; }
+@media (hover: hover) and (pointer: fine) { .row:hover .rowName a { color: var(--accent-ink); } }
+.rowId { color: var(--text-muted); font-family: var(--font-pixel); font-size: .75rem; font-weight: 400; }
+.rowText { display: -webkit-box; overflow: hidden; margin: 0; color: var(--text-secondary); font-size: .9375rem; line-height: 1.6; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.rowFacts { margin: 2px 0 0; color: var(--text-muted); font-family: var(--font-pixel); font-size: .6875rem; letter-spacing: .02em; line-height: 1.6; white-space: pre-wrap; }
 
 /* Commands -------------------------------------------------------------------------------------------------------- */
 /* One command on one line, with Arc's icon copy button: the install command on cards and app pages. */
@@ -196,13 +132,13 @@ img.logo { border: 1px solid var(--border-subtle); }
   padding: 4px 4px 4px var(--space-4);
   background: var(--sq-fill);
 }
-.commandText { flex: 1; min-width: 0; overflow-x: auto; color: var(--foreground); font-family: var(--font-mono); font-size: .875rem; letter-spacing: 0; white-space: pre; scrollbar-width: none; }
+.commandText { flex: 1; min-width: 0; padding-block: 10px; color: var(--foreground); font-family: var(--font-mono); font-size: .875rem; letter-spacing: 0; white-space: pre-wrap; overflow-wrap: break-word; }
 .commandText::-webkit-scrollbar { display: none; }
 .prompt { color: var(--text-faint); user-select: none; }
 .commandLarge { min-height: 56px; }
 /* In a narrow column the whole command stays in sight: it wraps (at a space first) instead of scrolling. */
 .commandWrap { align-items: flex-start; }
-.commandWrap .commandText { padding-block: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.commandWrap .commandText { padding-block: 10px; white-space: pre-wrap; overflow-wrap: break-word; }
 .commandLarge .commandText { font-size: .9375rem; }
 
 /* Empty states and notices -------------------------------------------------------------------------------------- */
@@ -327,7 +263,8 @@ a.pageLink:hover, a.pageLink:focus-visible { --sq-fill: var(--surface-muted); co
 /* The search page's filters: one form, the field on top and the filters in a row under it. */
 /* On paper, between two hairlines, like the filter row on Writings: no box around it. */
 .filters { --sq-r: 0; --sq-fill: transparent; --sq-stroke: transparent; display: grid; gap: var(--space-4); border-block: 1px solid var(--border); padding: var(--space-5) 0; background: transparent; }
-.filterRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; align-items: end; gap: var(--space-4); }
+.filterRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: var(--space-4); }
+.filterRow > .filterSubmit { justify-self: end; }
 .filterSubmit { min-width: 120px; }
 
 /* Segmented control: Arc's segmented control as radio buttons. */
@@ -342,41 +279,25 @@ a.pageLink:hover, a.pageLink:focus-visible { --sq-fill: var(--surface-muted); co
 .segment input:checked + span { --sq-fill: var(--surface); color: var(--foreground); box-shadow: var(--shadow-resting); }
 .segment input:focus-visible + span { color: var(--foreground); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .3em; }
 
-@media (max-width: 899px) {
-  .filterRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .filterSubmit { width: 100%; }
-}
-@media (max-width: 1023px) {
-  .featuredGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .featuredGrid > li:nth-child(3) { display: none; }
-}
 @media (max-width: 719px) {
   .filters { padding: var(--space-4) 0; }
   /* Tag and platform stay side by side on a phone, so the results start sooner. */
   .filterRow { gap: var(--space-3); }
-  .filterRow > .segmented, .filterRow > .filterSubmit { grid-column: 1 / -1; }
+  .filterRow > .segmented, .filterRow > .filterSubmit { grid-column: 1 / -1; justify-self: stretch; }
   /* Full width like the fields above it, three equal segments. */
   .segmented .segmentTrack { display: flex; }
   .segment { flex: 1 1 0; }
   .segment span { width: 100%; }
-  .featuredGrid { grid-template-columns: minmax(0, 1fr); }
-  .featuredGrid > li:nth-child(3) { display: grid; }
-  .card { padding: var(--space-4); }
-  .featured { padding: 0; }
-  .featured .cardTop, .featured .cardText, .featured .meta { padding-inline: var(--space-4); }
-  .featured .meta { padding-bottom: var(--space-4); }
 }
 @media (max-width: 399px) {
   .filterRow { grid-template-columns: minmax(0, 1fr); }
 }
 /* On a phone the whole command stays visible: it wraps instead of scrolling out of sight. */
 @media (max-width: 479px) {
-  .commandText { white-space: pre-wrap; overflow-wrap: anywhere; }
-  .commandLarge .commandText { font-size: .875rem; }
+  .commandText, .commandLarge .commandText { font-size: .78rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .card, .chip, .pageLink, .searchShell, .searchShell > svg, .input, .select, .textarea, .segment span { transition: none; }
-  .card:active { transform: none; }
+  .chip, .pageLink, .searchShell, .searchShell > svg, .input, .select, .textarea, .segment span { transition: none; }
 }
 
 .avatarPhoto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: var(--surface-muted); }

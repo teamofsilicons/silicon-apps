@@ -22,11 +22,12 @@ export function CopyCode({ label, value }: { label: string; value?: string }) {
   );
 }
 
-export function CodeBlock({ code, lang = "sh", title }: { code: string; lang?: string; title?: string }) {
+/** `wrap` breaks long lines instead of scrolling them, for commands a reader copies whole. */
+export function CodeBlock({ code, lang = "sh", title, wrap = false }: { code: string; lang?: string; title?: string; wrap?: boolean }) {
   const tokens = highlight(code, lang);
   const label = languageLabel(lang);
   return (
-    <figure className={styles.block} data-sq="clip" data-docs-code="">
+    <figure className={wrap ? `${styles.block} ${styles.wrap}` : styles.block} data-sq="clip" data-docs-code="">
       <figcaption className={styles.header}>
         <span className={styles.label}>
           {title ? <span className={styles.title}>{title}</span> : null}

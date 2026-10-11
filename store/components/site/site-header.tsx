@@ -1,24 +1,22 @@
 /**
  * The store's header (server-rendered), as on Silicon Writings and teamofsilicons.com: the wordmark on the left, and on
- * the right the navigation in one floating pill (the current page sits on a beige fill), search, the theme switch and
- * Sign in (or the signed-in account, which opens Settings). Below 900 px the navigation moves into a menu: a native
+ * the right the navigation in one floating pill (the current page sits on a beige fill) and Sign in (or the signed-in
+ * account, which opens Settings). The theme choice lives in the footer. Below 900 px the navigation moves into a menu: a native
  * popover, so it opens, closes on Escape or an outside tap, and keeps focus without any script of ours. Links are plain
  * links: every page is a full HTML document.
  */
-import { ArrowUpRight, Menu, Search, X } from "lucide-react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import { Avatar } from "@/components/store/parts";
 import type { Account } from "@/lib/types";
 import { signInHref as signInPath } from "@/lib/session";
 import { LINKS } from "@/lib/site";
 import { Action } from "./action";
 import { BrandGlyph } from "./brand";
-import { ThemeToggle } from "./theme-controls";
 import styles from "./site.module.css";
 
 const NAV: Array<{ href: string; label: string; external?: boolean }> = [
   { href: "/search", label: "Apps" },
   { href: "/search?visibility=private", label: "Private" },
-  { href: "/#for-silicons", label: "For Silicons" },
   { href: LINKS.appsDocs, label: "Make an app", external: true },
 ];
 
@@ -63,10 +61,6 @@ export function SiteHeader({ path, account }: SiteHeaderProps) {
           </ul>
         </nav>
         <div className={styles.actions}>
-          <a href="/search" className={styles.iconButton} data-sq="surface" aria-label="Search apps">
-            <Search size={17} strokeWidth={1.75} aria-hidden="true" />
-          </a>
-          <ThemeToggle />
           {account ? (
             <a href="/settings" className={`${styles.accountChip} ${styles.account}`} data-sq="surface" aria-label={`Settings, signed in as ${account.id}`}>
               <Avatar name={account.display_name || account.id} id={account.id} photo={account.pfp_url} size={26} />
@@ -98,7 +92,7 @@ export function SiteHeader({ path, account }: SiteHeaderProps) {
                 </a>
               </li>
             ))}
-            <li><a href="/search" className={styles.menuLink} data-sq="surface">Search apps</a></li>
+            <li><a href="/#for-silicons" className={styles.menuLink} data-sq="surface">For Silicons</a></li>
             <li><a href="/settings" className={styles.menuLink} data-sq="surface" aria-current={path.split("?")[0] === "/settings" ? "page" : undefined}>Settings</a></li>
           </ul>
         </nav>

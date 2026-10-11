@@ -5,7 +5,7 @@
  */
 import type { Metadata } from "next";
 import { Lock, Search as SearchIcon } from "lucide-react";
-import { AppGrid } from "@/components/store/app-card";
+import { AppList } from "@/components/store/app-card";
 import { Breadcrumbs, EmptyState, Notice, Pagination, StructuredData, styles } from "@/components/store/parts";
 import { SearchFilters } from "@/components/store/search-form";
 import { Action } from "@/components/site/action";
@@ -116,7 +116,7 @@ export default async function SearchPage({ searchParams }: Props) {
               {result.total === 1 ? "1 app" : `${result.total} apps`}
               {result.pages > 1 ? `, page ${result.page} of ${result.pages}` : ""}
             </p>
-            <AppGrid apps={result.items} label={title} />
+            <AppList apps={result.items} label={title} />
             <Pagination page={result.page} pages={result.pages} href={page => hrefFor(input, page)} label="Result pages" />
           </>
         ) : (
