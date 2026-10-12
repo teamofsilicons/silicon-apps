@@ -1,8 +1,8 @@
 /**
  * Renders the browser-tab icon into public/ from favicon.svg, with Playwright's Chromium:
  *   favicon.svg → public/icon.svg (as is) and public/favicon.ico (16, 32 and 48 px)
- * The mark alone, as the store's header draws it (#1E1E1C, cream #EDE8E0 when the browser is dark), with no tile. The
- * install icons (icon-192/512, maskable, apple-touch-icon) keep the mark on its cream tile. Run it after changing
+ * The seven hexagons in #181818 on a rounded cream (#EDE8E0) tile, in light and dark browsers alike. The install icons
+ * (icon-192/512, maskable, apple-touch-icon) are the same mark on a full square. Run it after changing
  * favicon.svg: node scripts/brand/render.mjs
  */
 import { readFileSync, writeFileSync, copyFileSync } from "node:fs";
