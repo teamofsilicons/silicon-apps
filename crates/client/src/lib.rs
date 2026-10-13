@@ -4,6 +4,7 @@ pub mod auth;
 pub mod docs;
 pub mod events;
 pub mod install;
+mod network;
 pub mod signing;
 pub mod state;
 pub mod updater;
@@ -212,7 +213,7 @@ impl Client {
             request = request.header("Idempotency-Key", key);
         }
         let result = async {
-            check_response(request.send().await.with_context(|| {
+            check_response(network::send(request).await.with_context(|| {
                 format!(
                     "{method} /{}: could not reach Silicon Apps at {}",
                     path.join("/"),
@@ -385,7 +386,7 @@ impl Client {
             request = request.bearer_auth(token);
         }
         let result = async {
-            check_response(request.send().await?)
+            check_response(network::send(request).await?)
                 .await?
                 .json()
                 .await
@@ -407,7 +408,7 @@ impl Client {
         if let Some(token) = &self.token {
             req = req.bearer_auth(token);
         }
-        let mut response = check_response(req.send().await?).await?;
+        let mut response = check_response(network::send(req).await?).await?;
         ensure!(
             response.content_length().unwrap_or(0) <= package::MAX_ARCHIVE_BYTES,
             "download is too large"
@@ -565,7 +566,7 @@ impl Client {
         if let Some(token) = &self.token {
             request = request.bearer_auth(token);
         }
-        let response = check_response(request.send().await.with_context(|| {
+        let response = check_response(network::send(request).await.with_context(|| {
             format!(
                 "could not reach Silicon Apps at {} to stream events",
                 self.base
