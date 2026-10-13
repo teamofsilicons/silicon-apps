@@ -163,14 +163,28 @@ mod tests {
 
     #[tokio::test]
     async fn non_timeout_connection_errors_are_not_retried() {
-        let (client, dns, received, server) = fixture(0, Duration::ZERO, StatusCode::OK).await;
-        server.abort();
-        let _ = server.await;
+        struct FailedDns(AtomicUsize);
+        impl Resolve for FailedDns {
+            fn resolve(&self, _: Name) -> Resolving {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                Box::pin(async {
+                    Err(
+                        std::io::Error::new(std::io::ErrorKind::NotFound, "test DNS failure")
+                            .into(),
+                    )
+                })
+            }
+        }
+        let dns = Arc::new(FailedDns(AtomicUsize::new(0)));
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .dns_resolver(dns.clone())
+            .build()
+            .unwrap();
         let error = send(request(&client)).await.unwrap_err();
         let error = error.downcast_ref::<reqwest::Error>().unwrap();
         assert!(error.is_connect());
         assert!(!error.is_timeout());
-        assert_eq!(dns.calls.load(Ordering::SeqCst), 1);
-        assert_eq!(received.load(Ordering::SeqCst), 0);
+        assert_eq!(dns.0.load(Ordering::SeqCst), 1);
     }
 }
