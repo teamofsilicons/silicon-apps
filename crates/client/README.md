@@ -2,6 +2,8 @@
 
 The primary Rust interface for Silicon Apps. The HTTP client holds only an explicit URL and optional bearer token; it does not load environment variables, persist sessions or initialize local state. The CLI calls this package for every service operation, authentication, installation and update.
 
+A timeout establishing a connection is retried twice, after 250 ms and 1 second, with the same request and idempotency key. Each connection attempt is limited to 10 seconds. This applies to API calls, package downloads and opening event streams. Once a request reaches the service, response/read timeouts and HTTP errors are returned without automatic replay. Certificate failures and other connection errors are also returned immediately. A persistent connection timeout reports the attempt count and asks you to check network, DNS and proxy/VPN access.
+
 ```rust,no_run
 use silicon_apps_client::Client;
 
