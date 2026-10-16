@@ -18,9 +18,9 @@ from datetime import datetime, timezone
 NAMES = {app: 'Silicon ' + name for app, name in {
     'briefcase': 'Briefcase', 'remind': 'Remind', 'dm': 'DM',
     'extend': 'Extend', 'commit': 'Commit', 'hook': 'Hook',
-    'waveform': 'Waveform', 'mcport': 'MCPort', 'browser': 'Browser',
+    'waveform': 'Waveform', 'mcport': 'MCPort', 'browser': 'Browser', 'ting': 'Ting',
 }.items()}
-# Existing Browser author/admin from the production UUID-map rehearsal; never transfer it.
+# Existing Browser and Ting author/admin; never transfer either application.
 BROWSER_OWNER_UUID = '0080c488-a9e9-4c22-aa91-1c7a639f1d7b'
 API_ORIGINS = {'browser': 'https://backend.browser.teamofsilicons.com',
                'briefcase': 'https://api.briefcase.teamofsilicons.com/api/v1/'}
@@ -95,8 +95,11 @@ def verified_packages(folder, metadata):
             if len(manifests) != 1 or not manifests[0].isfile():
                 raise ValueError('Archive must contain one regular apps.yaml')
             manifest = tar.extractfile(manifests[0]).read().decode()
+        manifest_json = json.loads(manifest) if manifest.lstrip().startswith('{') else None
         for key, value in [('app_id', app), ('version', version), ('command', app)]:
-            if not re.search(r'^' + key + r':\s*' + re.escape(value) + r'\s*$', manifest, re.M):
+            matches = (manifest_json.get(key) == value if manifest_json is not None else
+                       bool(re.search(r'^' + key + r':\s*' + re.escape(value) + r'\s*$', manifest, re.M)))
+            if not matches:
                 raise ValueError('Packaged Apps identity differs from the native report')
         checks = []
         for command, args in COMMANDS:
@@ -106,17 +109,24 @@ def verified_packages(folder, metadata):
             result = found[0]
             if command == '--help' and not result['stdout'].strip():
                 raise ValueError('Native help output is empty')
-            if command == '--version' and result['stdout'].strip() != actual_version:
-                raise ValueError('Native version command does not support the report version')
+            if command == '--version':
+                reported = (app + ' ' + json.loads(result['stdout']).get('version', '')
+                            if app == 'ting' else result['stdout'].strip())
+                if reported != actual_version:
+                    raise ValueError('Native version command does not support the report version')
             if command == 'accounts --json':
                 discovery = json.loads(result['stdout'])
-                if discovery.get('app_id') != app or (app != 'browser' and discovery.get('version') != version):
+                if discovery.get('app_id') != app or (app not in ('browser', 'ting') and discovery.get('version') != version):
                     raise ValueError('Native account discovery identity differs')
                 expected_api = API_ORIGINS.get(app, 'https://api.' + app + '.teamofsilicons.com')
                 # Browser's existing discovery contract returns only app_id. Its native report
                 # reads the selected default from the CLI-created signed-out state instead.
                 actual_api = report.get('default_api_url') if app == 'browser' else discovery.get('api_url')
-                if actual_api != expected_api:
+                if app == 'ting':
+                    if (discovery.get('accounts_url') != 'https://accounts.teamofsilicons.com'
+                            or discovery.get('apps_url') != 'https://apps.teamofsilicons.com'):
+                        raise ValueError('Ting discovery must identify the current Accounts and Apps services')
+                elif actual_api != expected_api:
                     raise ValueError('Package still targets a legacy API origin')
             if command == 'login status --json' and json.loads(result['stdout']).get('authenticated') is not False:
                 raise ValueError('Native verification must use a signed-out home')
@@ -144,7 +154,7 @@ def publish(root, folder, expected):
         catalog=json.loads(db.execute('select document from catalog where id=1').fetchone()[0])
         original=catalog['apps'].get(app_id)
         owner=catalog['apps']['silicon-apps']
-        expected_owner = BROWSER_OWNER_UUID if app_id == 'browser' else owner['admin_uuid']
+        expected_owner = BROWSER_OWNER_UUID if app_id in ('browser', 'ting') else owner['admin_uuid']
         if original and (original['name']!=NAMES[app_id] or original['admin_uuid']!=expected_owner): raise ValueError('Existing identity belongs to another app or admin')
         if original is None: raise ValueError('Register the official app through Apps before importing a release')
         app=original

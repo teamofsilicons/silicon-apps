@@ -164,6 +164,56 @@ class PublicationTests(unittest.TestCase):
         self.assertFalse(self.publish()['changed'])
         self.assertEqual(self.catalog(), after)
 
+    def ting_bundle(self):
+        self.browser_bundle()
+        self.meta.update(app_id='ting', workflow='https://github.com/teamofsilicons/silicon-ting/actions/runs/1')
+        before = self.catalog()
+        before['apps']['ting'] = before['apps'].pop('browser')
+        before['apps']['ting'].update(app_id='ting', name='Silicon Ting')
+        with sqlite3.connect(self.root / 'apps.sqlite') as db:
+            db.execute('UPDATE catalog SET document=?', (json.dumps(before),))
+        for filename in self.meta['reports']:
+            path = self.bundle / filename
+            report = json.loads(path.read_text())
+            report.update(app_id='ting', version='ting 1.1.1')
+            archive = self.bundle / report['archive']
+            with tarfile.open(archive, 'w:gz') as tar:
+                raw = json.dumps(dict(app_id='ting', version='1.1.1', command='ting')).encode()
+                info = tarfile.TarInfo('apps.yaml'); info.size = len(raw)
+                tar.addfile(info, io.BytesIO(raw))
+            report.update(sha256=p.sha(archive.read_bytes()), size=archive.stat().st_size)
+            report['command_results'][1]['stdout'] = json.dumps(dict(app_id='ting', accounts_url='https://accounts.teamofsilicons.com', apps_url='https://apps.teamofsilicons.com'))
+            report['command_results'][3]['stdout'] = '{"version":"1.1.1"}'
+            path.write_text(json.dumps(report))
+        self.save()
+        return before
+
+    def test_ting_json_contract_and_owner_preserved(self):
+        before = self.ting_bundle()
+        self.assertTrue(self.publish()['changed'])
+        after = self.catalog()
+        for key in ['authors', 'admin_uuid', 'description', 'installs']:
+            self.assertEqual(after['apps']['ting'][key], before['apps']['ting'][key])
+        self.assertFalse(self.publish()['changed'])
+        self.assertEqual(self.catalog(), after)
+
+    def test_ting_rejects_wrong_version_services_and_owner(self):
+        before = self.ting_bundle()
+        path = self.bundle / self.meta['reports'][0]
+        original = json.loads(path.read_text())
+        for index, stdout in [(3, '{"version":"0.1.9"}'), (1, '{"app_id":"ting","accounts_url":"https://iam.teamofsilicons.com","apps_url":"https://apps.teamofsilicons.com"}')]:
+            report = copy.deepcopy(original)
+            report['command_results'][index]['stdout'] = stdout
+            path.write_text(json.dumps(report))
+            with self.assertRaises(ValueError): self.publish()
+            self.assertEqual(self.catalog(), before)
+        path.write_text(json.dumps(original))
+        before['apps']['ting']['admin_uuid'] = 'another-owner'
+        with sqlite3.connect(self.root / 'apps.sqlite') as db:
+            db.execute('UPDATE catalog SET document=?', (json.dumps(before),))
+        with self.assertRaisesRegex(ValueError, 'another app or admin'): self.publish()
+        self.assertEqual(self.catalog(), before)
+
     def test_briefcase_exact_api_path_passes_and_legacy_fails(self):
         self.meta.update(app_id='briefcase', workflow='https://github.com/teamofsilicons/silicon-briefcase/actions/runs/1')
         for filename in self.meta['reports']:
