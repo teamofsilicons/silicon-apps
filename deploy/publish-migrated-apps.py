@@ -46,10 +46,11 @@ def basename(name):
 
 def verified_packages(folder, metadata):
     app = metadata['app_id']
-    version = metadata['version']
+    version = metadata.get('package_version', metadata['version'])
     source = metadata['source_commit']
     verifier = metadata['verifier_commit']
-    if app not in NAMES or not re.fullmatch(r'\d+\.\d+\.\d+', version):
+    if app not in NAMES or not all(re.fullmatch(r'\d+\.\d+\.\d+', v)
+                                  for v in (version, metadata['version'])):
         raise ValueError('Unknown official app or invalid release version')
     if not all(re.fullmatch('[a-f0-9]{40}', value) for value in (source, verifier)):
         raise ValueError('Exact source and verifier commits are required')
@@ -164,11 +165,15 @@ def publish(root, folder, expected):
         changed=False
         for channel in ('development','production'):
             if any(r['channel']==channel and r['version']==version for r in app['releases']):continue
-            app['releases'].append({'id':uid(app_id+'/'+channel+'/'+version),'app_id':app_id,'channel':channel,'version':version,'package_ids':ids,'notes':f'{NAMES[app_id]} {version}. Native packages verified on all six supported targets.','created_at':now,'promoted_from':uid(app_id+'/development/'+version) if channel=='production' else None})
+            package_version = metadata.get('package_version', version)
+            notes = f'{NAMES[app_id]} {version}. Native packages verified on all six supported targets.'
+            if package_version != version:
+                notes += f' Catalog revision using unchanged {package_version} package binaries.'
+            app['releases'].append({'id':uid(app_id+'/'+channel+'/'+version),'app_id':app_id,'channel':channel,'version':version,'package_ids':ids,'notes':notes,'created_at':now,'promoted_from':uid(app_id+'/development/'+version) if channel=='production' else None})
             changed=True
         if changed:
             app['published']=True;app['setup_step']=7;app['updated_at']=now
-            app['history'].append({'id':uid(app_id+'/publication/'+version),'at':now,'actor_uuid':'system','kind':'app.native_release_published','data':{'version':version,'source_commit':metadata['source_commit'],'verifier_commit':metadata['verifier_commit'],'workflow':metadata['workflow'],'release_manifest_sha256':expected,'targets':sorted(TARGETS)},'idempotency_key':None})
+            app['history'].append({'id':uid(app_id+'/publication/'+version),'at':now,'actor_uuid':'system','kind':'app.native_release_published','data':{'version':version,'package_version':metadata.get('package_version',version),'source_commit':metadata['source_commit'],'verifier_commit':metadata['verifier_commit'],'workflow':metadata['workflow'],'release_manifest_sha256':expected,'targets':sorted(TARGETS)},'idempotency_key':None})
         catalog['apps'][app_id]=app
         db.execute('update catalog set document=? where id=1',(canonical(catalog),));db.commit()
         return {'app_id':app_id,'version':version,'targets':len(packages),'changed':changed,'release_id':uid(app_id+'/production/'+version)}
