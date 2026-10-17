@@ -1,0 +1,106 @@
+{
+  "app_id": "browser",
+  "catalog_version": "3.0.1",
+  "package_version": "3.0.0",
+  "reason": "Browser 3.0.0 was built and verified on six native targets but published with only Linux package records.",
+  "source_commit": "87b3bf8c6b645f93b85ce37e5b62b92668e1d611",
+  "operator_commit": "01a0be8bfa7d1daa8a301b831ed12404fffa9ebe",
+  "source_release": "https://github.com/unlikefraction/silicon-browser/releases/tag/managed-v3.0.0",
+  "native_proof_workflow": "https://github.com/unlikefraction/silicon-browser/actions/runs/38258662771",
+  "package_sha256": "87f6f93ae1cc5f0dd976a8a5777d5e7820301313669458ae8c247a2945fd100c",
+  "release_manifest_sha256": "b35a05dc652e7972c0f1943bbe63c8dfd7adc9e81e4ce69c8b8d6e58a22a37f3",
+  "bundle_sha256": "13bd7140fd419a9fc6179f764fdf0ff2578ce146cf3f96d3786f3e384a2dc71b",
+  "bundle_key": "releases/catalog-browser-3.0.1-13bd7140fd419a9f.tar.gz",
+  "production_release_id": "50674bf3-5fcf-53d5-a5e7-822506930a5d",
+  "publication_ssm_command": "8d0238b0-400d-4a56-b131-6885f5f58672",
+  "backup_before": "backups/20261016T234654Z.tar.gz",
+  "backup_after": "backups/20261016T234811Z.tar.gz",
+  "rollback_snapshot": "/var/lib/silicon-apps/catalog-browser-3.0.1/before.sqlite",
+  "preserved": [
+    "all other applications",
+    "all existing Browser releases and package records",
+    "Browser authors, admin UUID and install count"
+  ],
+  "verification": {
+    "operator_tests": {
+      "passed": 61,
+      "skipped": 8
+    },
+    "local_native_commands": [
+      "--version",
+      "--help",
+      "accounts --json",
+      "login status --json",
+      "sb-browser-engine --version"
+    ],
+    "fresh_registry_install": {
+      "target": "macos-aarch64",
+      "catalog_version": "3.0.1",
+      "binary_version": "3.0.0",
+      "signature_key_id": "apps-2026-10"
+    },
+    "public_catalog": {
+      "verified_at": "2026-10-16T23:48:31.557333+00:00",
+      "targets": [
+        {
+          "target": "linux-aarch64",
+          "release": "3.0.1",
+          "package_id": "51ca613a-2ad6-56b4-bd89-6c9c272b40e2",
+          "sha256": "87f6f93ae1cc5f0dd976a8a5777d5e7820301313669458ae8c247a2945fd100c",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "linux-x86_64",
+          "release": "3.0.1",
+          "package_id": "2e629709-d32e-546b-87c6-b76957bb4567",
+          "sha256": "87f6f93ae1cc5f0dd976a8a5777d5e7820301313669458ae8c247a2945fd100c",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "macos-aarch64",
+          "release": "3.0.1",
+          "package_id": "9bc4c562-98c4-55e2-9dfb-9900879ed47f",
+          "sha256": "87f6f93ae1cc5f0dd976a8a5777d5e7820301313669458ae8c247a2945fd100c",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "macos-x86_64",
+          "release": "3.0.1",
+          "package_id": "2bd39226-37dd-59b4-972c-9e804c31e82a",
+          "sha256": "87f6f93ae1cc5f0dd976a8a5777d5e7820301313669458ae8c247a2945fd100c",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "windows-aarch64",
+          "release": "3.0.1",
+          "package_id": "32eb9d45-9145-5060-bafe-76ded9354db4",
+          "sha256": "87f6f93ae1cc5f0dd976a8a5777d5e7820301313669458ae8c247a2945fd100c",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "windows-x86_64",
+          "release": "3.0.1",
+          "package_id": "7559a0ea-ce61-599f-8079-a8d8963fbb11",
+          "sha256": "87f6f93ae1cc5f0dd976a8a5777d5e7820301313669458ae8c247a2945fd100c",
+          "signed_by": "apps-2026-10"
+        }
+      ]
+    },
+    "project_install": {
+      "target": "macos-aarch64",
+      "catalog_version": "3.0.1",
+      "binary_version": "3.0.0",
+      "status": "installed and authenticated; full connection verified after Ting repair"
+    },
+    "connect_smoke": {
+      "command": "silicon connect silicon.yaml",
+      "exit_code": 0,
+      "webhook_registered": true,
+      "elapsed_seconds": 53.59,
+      "apps_installed": 6,
+      "apps_authenticated": 5,
+      "silicon_online": true,
+      "ting_socket_connected": true
+    }
+  }
+}

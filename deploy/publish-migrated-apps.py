@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline publication of the eight official Accounts migrations and Browser UUID compatibility release.
+"""Offline publication of official native releases from reviewed execution evidence.
 
 Stop the Apps API and take a consistent backup before applying. Native CI reports
 must be reviewed against their exact successful workflow and source revisions.
@@ -18,9 +18,9 @@ from datetime import datetime, timezone
 NAMES = {app: 'Silicon ' + name for app, name in {
     'briefcase': 'Briefcase', 'remind': 'Remind', 'dm': 'DM',
     'extend': 'Extend', 'commit': 'Commit', 'hook': 'Hook',
-    'waveform': 'Waveform', 'mcport': 'MCPort', 'browser': 'Browser',
+    'waveform': 'Waveform', 'mcport': 'MCPort', 'browser': 'Browser', 'ting': 'Ting',
 }.items()}
-# Existing Browser author/admin from the production UUID-map rehearsal; never transfer it.
+# Existing Browser and Ting author/admin; never transfer either application.
 BROWSER_OWNER_UUID = '0080c488-a9e9-4c22-aa91-1c7a639f1d7b'
 API_ORIGINS = {'browser': 'https://backend.browser.teamofsilicons.com',
                'briefcase': 'https://api.briefcase.teamofsilicons.com/api/v1/'}
@@ -46,10 +46,11 @@ def basename(name):
 
 def verified_packages(folder, metadata):
     app = metadata['app_id']
-    version = metadata['version']
+    version = metadata.get('package_version', metadata['version'])
     source = metadata['source_commit']
     verifier = metadata['verifier_commit']
-    if app not in NAMES or not re.fullmatch(r'\d+\.\d+\.\d+', version):
+    if app not in NAMES or not all(re.fullmatch(r'\d+\.\d+\.\d+', v)
+                                  for v in (version, metadata['version'])):
         raise ValueError('Unknown official app or invalid release version')
     if not all(re.fullmatch('[a-f0-9]{40}', value) for value in (source, verifier)):
         raise ValueError('Exact source and verifier commits are required')
@@ -94,8 +95,11 @@ def verified_packages(folder, metadata):
             if len(manifests) != 1 or not manifests[0].isfile():
                 raise ValueError('Archive must contain one regular apps.yaml')
             manifest = tar.extractfile(manifests[0]).read().decode()
+        manifest_json = json.loads(manifest) if manifest.lstrip().startswith('{') else None
         for key, value in [('app_id', app), ('version', version), ('command', app)]:
-            if not re.search(r'^' + key + r':\s*' + re.escape(value) + r'\s*$', manifest, re.M):
+            matches = (manifest_json.get(key) == value if manifest_json is not None else
+                       bool(re.search(r'^' + key + r':\s*' + re.escape(value) + r'\s*$', manifest, re.M)))
+            if not matches:
                 raise ValueError('Packaged Apps identity differs from the native report')
         checks = []
         for command, args in COMMANDS:
@@ -105,17 +109,24 @@ def verified_packages(folder, metadata):
             result = found[0]
             if command == '--help' and not result['stdout'].strip():
                 raise ValueError('Native help output is empty')
-            if command == '--version' and result['stdout'].strip() != actual_version:
-                raise ValueError('Native version command does not support the report version')
+            if command == '--version':
+                reported = (app + ' ' + json.loads(result['stdout']).get('version', '')
+                            if app == 'ting' else result['stdout'].strip())
+                if reported != actual_version:
+                    raise ValueError('Native version command does not support the report version')
             if command == 'accounts --json':
                 discovery = json.loads(result['stdout'])
-                if discovery.get('app_id') != app or (app != 'browser' and discovery.get('version') != version):
+                if discovery.get('app_id') != app or (app not in ('browser', 'ting') and discovery.get('version') != version):
                     raise ValueError('Native account discovery identity differs')
                 expected_api = API_ORIGINS.get(app, 'https://api.' + app + '.teamofsilicons.com')
                 # Browser's existing discovery contract returns only app_id. Its native report
                 # reads the selected default from the CLI-created signed-out state instead.
                 actual_api = report.get('default_api_url') if app == 'browser' else discovery.get('api_url')
-                if actual_api != expected_api:
+                if app == 'ting':
+                    if (discovery.get('accounts_url') != 'https://accounts.teamofsilicons.com'
+                            or discovery.get('apps_url') != 'https://apps.teamofsilicons.com'):
+                        raise ValueError('Ting discovery must identify the current Accounts and Apps services')
+                elif actual_api != expected_api:
                     raise ValueError('Package still targets a legacy API origin')
             if command == 'login status --json' and json.loads(result['stdout']).get('authenticated') is not False:
                 raise ValueError('Native verification must use a signed-out home')
@@ -143,7 +154,7 @@ def publish(root, folder, expected):
         catalog=json.loads(db.execute('select document from catalog where id=1').fetchone()[0])
         original=catalog['apps'].get(app_id)
         owner=catalog['apps']['silicon-apps']
-        expected_owner = BROWSER_OWNER_UUID if app_id == 'browser' else owner['admin_uuid']
+        expected_owner = BROWSER_OWNER_UUID if app_id in ('browser', 'ting') else owner['admin_uuid']
         if original and (original['name']!=NAMES[app_id] or original['admin_uuid']!=expected_owner): raise ValueError('Existing identity belongs to another app or admin')
         if original is None: raise ValueError('Register the official app through Apps before importing a release')
         app=original
@@ -164,11 +175,15 @@ def publish(root, folder, expected):
         changed=False
         for channel in ('development','production'):
             if any(r['channel']==channel and r['version']==version for r in app['releases']):continue
-            app['releases'].append({'id':uid(app_id+'/'+channel+'/'+version),'app_id':app_id,'channel':channel,'version':version,'package_ids':ids,'notes':f'{NAMES[app_id]} {version}. Native packages verified on all six supported targets.','created_at':now,'promoted_from':uid(app_id+'/development/'+version) if channel=='production' else None})
+            package_version = metadata.get('package_version', version)
+            notes = f'{NAMES[app_id]} {version}. Native packages verified on all six supported targets.'
+            if package_version != version:
+                notes += f' Catalog revision using unchanged {package_version} package binaries.'
+            app['releases'].append({'id':uid(app_id+'/'+channel+'/'+version),'app_id':app_id,'channel':channel,'version':version,'package_ids':ids,'notes':notes,'created_at':now,'promoted_from':uid(app_id+'/development/'+version) if channel=='production' else None})
             changed=True
         if changed:
             app['published']=True;app['setup_step']=7;app['updated_at']=now
-            app['history'].append({'id':uid(app_id+'/publication/'+version),'at':now,'actor_uuid':'system','kind':'app.native_release_published','data':{'version':version,'source_commit':metadata['source_commit'],'verifier_commit':metadata['verifier_commit'],'workflow':metadata['workflow'],'release_manifest_sha256':expected,'targets':sorted(TARGETS)},'idempotency_key':None})
+            app['history'].append({'id':uid(app_id+'/publication/'+version),'at':now,'actor_uuid':'system','kind':'app.native_release_published','data':{'version':version,'package_version':metadata.get('package_version',version),'source_commit':metadata['source_commit'],'verifier_commit':metadata['verifier_commit'],'workflow':metadata['workflow'],'release_manifest_sha256':expected,'targets':sorted(TARGETS)},'idempotency_key':None})
         catalog['apps'][app_id]=app
         db.execute('update catalog set document=? where id=1',(canonical(catalog),));db.commit()
         return {'app_id':app_id,'version':version,'targets':len(packages),'changed':changed,'release_id':uid(app_id+'/production/'+version)}
