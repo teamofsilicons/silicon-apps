@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline publication of the eight official Accounts migrations and Browser UUID compatibility release.
+"""Offline publication of official native releases from reviewed execution evidence.
 
 Stop the Apps API and take a consistent backup before applying. Native CI reports
 must be reviewed against their exact successful workflow and source revisions.
