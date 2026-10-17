@@ -90,14 +90,17 @@
       "target": "macos-aarch64",
       "catalog_version": "3.0.1",
       "binary_version": "3.0.0",
-      "status": "installed; connect then reached Ting target_unavailable"
+      "status": "installed and authenticated; full connection verified after Ting repair"
     },
     "connect_smoke": {
       "command": "silicon connect silicon.yaml",
       "exit_code": 0,
-      "apps_installed_and_authenticated": 6,
       "webhook_registered": true,
-      "elapsed_seconds": 53.59
+      "elapsed_seconds": 53.59,
+      "apps_installed": 6,
+      "apps_authenticated": 5,
+      "silicon_online": true,
+      "ting_socket_connected": true
     }
   }
 }

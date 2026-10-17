@@ -90,9 +90,12 @@
     "connect_smoke": {
       "command": "silicon connect silicon.yaml",
       "exit_code": 0,
-      "apps_installed_and_authenticated": 6,
       "webhook_registered": true,
-      "elapsed_seconds": 53.59
+      "elapsed_seconds": 53.59,
+      "apps_installed": 6,
+      "apps_authenticated": 5,
+      "silicon_online": true,
+      "ting_socket_connected": true
     }
   },
   "backup_after": "backups/20261016T235554Z.tar.gz"
