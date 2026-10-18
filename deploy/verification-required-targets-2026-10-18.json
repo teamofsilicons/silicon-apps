@@ -1,0 +1,110 @@
+{
+  "source_revision": "78b52c0d8ad42d7bd6a4b59112f221464da29f81",
+  "archive_sha256": "4ea5c209bf53079ebe598209461943c4263681a6d05216fde36a501d5f3e016c",
+  "binary_sha256": "25c7d911a02b65145dfde1d47747a2101fb91a651915a71ade52cd726ee741dd",
+  "archive_version_id": "E83qyDWaBqS1RozTdR.boQ698FubTovQ",
+  "install_command_id": "31880e42-4ff7-4f0d-9377-df1c2b9933f0",
+  "backup": {
+    "key": "backups/20261018T161401Z.tar.gz",
+    "Size": 1555628711,
+    "VersionId": "b8z9uNwxEnYdQyGuV3f9N7VEbh19Jlc9"
+  },
+  "checks": [
+    "Rust workspace: 130 passed, one existing opt-in fixture ignored",
+    "strict clippy and formatting passed",
+    "deployment tests: 71 run, eight platform-specific skips",
+    "store typecheck, lint and production build passed",
+    "all production services and backup timer active",
+    "catalog SQLite integrity_check=ok before and after",
+    "25 catalog apps and 134 releases preserved",
+    "fresh isolated signed silicon-accounts 0.6.0 installation succeeded"
+  ],
+  "live": {
+    "required_release_targets": [
+      "linux-x86_64",
+      "windows-x86_64",
+      "macos-aarch64"
+    ],
+    "rejection_checks": [
+      {
+        "omitted": "linux-x86_64",
+        "status": 400,
+        "code": "required_targets_missing",
+        "missing_targets": [
+          "linux-x86_64"
+        ]
+      },
+      {
+        "omitted": "windows-x86_64",
+        "status": 400,
+        "code": "required_targets_missing",
+        "missing_targets": [
+          "windows-x86_64"
+        ]
+      },
+      {
+        "omitted": "macos-aarch64",
+        "status": 400,
+        "code": "required_targets_missing",
+        "missing_targets": [
+          "macos-aarch64"
+        ]
+      }
+    ],
+    "release_count_unchanged": 26,
+    "public_catalog_unchanged": 24,
+    "existing_required_targets_resolve": true,
+    "runner_targets": [
+      {
+        "live": true,
+        "target": "linux-x86_64",
+        "validation": "live"
+      },
+      {
+        "live": true,
+        "target": "linux-i686",
+        "validation": "live"
+      },
+      {
+        "live": true,
+        "target": "linux-aarch64",
+        "validation": "live"
+      },
+      {
+        "live": true,
+        "target": "linux-armv7hf",
+        "validation": "live"
+      },
+      {
+        "live": false,
+        "target": "windows-x86_64",
+        "validation": "not_configured"
+      },
+      {
+        "live": false,
+        "target": "windows-i686",
+        "validation": "not_configured"
+      },
+      {
+        "live": false,
+        "target": "windows-aarch64",
+        "validation": "not_configured"
+      },
+      {
+        "live": false,
+        "target": "macos-x86_64",
+        "validation": "not_configured"
+      },
+      {
+        "live": false,
+        "target": "macos-aarch64",
+        "validation": "not_configured"
+      }
+    ]
+  },
+  "limitations": [
+    "Windows and macOS validation runners remain unconfigured; ordinary new uploads cannot yet satisfy the three required targets",
+    "Existing accepted packages can be reused; no fresh build proof is required",
+    "CLI help source updated, but CLI binaries were not republished in this server deployment"
+  ]
+}
