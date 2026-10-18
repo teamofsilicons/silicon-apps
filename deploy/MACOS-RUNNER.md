@@ -51,6 +51,26 @@ sudo -u _siliconapps env PYTHONPATH=/opt/silicon-apps-native \
   -s /opt/silicon-apps-native/acceptance -p test_runner.py -v
 ```
 
+Deliver a reviewed `macos-acceptance.py`, the public CA certificate, and the exact
+release archive to the dedicated host. Run it with the installed Python runtime:
+
+```sh
+sudo /opt/silicon-apps-native/venv/bin/python deploy/macos-acceptance.py \
+  --ca-file /private/bootstrap/worker-ca.crt \
+  --package /private/bootstrap/write-0.2.0-macos-aarch64.tar.gz \
+  --package-sha256 REPLACE_WITH_VERIFIED_PACKAGE_SHA256 \
+  --output /private/bootstrap/mac-acceptance.json
+```
+
+This sends all test packages through the running authenticated TLS service. It
+checks host read/write denial against a harmless file the service account could
+otherwise access, network denial with permission errors, fork denial, writable
+job scratch, output and wall-time limits, and cleanup. Fork can fail with the
+process-control `EAGAIN` errno as well as permission denial; it must never succeed.
+TLS must reject both an untrusted CA and a mismatched hostname. The final package
+must pass all three commands with the expected app ID and signed-out identity.
+The script does not enable a target or treat installation as a passing receipt.
+
 Record bounded command results and package SHA-256, host-file and network denial,
 fork denial, timeout/output cleanup, authenticated TLS and rejection paths, and
 restart recovery. The gateway route and API target remain disabled until these
