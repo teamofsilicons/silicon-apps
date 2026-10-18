@@ -12,6 +12,11 @@ The API continues talking to the existing Linux gateway. Allow TCP 4313 on the n
 
 ## Mac
 
+For a reviewed first-party release on an existing Mac, use the bounded
+[local release session](../runner/RELEASE-SESSION.md). It accepts only an explicitly
+approved archive and is disconnected after the store upload. The dedicated host
+installer below is for a continuously available validator.
+
 Use an Apple Silicon Mac for `macos-aarch64`; an Intel Mac is a separate target. EC2 Mac requires a Dedicated Host, sufficient host quota, and a minimum 24-hour allocation. Install native Python 3.11 or newer from a reviewed source first. Provide the reviewed repository/bundle, private-IP certificate/key and a root-readable token file:
 
 ```sh

@@ -1,0 +1,152 @@
+{
+  "checked_at": "2026-10-18T18:53:32.087376+00:00",
+  "service": "silicon-apps",
+  "status": "native-validation-passed-release-published",
+  "source": {
+    "gateway": "59f5901cbff642af83bc7647d505d776aa6de2ac",
+    "windows": "bb07892433a8507c11e4622281605aa8258a18f5",
+    "local_mac": "8fcac19"
+  },
+  "tests": {
+    "runner_and_release_session": 21,
+    "deployment_installer": 41,
+    "native_installer_config": 4,
+    "windows_readiness_failure_cases": 8,
+    "windows_real_process_timeout_seconds": 1.032
+  },
+  "macos": {
+    "mode": "temporary local approved-release session",
+    "paid_host_allocated": false,
+    "package_sha256": "f381fd90882ba38385bc4d8a3a01b71b29759336b0eb1423bf9ac6ec12feb6b8",
+    "accepted_package_id": "48edc0c2-4e30-4b3c-8042-b21ae8fca8d1",
+    "acceptance_checks": 12,
+    "gateway_forwarding": true,
+    "normal_store_upload": true,
+    "process_stopped": true,
+    "tunnel_closed": true,
+    "credentials_and_temporary_routes_removed": true,
+    "general_public_mac_uploads": false
+  },
+  "windows": {
+    "instance_id": "i-0e049ef698e6a1372",
+    "instance_type": "m7i-flex.large",
+    "nested_virtualization": true,
+    "os": "Windows Server 2025 Core",
+    "python": "3.14.8",
+    "docker": "29.9.1",
+    "image": "mcr.microsoft.com/windows/servercore@sha256:bf9263ea794d8675e0e28460c02ebbe3b0e34d1a81f2c4b7f295f68e98c2865b",
+    "transport": "private TLS restricted to Linux gateway",
+    "security_checks": 10,
+    "isolation": "hyperv",
+    "user": "ContainerUser",
+    "network": "none",
+    "memory_bytes": 1073741824,
+    "cpu_count": 1,
+    "package_readonly": true,
+    "output_limit_bytes": 65536,
+    "command_timeout_seconds": 25,
+    "failed_dynamic_crt_archive": "27c246ead99e45382e02eb63b4210465f7961bb62a01bb63cc653186b649ba56",
+    "missing_dll_exit_code": "0xC0000135",
+    "corrected_crt_static_archive": "416cdbde4da910d14bb672ca68c19832663f1331a6480fc25ead995e00518e9a",
+    "trusted_startup_probe": {
+      "command": "cmd.exe /d /c ver",
+      "timeout_seconds": 90,
+      "listener_starts_after_cleanup": true,
+      "source_commit": "bb07892433a8507c11e4622281605aa8258a18f5"
+    },
+    "cold_start_failure": {
+      "unfixed_first_post_reboot_help": "25-second deadline exhausted by first Hyper-V startup",
+      "following_commands_passed": true,
+      "receipt": "probes/gateway-write-after-reboot.result.json"
+    },
+    "normal_store_upload": true,
+    "accepted_package_id": "1110c276-eaaf-4aa7-ac4e-18c198cbe802",
+    "post_reboot_first_package_passed": true,
+    "cold_start_readiness_seconds": 33.181,
+    "post_reboot_package_seconds": 16.592,
+    "cleanup_passed": true,
+    "api_target_enabled": true,
+    "acceptance_receipt_sha256": "324f1a7325e082ca58c83eab34340bbe85d1cb2c5abd01f3d13f4485d6f6fda4"
+  },
+  "evidence_directory": ".dev/production/native-runners-20261018",
+  "notes": [
+    "Mac release sessions accept only the declared app, native target, exact archive hash and bytes before extraction or execution.",
+    "Permanent gateway routes survive reinstall. The local Mac release route was a bounded runtime override, removed after package acceptance.",
+    "Windows upload execution remains inside Hyper-V containers; missing package dependencies are fixed in the package rather than added to the validator image."
+  ],
+  "review": {
+    "result": "no high-impact findings",
+    "scope": "native installers, TLS, approved archive Mac session, gateway persistence",
+    "source_through": "03d80a085eb37d68b18eb6cb34e0cba0d308a7d4",
+    "readiness_followup": "No blocking issue found; live authenticated post-reboot package check is required in addition to readiness receipt."
+  },
+  "write_release": {
+    "production_id": "0bad7e9f-96ab-4d03-beaa-2bf409a2abf0",
+    "development_id": "a1804e00-928f-4972-96e4-ed7a60b8176e",
+    "version": "0.2.0",
+    "targets": [
+      "linux-x86_64",
+      "linux-aarch64",
+      "linux-i686",
+      "linux-armv7hf",
+      "macos-aarch64",
+      "windows-x86_64"
+    ],
+    "public_downloads_and_signatures_verified": true,
+    "store_url": "https://apps.teamofsilicons.com/apps/write"
+  },
+  "public_install_journeys": {
+    "macos_fresh_install": {
+      "passed": true,
+      "target": "macos-aarch64",
+      "checks_passed": 12,
+      "signed_out": true,
+      "updater_disabled": true,
+      "receipt": {
+        "file": "fresh-mac-store-install.json",
+        "sha256": "5e81a3703d5141be3b1811fd67d05096fc2c441767789261271001f98b6dcb51"
+      }
+    },
+    "windows_fresh_install": {
+      "passed": true,
+      "target": "windows-x86_64",
+      "checks_passed": 8,
+      "signed_out": true,
+      "updater_running": false,
+      "receipt": {
+        "file": "windows-public-install-receipt.json",
+        "sha256": "bd740852a1540e1413f0efe8066cb50d79b2d06e6469521bbec2e2bfce35e042"
+      }
+    },
+    "linux_upgrade": {
+      "passed": true,
+      "target": "linux-x86_64",
+      "previous_version": "0.1.0",
+      "version": "0.2.0",
+      "public_client": true,
+      "execution_image": "python@sha256:cfe2e24a75302a15934d37c2d86412893c0aa934dc3a97cbb439d04c01890ca9",
+      "receipt": {
+        "file": "linux-upgrade-final.json",
+        "sha256": "faaf535e189ac4806a30807d84556603455cb823205a2cd87baa8adf2841491a"
+      }
+    }
+  },
+  "store_ui": {
+    "url": "https://apps.teamofsilicons.com/apps/write",
+    "observed_version": "0.2.0",
+    "platforms": [
+      "macOS",
+      "Linux",
+      "Windows"
+    ],
+    "screenshot": {
+      "file": "write-0.2-store.png",
+      "sha256": "e96a61a44de61852c1654de5089b16fd6ad55d9c0264859164a9a3f8d75c50fb"
+    }
+  },
+  "verification_limits": [
+    "Native discovery and fresh install smoke checks do not substitute for signed-in document workflows.",
+    "Linux x86_64 public Apps 0.3.1 client needed a compatible Debian container because its glibc requirements exceed Amazon Linux 2023; no universal Linux distribution compatibility is claimed.",
+    "Windows proof helper used an official pinned ISRG Root X1 in its own Python TLS context; TLS verification stayed enabled and host and validation-service trust stores were unchanged."
+  ]
+}
