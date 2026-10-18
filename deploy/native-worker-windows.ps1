@@ -26,7 +26,7 @@ foreach ($Address in @($BindAddress, $GatewayAddress)) {
     $Bytes = $Parsed.GetAddressBytes()
     if ($Bytes.Length -ne 4 -or -not ($Bytes[0] -eq 10 -or ($Bytes[0] -eq 172 -and $Bytes[1] -ge 16 -and $Bytes[1] -le 31) -or ($Bytes[0] -eq 192 -and $Bytes[1] -eq 168))) { throw 'Bind and gateway addresses must be private RFC1918 IPv4 addresses.' }
 }
-foreach ($File in @($PythonPath, $TokenFile, $TlsCert, $TlsKey, "$Source\runner\server.py", "$Source\deploy\native-worker-launch.py")) {
+foreach ($File in @($PythonPath, $TokenFile, $TlsCert, $TlsKey, "$Source\runner\server.py", "$Source\deploy\native-worker-launch.py", "$Source\deploy\native-worker-windows-readiness.ps1")) {
     if (-not [System.IO.Path]::IsPathRooted($File) -or -not (Test-Path -LiteralPath $File -PathType Leaf)) { throw 'All input files must exist at absolute paths.' }
 }
 $Token = [System.IO.File]::ReadAllText($TokenFile).Trim()
@@ -63,6 +63,7 @@ New-Item -ItemType Directory -Force -Path $Install, "$Install\jobs", "$Install\l
 if ($LASTEXITCODE -ne 0) { throw 'Could not restrict worker directory ACL.' }
 Copy-Item -LiteralPath "$Source\runner\server.py" -Destination "$Install\server.py" -Force
 Copy-Item -LiteralPath "$Source\deploy\native-worker-launch.py" -Destination "$Install\launch.py" -Force
+Copy-Item -LiteralPath "$Source\deploy\native-worker-windows-readiness.ps1" -Destination "$Install\readiness.ps1" -Force
 Copy-Item -LiteralPath $TlsCert -Destination "$Install\server.crt" -Force
 Copy-Item -LiteralPath $TlsKey -Destination "$Install\server.key" -Force
 if (-not (Test-Path "$Install\venv\Scripts\python.exe")) {
@@ -89,22 +90,30 @@ $Supervisor = @'
 $ErrorActionPreference = 'Stop'
 $base = 'C:\ProgramData\SiliconAppsNative'
 $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+. "$base\readiness.ps1"
 while ($true) {
+    $started = [DateTime]::UtcNow.ToString('o')
+    $phase = 'configuration'
     try {
-        # A killed supervisor/server may leave a VM behind. This is a dedicated,
-        # serialized worker; clean only this runner's generated container names.
-        $stale = @(& docker.exe ps --all --quiet --filter 'name=^/apps-validation-[a-f0-9]+$')
-        if ($LASTEXITCODE -ne 0) { throw 'Docker engine unavailable.' }
-        foreach ($container in $stale) {
-            if ($container) { & docker.exe rm --force $container *> $null }
-            if ($LASTEXITCODE -ne 0) { throw 'Could not clean a stale validation container.' }
-        }
+        Write-NativeReadinessReceipt "$base\readiness.json" @{ status = 'starting'; started_at = $started }
+        $config = Get-Content -Raw -LiteralPath "$base\worker.json" | ConvertFrom-Json
+        $image = ($config.APPS_RUNNER_IMAGES | ConvertFrom-Json).'windows-x86_64'
+        $config = $null
+        $phase = 'readiness'
+        $ready = Initialize-NativeWindowsContainers (Get-Command docker.exe -ErrorAction Stop).Source $image
+        $ready.started_at = $started
+        Write-NativeReadinessReceipt "$base\readiness.json" $ready
         foreach ($log in @('runner.log', 'runner-error.log', 'supervisor.log')) {
             $path = Join-Path "$base\logs" $log
             if ((Test-Path -LiteralPath $path) -and (Get-Item -LiteralPath $path).Length -gt 8MB) { Move-Item -LiteralPath $path -Destination "$path.previous" -Force }
         }
+        $phase = 'server'
         & "$base\venv\Scripts\python.exe" "$base\launch.py" --config "$base\worker.json" --server "$base\server.py" 1>> "$base\logs\runner.log" 2>> "$base\logs\runner-error.log"
-    } catch { Add-Content -LiteralPath "$base\logs\supervisor.log" -Value 'Runner process stopped; retrying in ten seconds.' }
+        throw 'Worker process stopped.'
+    } catch {
+        Write-NativeReadinessReceipt "$base\readiness.json" @{ status = 'failed'; phase = $phase; started_at = $started; failed_at = [DateTime]::UtcNow.ToString('o'); elapsed_seconds = [Math]::Round(([DateTime]::UtcNow - [DateTime]::Parse($started).ToUniversalTime()).TotalSeconds, 3) }
+        Add-Content -LiteralPath "$base\logs\supervisor.log" -Value 'Runner startup or process stopped; retrying in ten seconds.'
+    }
     Start-Sleep -Seconds 10
 }
 '@
