@@ -7,13 +7,16 @@ worker credentials, AWS resources, package execution, or catalog changes here.
 #>
 [CmdletBinding()]
 param(
-    [string]$PinsPath = (Join-Path $PSScriptRoot 'windows-container-bootstrap.json'),
+    [string]$PinsPath = '',
     [string]$StateDir = 'C:\ProgramData\SiliconAppsContainerBootstrap',
     [switch]$LibraryOnly
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+if (-not $PinsPath) {
+    $PinsPath = [IO.Path]::ChangeExtension($PSCommandPath, '.json')
+}
 
 function ConvertTo-NativeArgument([string]$Value) {
     if ($Value -ne '' -and $Value -notmatch '[\s"]') { return $Value }

@@ -44,7 +44,7 @@ containers, elevated users, unbounded resources and writable mounts.
 ```powershell
 & .\test-windows-container-bootstrap.ps1
 & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
-    -File .\windows-container-bootstrap.ps1
+    -File .\windows-container-bootstrap.ps1 -PinsPath .\windows-container-bootstrap.json
 exit $LASTEXITCODE
 ```
 
