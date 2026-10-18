@@ -145,6 +145,8 @@ if ($ARGV[0] eq '--help') {
                 raise AssertionError(label + " was not terminated.")
             if label == "wall-time" and not 14 <= elapsed < 25:
                 raise AssertionError("Wall timeout did not respect the 15 second deadline.")
+            if label == "output-bound" and (len(result["validation"][0]["stdout"].encode()) != 65536 or elapsed >= 5):
+                raise AssertionError("Output probe did not hit the actual 64 KiB bound and terminate promptly.")
             checks.append({"name": label, "passed": True, "elapsed_seconds": elapsed, "result": result})
         data = args.package.read_bytes()
         if hashlib.sha256(data).hexdigest() != args.package_sha256:
