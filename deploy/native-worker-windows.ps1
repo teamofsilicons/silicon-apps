@@ -32,6 +32,8 @@ foreach ($File in @($PythonPath, $TokenFile, $TlsCert, $TlsKey, "$Source\runner\
 $Token = [System.IO.File]::ReadAllText($TokenFile).Trim()
 if ($Token.Length -lt 32 -or $Token -match '[^\x21-\x7E]') { throw 'Worker token must contain at least 32 ASCII non-space characters.' }
 if ((Get-WindowsFeature Hyper-V).InstallState -ne 'Installed' -or (Get-WindowsFeature Containers).InstallState -ne 'Installed') { throw 'Hyper-V and Containers must be installed, with any required reboot completed.' }
+# SSM may predate the Docker installation and retain its earlier process PATH.
+$env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine')
 $Docker = (Get-Command docker.exe -ErrorAction Stop).Source
 $EngineOS = & $Docker info --format '{{.OSType}}'
 if ($LASTEXITCODE -ne 0 -or $EngineOS.Trim() -ne 'windows') { throw 'A running Windows Docker engine is required.' }
@@ -81,6 +83,7 @@ $Config = @{
 $Supervisor = @'
 $ErrorActionPreference = 'Stop'
 $base = 'C:\ProgramData\SiliconAppsNative'
+$env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine')
 while ($true) {
     try {
         # A killed supervisor/server may leave a VM behind. This is a dedicated,
