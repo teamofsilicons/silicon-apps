@@ -349,7 +349,7 @@ async fn account_feed_has_invites_authored_apps_and_releases_of_installed_apps()
         &[],
     )
     .await;
-    assert_eq!(page.body["items"].as_array().unwrap().len(), 2);
+    assert_eq!(page.body["items"].as_array().unwrap().len(), 6);
     task.abort();
 }
 

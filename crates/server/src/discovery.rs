@@ -5,7 +5,7 @@ use crate::{
     Shared,
     error::{ApiError, Result},
     events::{EVENT_TYPES, HEARTBEAT_SECONDS, PUBLIC_TYPES, STREAM_MAX_SECONDS},
-    model::TARGETS,
+    model::{REQUIRED_RELEASE_TARGETS, TARGETS},
     ratelimit::{ClientKey, WINDOW_SECONDS},
     subscriptions::{
         DELIVERY_TIMEOUT_SECONDS, MAX_SUBSCRIPTIONS, RETRY_SECONDS, RETRY_WINDOW_HOURS,
@@ -334,6 +334,7 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
             "note":"Send Authorization: Bearer <Silicon Accounts access token for silicon-apps>. Silicons get one without a browser: silicon-accounts login --app silicon-apps gives a single-use token for POST /v1/auth/exchange. Public reads need no token."
         },
         "targets":targets,
+        "required_release_targets":REQUIRED_RELEASE_TARGETS,
         "validation_runner":{
             "configured":probe.is_some(),
             "reachable":probe.as_ref().map(|(ok,_)|*ok),

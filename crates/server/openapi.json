@@ -2876,7 +2876,7 @@
       "post": {
         "operationId": "createRelease",
         "summary": "Create a development release",
-        "description": "A new development release from validated packages, at most one per target.",
+        "description": "Include validated packages for linux-x86_64, windows-x86_64 and macos-aarch64 in every release. Other targets are optional. Missing required targets return 400 required_targets_missing with details.required_targets and details.missing_targets.",
         "tags": [
           "Releases"
         ],
@@ -2908,7 +2908,7 @@
                   },
                   "package_ids": {
                     "type": "array",
-                    "minItems": 1,
+                    "minItems": 3,
                     "items": {
                       "type": "string"
                     }
@@ -2981,7 +2981,7 @@
       "post": {
         "operationId": "promoteRelease",
         "summary": "Promote to production",
-        "description": "Creates a production release with the development release's packages and its own production version.",
+        "description": "The development release must contain linux-x86_64, windows-x86_64 and macos-aarch64. This applies to historical releases too; missing targets return 400 required_targets_missing.",
         "tags": [
           "Releases"
         ],

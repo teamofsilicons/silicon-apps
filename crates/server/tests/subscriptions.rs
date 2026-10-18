@@ -580,7 +580,7 @@ async fn webhook_deliveries_are_signed_retried_held_while_paused_and_expire() {
         "POST",
         "apps/briefcase/releases",
         "second-dev",
-        json!({"version":"0.2.0","package_ids":["briefcase-linux-x86_64-pkg"]}),
+        json!({"version":"0.2.0","package_ids":["briefcase-linux-x86_64-pkg", "briefcase-windows-x86_64-pkg", "briefcase-macos-aarch64-pkg"]}),
         Default::default(),
     );
     assert_eq!(dev["channel"], "development");

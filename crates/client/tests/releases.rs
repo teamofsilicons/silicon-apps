@@ -35,9 +35,8 @@ fn server_config(dir: &std::path::Path) -> ServerConfig {
         revoked_signing_keys: vec![],
     }
 }
-fn archive(version: &str, script: &str) -> Vec<u8> {
+fn archive(version: &str, script: &str, target: &str) -> Vec<u8> {
     let dir = tempfile::tempdir().unwrap();
-    let target = package::current_target().unwrap();
     let script_name = if cfg!(windows) {
         "setup.cmd"
     } else {
@@ -84,53 +83,63 @@ async fn signed_installs_show_scripts_and_leave_withdrawn_releases() {
         .into_iter()
         .enumerate()
     {
-        let bytes = archive(version, script);
-        fs::write(dir.path().join("packages").join(hash(&bytes)), &bytes).unwrap();
-        let manifest = package::inspect_archive(&bytes).unwrap();
-        let (info, _) = package::install_script(&bytes, &manifest, target)
-            .unwrap()
-            .unwrap();
-        let id = format!("pkg-{index}");
-        let package = Package {
-            id: id.clone(),
-            target: target.into(),
-            sha256: hash(&bytes),
-            size: bytes.len() as u64,
-            command: "fixture".into(),
-            validation: vec![],
-            created_at: now(),
-            install_script: Some(InstallScriptInfo {
-                path: info.path,
-                sha256: info.sha256,
-                size: info.size,
-            }),
-            inspected: true,
-            author_signature: None,
-        };
-        let body = json!({});
-        state
-            .store
-            .lock()
-            .unwrap()
-            .mutate(Mutation {
-                method: "POST",
-                path: &format!("apps/fixture/packages/{target}"),
-                key: &format!("package-{index}"),
-                who: Some(&who),
-                body: &body,
-                digest: &hash(b"{}"),
-                prepared: Prepared {
-                    package: Some(package),
-                    ..Default::default()
-                },
-            })
-            .unwrap();
+        let mut package_ids = vec![];
+        let mut targets = vec![target];
+        targets.extend(
+            package::REQUIRED_RELEASE_TARGETS
+                .into_iter()
+                .filter(|t| *t != target),
+        );
+        for target in targets {
+            let bytes = archive(version, script, target);
+            fs::write(dir.path().join("packages").join(hash(&bytes)), &bytes).unwrap();
+            let manifest = package::inspect_archive(&bytes).unwrap();
+            let (info, _) = package::install_script(&bytes, &manifest, target)
+                .unwrap()
+                .unwrap();
+            let id = format!("pkg-{index}-{target}");
+            let package = Package {
+                id: id.clone(),
+                target: target.into(),
+                sha256: hash(&bytes),
+                size: bytes.len() as u64,
+                command: "fixture".into(),
+                validation: vec![],
+                created_at: now(),
+                install_script: Some(InstallScriptInfo {
+                    path: info.path,
+                    sha256: info.sha256,
+                    size: info.size,
+                }),
+                inspected: true,
+                author_signature: None,
+            };
+            package_ids.push(id.clone());
+            let body = json!({});
+            state
+                .store
+                .lock()
+                .unwrap()
+                .mutate(Mutation {
+                    method: "POST",
+                    path: &format!("apps/fixture/packages/{target}"),
+                    key: &format!("package-{index}-{target}"),
+                    who: Some(&who),
+                    body: &body,
+                    digest: &hash(b"{}"),
+                    prepared: Prepared {
+                        package: Some(package),
+                        ..Default::default()
+                    },
+                })
+                .unwrap();
+        }
         let dev = alice
             .action(
                 "POST",
                 "fixture",
                 &["releases"],
-                Some(json!({"version":version,"package_ids":[id]})),
+                Some(json!({"version":version,"package_ids":package_ids})),
                 None,
             )
             .await

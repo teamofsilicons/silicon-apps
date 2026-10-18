@@ -143,7 +143,7 @@ export function Releases({
         open={create}
         onClose={() => setCreate(false)}
         title="Create development release"
-        description="Select one validated package for each target you want to include."
+        description="Include validated packages for Linux x86_64, Windows x86_64, and macOS Apple Silicon ARM64. You can also include other targets."
       >
         <form
           className="stack"

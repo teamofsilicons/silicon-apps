@@ -607,7 +607,7 @@ async fn search_matches_tags_through_q_filters_by_target_and_visibility_sorts_an
         "alice",
         "alpha-tool",
         &["Tools", "cli"],
-        "linux-x86_64",
+        "linux-aarch64",
         true,
     );
     seed_app(
@@ -618,13 +618,20 @@ async fn search_matches_tags_through_q_filters_by_target_and_visibility_sorts_an
         "macos-aarch64",
         true,
     );
-    seed_app(&state, "bob", "gamma-chat", &["chat"], "linux-x86_64", true);
+    seed_app(
+        &state,
+        "bob",
+        "gamma-chat",
+        &["chat"],
+        "linux-aarch64",
+        true,
+    );
     seed_app(
         &state,
         "bob",
         "delta-draft",
         &["tools"],
-        "linux-x86_64",
+        "linux-aarch64",
         false,
     );
     let app_view = |id: &str| state.store.lock().unwrap().app(id).unwrap();
@@ -663,7 +670,7 @@ async fn search_matches_tags_through_q_filters_by_target_and_visibility_sorts_an
     let r = send(
         &app,
         "GET",
-        "/v1/apps?target=linux-x86_64",
+        "/v1/apps?target=linux-aarch64",
         None,
         None,
         None,

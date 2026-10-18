@@ -708,21 +708,30 @@ fn seed_private(state: &silicon_apps_server::Shared) {
         bytes,
     )
     .unwrap();
-    change(
-        "POST",
-        "apps/secret-app/packages/linux-x86_64",
-        "seed-package",
-        json!({}),
-        Prepared {
-            package: Some(pkg),
-            ..Default::default()
-        },
-    );
+    for target in silicon_apps_server::model::REQUIRED_RELEASE_TARGETS {
+        let mut fixture = pkg.clone();
+        fixture.id = if target == "linux-x86_64" {
+            "private-pkg".into()
+        } else {
+            format!("private-{target}")
+        };
+        fixture.target = target.into();
+        change(
+            "POST",
+            &format!("apps/secret-app/packages/{target}"),
+            &format!("seed-{target}"),
+            json!({}),
+            Prepared {
+                package: Some(fixture),
+                ..Default::default()
+            },
+        );
+    }
     change(
         "POST",
         "apps/secret-app/releases",
         "seed-release",
-        json!({"version":"1.0.0","package_ids":["private-pkg"]}),
+        json!({"version":"1.0.0","package_ids":["private-pkg", "private-windows-x86_64", "private-macos-aarch64"]}),
         Prepared::default(),
     );
     change(

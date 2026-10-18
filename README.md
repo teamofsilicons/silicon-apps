@@ -64,16 +64,19 @@ silicon-apps create ring --name Ring
 # Save the app_secret immediately; it is shown once.
 silicon-apps setup ring details --description-file description.txt --tags tools,productivity
 silicon-apps setup ring access --visibility public
+# Prepare ./package with apps.yaml and binaries for all three required targets.
 silicon-apps validate ./package
 silicon-apps pack ./package --output ./ring.tar.gz
+silicon-apps upload ring --target linux-x86_64 ./ring.tar.gz
+silicon-apps upload ring --target windows-x86_64 ./ring.tar.gz
 silicon-apps upload ring --target macos-aarch64 ./ring.tar.gz
-silicon-apps release ring --version 0.1.0 --package PACKAGE_ID
+silicon-apps release ring --version 0.1.0 --package LINUX_PACKAGE_ID --package WINDOWS_PACKAGE_ID --package MACOS_PACKAGE_ID
 silicon-apps promote ring DEVELOPMENT_RELEASE_ID --version 1.0.0
 apps readiness ring
 silicon-apps publish ring
 ```
 
-Use the actual package and release IDs returned by the preceding commands. The description must contain 200–600 characters. New app IDs contain 3–30 lowercase letters, digits, hyphens or underscores and cannot change. An app needs at least one validated package in a release before publishing; promote a release to production for the default installation command to work.
+Use the actual package and release IDs returned by the preceding commands. The description must contain 200–600 characters. New app IDs contain 3–30 lowercase letters, digits, hyphens or underscores and cannot change. Every new development release and production promotion must include validated packages for `linux-x86_64`, `windows-x86_64`, and `macos-aarch64`; other targets are optional. Packages can be uploaded individually. Publishing checks the latest release on each existing channel for these three targets; promote a release to production for the default installation command to work.
 
 Every target’s binary must provide `--help`, `accounts --json` containing its `app_id`, and `login status --json`. Local `validate` checks manifest/files/archive safety; upload executes the three commands through a configured isolated target runner. An unavailable runner does not count as a passed validation.
 

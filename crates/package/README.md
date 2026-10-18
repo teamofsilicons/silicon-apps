@@ -18,6 +18,8 @@ targets:
     # install_script: scripts/install.cmd
 ```
 
+Every new release and promotion requires `linux-x86_64`, `windows-x86_64`, and `macos-aarch64`. Individual package archives may contain one target; include validated packages for all three when creating the release. Other targets are optional.
+
 All target paths are relative to the root. Supported targets: `linux-x86_64`, `linux-i686`, `linux-aarch64`, `linux-armv7hf`, `windows-x86_64`, `windows-i686`, `windows-aarch64`, `macos-x86_64`, `macos-aarch64`.
 
 `validate_directory` returns every discoverable manifest, file and safety error together. `pack_directory` returns deterministic `.tar.gz` bytes with normalized timestamps, ownership and modes. `inspect_archive` and `extract_archive` reject absolute/parent paths, backslashes/drive prefixes, duplicate entries, links and special files; bounds are 512 MiB compressed, 1 GiB extracted and 20,000 entries. The extraction destination must be an empty directory. `sha256` returns the lowercase hex content digest.

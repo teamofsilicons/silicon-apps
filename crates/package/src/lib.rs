@@ -10,6 +10,19 @@ use std::{
     path::{Component, Path},
 };
 
+/// Every new release must include these targets. Other targets are optional.
+pub const REQUIRED_RELEASE_TARGETS: [&str; 3] = ["linux-x86_64", "windows-x86_64", "macos-aarch64"];
+
+pub fn missing_required_targets<'a>(
+    targets: impl IntoIterator<Item = &'a str>,
+) -> Vec<&'static str> {
+    let targets: std::collections::BTreeSet<_> = targets.into_iter().collect();
+    REQUIRED_RELEASE_TARGETS
+        .into_iter()
+        .filter(|target| !targets.contains(target))
+        .collect()
+}
+
 pub const TARGETS: [&str; 9] = [
     "linux-x86_64",
     "linux-i686",

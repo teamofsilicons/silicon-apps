@@ -60,45 +60,57 @@ async fn prepare_real_accounts_cutover_fixture() {
         pfp_url: None,
         verified_emails: vec![],
     };
-    let bytes = package_bytes("uuid-retention", "macos-aarch64");
-    silicon_apps_package::inspect_archive(&bytes).unwrap();
-    let package = Package {
-        id: "cutover-package".into(),
-        target: "macos-aarch64".into(),
-        sha256: hash(&bytes),
-        size: bytes.len() as u64,
-        command: "uuid-retention".into(),
-        validation: vec![],
-        created_at: now(),
-        install_script: None,
-        inspected: true,
-        author_signature: None,
-    };
-    std::fs::write(dir.join("packages").join(&package.sha256), &bytes).unwrap();
-    let body = json!({});
-    state
-        .store
-        .lock()
-        .unwrap()
-        .mutate(Mutation {
-            method: "POST",
-            path: "apps/uuid-retention/packages/macos-aarch64",
-            key: "fixture-package",
-            who: Some(&who),
-            body: &body,
-            digest: &hash(body.to_string().as_bytes()),
-            prepared: Prepared {
-                package: Some(package),
-                ..Default::default()
+    let mut package_ids = vec![];
+    let mut native_digest = String::new();
+    for target in REQUIRED_RELEASE_TARGETS {
+        let bytes = package_bytes("uuid-retention", target);
+        silicon_apps_package::inspect_archive(&bytes).unwrap();
+        let package = Package {
+            id: if target == "macos-aarch64" {
+                "cutover-package".into()
+            } else {
+                format!("cutover-{target}")
             },
-        })
-        .unwrap();
+            target: target.into(),
+            sha256: hash(&bytes),
+            size: bytes.len() as u64,
+            command: "uuid-retention".into(),
+            validation: vec![],
+            created_at: now(),
+            install_script: None,
+            inspected: true,
+            author_signature: None,
+        };
+        std::fs::write(dir.join("packages").join(&package.sha256), &bytes).unwrap();
+        if target == "macos-aarch64" {
+            native_digest = package.sha256.clone();
+        }
+        package_ids.push(package.id.clone());
+        let body = json!({});
+        state
+            .store
+            .lock()
+            .unwrap()
+            .mutate(Mutation {
+                method: "POST",
+                path: &format!("apps/uuid-retention/packages/{target}"),
+                key: &format!("fixture-{target}"),
+                who: Some(&who),
+                body: &body,
+                digest: &hash(body.to_string().as_bytes()),
+                prepared: Prepared {
+                    package: Some(package),
+                    ..Default::default()
+                },
+            })
+            .unwrap();
+    }
     let (status, release) = call(
         &app,
         "POST",
         "/v1/apps/uuid-retention/releases",
         Some(token),
-        json!({"version":"0.1.0","package_ids":["cutover-package"]}),
+        json!({"version":"0.1.0","package_ids":package_ids}),
         Some("fixture-release"),
     )
     .await;
@@ -120,7 +132,7 @@ async fn prepare_real_accounts_cutover_fixture() {
     std::fs::write(
         dir.join("before.json"),
         serde_json::to_vec_pretty(
-            &json!({"me":me,"app":listing,"release":release,"package_sha256":hash(&bytes)}),
+            &json!({"me":me,"app":listing,"release":release,"package_sha256":native_digest}),
         )
         .unwrap(),
     )
