@@ -393,15 +393,57 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(422, {"error": str(error)})
 
 
+def tls_context(environment):
+    """An explicitly configured listener must never silently fall back to HTTP."""
+    certificate = environment.get("APPS_RUNNER_TLS_CERT", "")
+    key = environment.get("APPS_RUNNER_TLS_KEY", "")
+    if not certificate and not key:
+        return None
+    if not certificate or not key:
+        raise ValueError("APPS_RUNNER_TLS_CERT and APPS_RUNNER_TLS_KEY must both be configured.")
+    if any(not Path(path).is_absolute() or not Path(path).is_file() for path in (certificate, key)):
+        raise ValueError("Runner TLS certificate and key must be absolute regular-file paths.")
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.set_alpn_protocols(["http/1.1"])
+    context.load_cert_chain(certificate, key)
+    return context
+
+
+class RunnerHTTPServer(HTTPServer):
+    """Keep validation serialized, including a bounded TLS handshake per connection."""
+    handshake_timeout = 10
+
+    def __init__(self, address, handler, context=None):
+        self.tls = context
+        super().__init__(address, handler)
+
+    def get_request(self):
+        connection, address = super().get_request()
+        if self.tls is None:
+            return connection, address
+        try:
+            connection.settimeout(self.handshake_timeout)
+            connection = self.tls.wrap_socket(connection, server_side=True, do_handshake_on_connect=False)
+            connection.do_handshake()
+            return connection, address
+        except BaseException:
+            connection.close()
+            raise
+
+
 def main():
     token = os.environ.get("APPS_RUNNER_TOKEN", "")
     if len(token) < 32 or not token.isascii() or any(c.isspace() for c in token):
         raise SystemExit("APPS_RUNNER_TOKEN must be at least 32 characters.")
-    server = HTTPServer((os.environ.get("APPS_RUNNER_HOST", "127.0.0.1"), int(os.environ.get("APPS_RUNNER_PORT", "4312"))), Handler)
+    images = image_config(json.loads(os.environ.get("APPS_RUNNER_IMAGES", "{}")))
+    workers = worker_config(json.loads(os.environ.get("APPS_RUNNER_WORKERS", "{}")))
+    context = tls_context(os.environ)
+    server = RunnerHTTPServer((os.environ.get("APPS_RUNNER_HOST", "127.0.0.1"), int(os.environ.get("APPS_RUNNER_PORT", "4312"))), Handler, context)
     server.token = token
-    server.images = image_config(json.loads(os.environ.get("APPS_RUNNER_IMAGES", "{}")))
-    server.workers = worker_config(json.loads(os.environ.get("APPS_RUNNER_WORKERS", "{}")))
-    print(f"Silicon Apps isolated runner on {server.server_address}; native target={native_target()}", flush=True)
+    server.images = images
+    server.workers = workers
+    print(f"Silicon Apps isolated runner on {server.server_address}; TLS={context is not None}; native target={native_target()}", flush=True)
     server.serve_forever()
 
 

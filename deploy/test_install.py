@@ -651,6 +651,45 @@ class WorkerPlatformTests(unittest.TestCase):
 OLD_RUNNER_UNIT = '[Unit]\nDescription=old worker\n[Service]\nExecStart=/old\n'
 
 
+class WorkerRouteTests(unittest.TestCase):
+    def test_preflight_matches_runner_route_contract(self):
+        runner = load_runner()
+        self.assertEqual(installer.RUNNER_TARGETS, runner.TARGETS)
+        token = 'route-secret-' + 'x' * 32
+        for url in ('https://worker.example/validate', 'https://192.0.2.1:4312/',
+                    'http://localhost:4312', 'http://127.0.0.1:4312', 'http://[::1]:4312'):
+            with self.subTest(url=url):
+                routes = {target: {'url': url, 'token': token} for target in runner.TARGETS}
+                saved = installer.check_worker_routes({'APPS_RUNNER_WORKERS': json.dumps(routes)})
+                self.assertEqual(json.loads(saved), runner.worker_config(routes))
+        self.assertIsNone(installer.check_worker_routes({}))
+        self.assertEqual(installer.check_worker_routes({'APPS_RUNNER_WORKERS': '{}'}), '{}')
+
+    def test_invalid_route_contract_is_rejected_without_credentials_in_errors(self):
+        runner = load_runner()
+        token = 'private-fixture-token-' + 'x' * 32
+        cases = [[], None, {'unsupported': {'url': 'https://worker.example', 'token': token}},
+                 {'macos-aarch64': {'url': 'https://worker.example'}},
+                 {'macos-aarch64': {'url': 'https://worker.example', 'token': token, 'verify': False}}]
+        for url in ('http://worker.example', 'https://user:password@worker.example',
+                    'https://worker.example/other', 'https://worker.example?secret=' + token,
+                    'https://worker.example#fragment', 'https://worker.example:65536',
+                    'file:///tmp/worker', 'https://[invalid', 123):
+            cases.append({'macos-aarch64': {'url': url, 'token': token}})
+        for bad_token in ('short', 'x' * 32 + ' ', 'x' * 32 + '\u00e9', 123):
+            cases.append({'macos-aarch64': {'url': 'https://worker.example', 'token': bad_token}})
+        for value in cases:
+            with self.subTest(value_type=type(value).__name__):
+                with self.assertRaises(ValueError):
+                    runner.worker_config(value)
+                with self.assertRaises(ValueError) as caught:
+                    installer.check_worker_routes({'APPS_RUNNER_WORKERS': json.dumps(value)})
+                self.assertNotIn(token, str(caught.exception))
+                self.assertNotIn('password', str(caught.exception))
+        with self.assertRaisesRegex(ValueError, 'valid JSON'):
+            installer.check_worker_routes({'APPS_RUNNER_WORKERS': '{not-json'})
+
+
 class WorkerMainTests(unittest.TestCase):
     """main() for the worker with every host effect replaced, from pulls to the post-ready self-check."""
     def setUp(self):
@@ -674,7 +713,8 @@ class WorkerMainTests(unittest.TestCase):
         self.unit_path.write_text(OLD_RUNNER_UNIT)
         self.env_path = self.etc / 'silicon-apps/worker.env'
         self.env_path.parent.mkdir(parents=True)
-        self.env_path.write_text('APPS_RUNNER_TOKEN="old"\n')
+        self.previous_environment = 'APPS_RUNNER_TOKEN="old"\n'
+        self.env_path.write_text(self.previous_environment)
         self.secret = {'APPS_RUNNER_TOKEN': 'r' * 40}
         self.states = {'silicon-apps-runner': ('enabled', True), 'docker': ('enabled', True)}
         self.events, self.outputs, self.broken_after_restart, self.flags = [], {}, {}, 'POCF'
@@ -711,10 +751,11 @@ class WorkerMainTests(unittest.TestCase):
         argv = ['install.py', '--archive', 'release.tar.gz', '--sha256', '0' * 64, '--revision', REVISION,
                 '--role', 'worker', '--secret', 'arn:aws:secretsmanager:us-east-2:1:secret:worker', '--bucket', 'apps-artifacts']
         output = io.StringIO()
+        self.prepare_release = unittest.mock.Mock(return_value=self.release)
         with patch.multiple(installer, ROOT=self.root, ETC=self.etc, STATE=self.state, BINFMT_MISC=self.binfmt,
                             account=record('account'), directory=record('directory'),
                             wait_ready=lambda service, role, timeout=60: self.events.append('ready ' + service),
-                            prepare_release=unittest.mock.Mock(return_value=self.release),
+                            prepare_release=self.prepare_release,
                             capture=unittest.mock.Mock(return_value=json.dumps({'SecretString': json.dumps(self.secret)}))), \
                 patch.object(installer.os, 'geteuid', return_value=0), patch.object(installer.os, 'chown'), \
                 patch.object(installer.subprocess, 'run', side_effect=self.fake_run), \
@@ -771,10 +812,48 @@ class WorkerMainTests(unittest.TestCase):
     def assert_unchanged(self):
         self.assertEqual((self.root / 'current').resolve(), self.previous)
         self.assertEqual(self.unit_path.read_text(), OLD_RUNNER_UNIT)
-        self.assertEqual(self.env_path.read_text(), 'APPS_RUNNER_TOKEN="old"\n')
+        self.assertEqual(self.env_path.read_text(), self.previous_environment)
         self.assertFalse((self.etc / 'systemd/system/silicon-apps-binfmt.service').exists())
         self.assertFalse((self.etc / 'silicon-apps/worker-image.json').exists())
         self.assertFalse((self.root / 'deployment.json').exists())
+
+    def test_gateway_routes_survive_worker_install_with_four_linux_images(self):
+        routes = {
+            'macos-aarch64': {'url': 'https://192.0.2.10:4312/validate', 'token': 'mac-$\\"-secret-' + 'x' * 32},
+            'windows-x86_64': {'url': 'https://192.0.2.11:4312/validate', 'token': 'windows-secret-' + 'y' * 32},
+        }
+        self.secret['APPS_RUNNER_WORKERS'] = json.dumps(routes)
+        summary = self.install()
+        environment = read_environment(self.env_path)
+        self.assertEqual(json.loads(environment['APPS_RUNNER_WORKERS']), routes)
+        self.assertEqual(set(json.loads(environment['APPS_RUNNER_IMAGES'])), set(installer.WORKER_IMAGES))
+        self.assertEqual(stat.S_IMODE(self.env_path.stat().st_mode), 0o600)
+        self.assertNotIn('APPS_RUNNER_WORKERS', json.dumps(summary))
+        self.assertNotIn(routes['macos-aarch64']['token'], '\n'.join(self.events))
+
+    def test_invalid_gateway_route_fails_before_release_preparation_or_host_changes(self):
+        self.secret['APPS_RUNNER_WORKERS'] = json.dumps({
+            'macos-aarch64': {'url': 'http://remote-worker.example/validate', 'token': 'm' * 40}})
+        with self.assertRaisesRegex(ValueError, 'HTTPS'):
+            self.install()
+        self.prepare_release.assert_not_called()
+        self.assertEqual(self.events, [])
+        self.assert_unchanged()
+
+    def test_failed_gateway_upgrade_restores_previous_routes_and_credentials(self):
+        old_routes = {'macos-aarch64': {'url': 'https://old-worker.example/validate', 'token': 'old-' + 'o' * 40}}
+        self.previous_environment = installer.environment_file({
+            'APPS_RUNNER_TOKEN': 'old', 'APPS_RUNNER_WORKERS': json.dumps(old_routes)})
+        self.env_path.write_text(self.previous_environment)
+        self.env_path.chmod(0o600)
+        self.secret['APPS_RUNNER_WORKERS'] = json.dumps({
+            'macos-aarch64': {'url': 'https://new-worker.example/validate', 'token': 'new-' + 'n' * 40}})
+        self.broken_after_restart = {'linux/arm64': (1, '', 'exec format error\n')}
+        with self.assertRaisesRegex(RuntimeError, 'linux-aarch64'):
+            self.install()
+        self.assert_unchanged()
+        self.assertEqual(json.loads(read_environment(self.env_path)['APPS_RUNNER_WORKERS']), old_routes)
+        self.assertEqual(stat.S_IMODE(self.env_path.stat().st_mode), 0o600)
 
     def test_a_platform_that_does_not_run_stops_before_any_live_change(self):
         self.outputs = {'linux/arm/v7': (126, '', 'exec /usr/local/bin/python3: exec format error\n')}
