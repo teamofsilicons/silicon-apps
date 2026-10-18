@@ -18,7 +18,7 @@ $ErrorActionPreference = 'Stop'
 $Install = 'C:\ProgramData\SiliconAppsNative'
 $TaskName = 'Silicon Apps Native Runner'
 $Account = 'SiliconAppsRunner'
-$Description = 'Dedicated Silicon Apps Hyper-V validation worker; managed by native-worker-windows.ps1'
+$Description = 'Silicon Apps managed Hyper-V validation worker'
 if ($Image -notmatch '^mcr\.microsoft\.com/windows/servercore@sha256:[a-fA-F0-9]{64}$') { throw 'Image must be an immutable Microsoft servercore digest.' }
 foreach ($Address in @($BindAddress, $GatewayAddress)) {
     $Parsed = $null
@@ -47,7 +47,8 @@ $Random = New-Object byte[] 48
 $Generator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
 $Generator.GetBytes($Random)
 $Generator.Dispose()
-$Password = [Convert]::ToBase64String($Random)
+# Keep all Windows password complexity classes while retaining 384 random bits.
+$Password = 'Aa1!' + [Convert]::ToBase64String($Random)
 $SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
 if ($Existing) { Set-LocalUser -Name $Account -Password $SecurePassword -PasswordNeverExpires $true }
 else { New-LocalUser -Name $Account -Password $SecurePassword -PasswordNeverExpires -UserMayNotChangePassword -Description $Description | Out-Null }
