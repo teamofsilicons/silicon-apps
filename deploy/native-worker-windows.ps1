@@ -72,6 +72,10 @@ if (-not (Test-Path "$Install\venv\Scripts\python.exe")) {
 $Python = "$Install\venv\Scripts\python.exe"
 & $Python -m pip install --disable-pip-version-check -r "$Source\runner\requirements.txt"
 if ($LASTEXITCODE -ne 0) { throw 'Could not install runner dependencies.' }
+# Windows venv python.exe redirects to the base interpreter, which owns the
+# listening socket. A firewall rule for the redirector does not match it.
+$RuntimePython = & $Python -c 'import os, sys; print(os.path.realpath(sys._base_executable))'
+if ($LASTEXITCODE -ne 0 -or -not [System.IO.Path]::IsPathRooted($RuntimePython) -or -not (Test-Path -LiteralPath $RuntimePython -PathType Leaf)) { throw 'Could not identify the Python executable that owns the worker listener.' }
 $Config = @{
     APPS_RUNNER_TOKEN = $Token; APPS_RUNNER_HOST = $BindAddress; APPS_RUNNER_PORT = "$Port"
     APPS_RUNNER_TLS_CERT = "$Install\server.crt"; APPS_RUNNER_TLS_KEY = "$Install\server.key"
@@ -112,7 +116,7 @@ Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Se
 # Windows Firewall is additional to a VPC security group allowing only gateway.
 $RuleName = 'Silicon Apps Native Runner Private TLS'
 Remove-NetFirewallRule -DisplayName $RuleName -ErrorAction SilentlyContinue
-New-NetFirewallRule -DisplayName $RuleName -Direction Inbound -Action Allow -Protocol TCP -LocalAddress $BindAddress -LocalPort $Port -RemoteAddress $GatewayAddress -Program $Python | Out-Null
+New-NetFirewallRule -DisplayName $RuleName -Direction Inbound -Action Allow -Protocol TCP -LocalAddress $BindAddress -LocalPort $Port -RemoteAddress $GatewayAddress -Program $RuntimePython | Out-Null
 Start-ScheduledTask -TaskName $TaskName
 $Password = $null; $SecurePassword = $null; $Token = $null; $Config = $null
 Write-Output 'Native Windows worker installed. Verify TLS, authenticated Hyper-V probes, reboot recovery, and package receipts before enabling this target.'
