@@ -175,6 +175,7 @@ async fn authors_sign_and_withdraw_and_installers_verify_in_ci_mode() {
             let (package, _) = run_ok(
                 &mut author(&[
                     "upload",
+                    "--confirm-platform-checks",
                     "ring",
                     "--target",
                     package_target,
@@ -220,6 +221,7 @@ async fn authors_sign_and_withdraw_and_installers_verify_in_ci_mode() {
     let error = run_err(
         &mut author(&[
             "upload",
+            "--confirm-platform-checks",
             "ring",
             "--target",
             target,
@@ -302,6 +304,7 @@ async fn authors_sign_and_withdraw_and_installers_verify_in_ci_mode() {
     let error = run_err(
         &mut author(&[
             "upload",
+            "--confirm-platform-checks",
             "ring",
             "--target",
             target,

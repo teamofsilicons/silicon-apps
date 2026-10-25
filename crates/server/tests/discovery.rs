@@ -283,7 +283,12 @@ async fn capabilities_answer_requirements_and_report_live_workers() {
             .as_array()
             .unwrap()
             .iter()
-            .all(|t| t["validation"] == "not_configured")
+            .all(|t| t["validation"]
+                == if t["target"].as_str().unwrap().starts_with("linux-") {
+                    "not_configured"
+                } else {
+                    "uploader_confirmation"
+                })
     );
     assert!(c["requirements"].is_null());
     assert_eq!(c["streaming"]["sse"], true);
@@ -385,13 +390,21 @@ async fn capabilities_answer_requirements_and_report_live_workers() {
             &[],
         )
         .await;
-        assert_eq!(r.status, 422, "{}", r.body);
-        let results = r.body["error"]["details"]["results"]
-            .as_array()
-            .unwrap()
-            .clone();
+        assert_eq!(r.status, if live { 200 } else { 422 }, "{}", r.body);
+        let details = if live {
+            &r.body["requirements"]
+        } else {
+            &r.body["error"]["details"]
+        };
+        let results = details["results"].as_array().unwrap().clone();
         assert_eq!(results[0]["satisfied"], live, "{results:?}");
-        assert_eq!(results[1]["satisfied"], false);
+        assert_eq!(results[1]["satisfied"], true);
+        assert!(
+            results[1]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("uploader confirmation")
+        );
         let r = send(&app, "GET", "/v1/capabilities", None, None, None, &[]).await;
         assert_eq!(r.body["validation_runner"]["reachable"], live);
         let linux = r.body["targets"]

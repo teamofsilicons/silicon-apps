@@ -62,6 +62,7 @@ async fn upload(app: &axum::Router, path: &str, mime: &str, bytes: Vec<u8>, key:
                 .uri(path)
                 .header("Authorization", format!("Bearer {ALICE}"))
                 .header("Content-Type", mime)
+                .header("X-Apps-Platform-Confirmed", "true")
                 .header("Idempotency-Key", key)
                 .body(Body::from(bytes))
                 .unwrap(),

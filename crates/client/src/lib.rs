@@ -350,6 +350,19 @@ impl Client {
         author: Option<&signing::AuthorKey>,
         key: Option<&str>,
     ) -> Result<Value> {
+        self.upload_confirmed(app, target, bytes, author, false, key)
+            .await
+    }
+    /// Explicit uploader confirmation is required for non-Linux targets.
+    pub async fn upload_confirmed(
+        &self,
+        app: &str,
+        target: &str,
+        bytes: Vec<u8>,
+        author: Option<&signing::AuthorKey>,
+        platform_confirmed: bool,
+        key: Option<&str>,
+    ) -> Result<Value> {
         ensure!(
             package::TARGETS.contains(&target),
             "unknown target `{target}`"
@@ -373,6 +386,9 @@ impl Client {
             .header("Content-Type", "application/gzip")
             .header(TELEMETRY_HEADER.0, TELEMETRY_HEADER.1)
             .header("Idempotency-Key", &operation_key);
+        if platform_confirmed {
+            request = request.header("X-Apps-Platform-Confirmed", "true");
+        }
         if let Some(author) = author {
             request = request
                 .header("X-Apps-Author-Key-Id", &author.key_id)

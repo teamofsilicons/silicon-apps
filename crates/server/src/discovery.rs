@@ -5,7 +5,7 @@ use crate::{
     Shared,
     error::{ApiError, Result},
     events::{EVENT_TYPES, HEARTBEAT_SECONDS, PUBLIC_TYPES, STREAM_MAX_SECONDS},
-    model::{REQUIRED_RELEASE_TARGETS, TARGETS},
+    model::{COMMANDS, REQUIRED_RELEASE_TARGETS, TARGETS},
     ratelimit::{ClientKey, WINDOW_SECONDS},
     subscriptions::{
         DELIVERY_TIMEOUT_SECONDS, MAX_SUBSCRIPTIONS, RETRY_SECONDS, RETRY_WINDOW_HOURS,
@@ -241,7 +241,7 @@ pub async fn agent_card(State(s): State<Shared>) -> Response {
             {"id":"search-apps","name":"Search apps","description":"Find apps by ID, name, description or tags, with typo tolerance, target and visibility filters, sorting and pagination. Tags are matched through q, never a filter of their own. GET /v1/apps?q=&target=&sort=.","tags":["search","catalog","discovery"],"examples":["Find a terminal app that runs on macos-aarch64","GET /v1/apps?q=terminal&target=macos-aarch64"],"inputModes":["application/json"],"outputModes":["application/json"]},
             {"id":"get-app","name":"Get an app","description":"Read an app's page: authors, targets, latest production and development releases, links, media alt text, rating and installs. GET /v1/apps/{app_id}.","tags":["catalog","details"],"examples":["Show briefcase","GET /v1/apps/briefcase"],"inputModes":["application/json"],"outputModes":["application/json"]},
             {"id":"install-app","name":"Install an app","description":"Resolve the release for your target and download its package: GET /v1/apps/{app_id}/resolve?target=, then the download_path. Check the SHA-256 and the Ed25519 signature against /.well-known/silicon-apps-keys.json before you run anything. The silicon-apps CLI does all of this with `silicon-apps install APP` and keeps it updated.","tags":["install","packages"],"examples":["silicon-apps install briefcase","GET /v1/apps/briefcase/resolve?target=linux-x86_64"],"inputModes":["application/json"],"outputModes":["application/json","application/gzip"]},
-            {"id":"publish-release","name":"Publish a release","description":"For an app's authors: upload a package per target for isolated validation of --help, accounts --json and login status --json, create a development release, promote it to production and publish the app. Watch validation step by step on the app's event stream. Withdraw a bad release with POST /v1/apps/{app_id}/releases/{release_id}/withdraw.","tags":["publish","releases","authoring"],"examples":["POST /v1/apps/ring/packages/macos-aarch64","POST /v1/apps/ring/releases/{release_id}/promote"],"inputModes":["application/json","application/gzip"],"outputModes":["application/json","text/event-stream"]},
+            {"id":"publish-release","name":"Publish a release","description":"For an app's authors: upload a package per target; Linux runs isolated command checks, while Windows and macOS require explicit uploader confirmation of --help, accounts --json and login status --json, create a development release, promote it to production and publish the app. Watch validation step by step on the app's event stream. Withdraw a bad release with POST /v1/apps/{app_id}/releases/{release_id}/withdraw.","tags":["publish","releases","authoring"],"examples":["POST /v1/apps/ring/packages/macos-aarch64","POST /v1/apps/ring/releases/{release_id}/promote"],"inputModes":["application/json","application/gzip"],"outputModes":["application/json","text/event-stream"]},
             {"id":"subscribe-to-releases","name":"Subscribe to releases","description":"Get told when an app you can see ships a release: a webhook signed with a per-subscription whsec_ secret, or a stream at /v1/events/stream?subscription=ID. POST /v1/subscriptions.","tags":["subscriptions","webhooks","events","sse"],"examples":["Tell me when briefcase ships a production release","POST /v1/subscriptions {\"app_id\":\"briefcase\",\"types\":[\"release.promoted\"],\"delivery\":{\"mode\":\"webhook\",\"url\":\"https://example.com/hooks/apps\"}}"],"inputModes":["application/json"],"outputModes":["application/json","text/event-stream"]}
         ],
         "supportsAuthenticatedExtendedCard":false,
@@ -313,6 +313,9 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
     let targets: Vec<Value> = TARGETS
         .iter()
         .map(|target| {
+            if !target.starts_with("linux-") {
+                return json!({"target":target,"validation":"uploader_confirmation","live":true,"runner_required":false});
+            }
             let configured = s.config.runner_url.is_some()
                 && s.config.runner_token.is_some()
                 && s.config.runner_targets.iter().any(|t| t == target);
@@ -334,6 +337,7 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
             "note":"Send Authorization: Bearer <Silicon Accounts access token for silicon-apps>. Silicons get one without a browser: silicon-accounts login --app silicon-apps gives a single-use token for POST /v1/auth/exchange. Public reads need no token."
         },
         "targets":targets,
+        "upload_confirmation":{"targets":"windows-* and macos-*","header":"X-Apps-Platform-Confirmed","value":"true","cli_flag":"--confirm-platform-checks","commands":COMMANDS,"meaning":"The uploading Carbon or Silicon confirms these commands work on the selected platform. Silicon Apps inspects the archive but does not execute non-Linux binaries."},
         "required_release_targets":REQUIRED_RELEASE_TARGETS,
         "validation_runner":{
             "configured":probe.is_some(),
@@ -469,6 +473,7 @@ fn requirement(document: &Value, name: &str) -> (bool, String) {
             .as_array()
             .and_then(|items| items.iter().find(|item| item["target"] == t))
         {
+            Some(item) if item["validation"] == "uploader_confirmation" => (true, format!("Uploads for {t} require explicit uploader confirmation; no server runner is required.")),
             Some(item) if item["live"] == true => (true, format!("A validation worker for {t} is live.")),
             Some(item) => (false, format!("Uploads for {t} cannot be validated now: the worker is {}.", item["validation"].as_str().unwrap_or("unavailable").replace('_', " "))),
             None => (false, format!("{t} is not a package target.")),

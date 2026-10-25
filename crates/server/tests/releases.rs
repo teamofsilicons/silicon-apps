@@ -518,6 +518,9 @@ async fn upload_target(
         .header("Authorization", "Bearer dev:alice:c:alice")
         .header("Content-Type", "application/gzip")
         .header("Idempotency-Key", key);
+    if !target.starts_with("linux-") {
+        request = request.header("X-Apps-Platform-Confirmed", "true");
+    }
     if let Some((key_id, signature)) = signature {
         request = request
             .header("X-Apps-Author-Key-Id", key_id)
@@ -665,6 +668,10 @@ async fn author_keys_sign_uploads_and_bad_signatures_are_refused_before_the_runn
     let (_, good) = author.sign(&message);
     let accepted = upload(&app, &bytes, "upload-signed", Some((&key_id, &good))).await;
     assert_eq!(accepted.status, 200, "{}", accepted.body);
+    assert_eq!(runs.load(Ordering::SeqCst), 1);
+    let replay = upload(&app, &bytes, "upload-signed", Some((&key_id, &good))).await;
+    assert_eq!(replay.status, 200, "{}", replay.body);
+    assert_eq!(replay.body, accepted.body);
     assert_eq!(runs.load(Ordering::SeqCst), 1);
     let package = accepted.body.clone();
     assert_eq!(package["author_signature"]["key_id"], key_id.as_str());

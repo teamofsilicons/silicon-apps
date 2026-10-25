@@ -62,7 +62,7 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     assert_eq!(capabilities["requirements"]["satisfied"], true);
     // A requirement the server cannot meet is a structured 422.
     let missing = alice
-        .capabilities(&["target:windows-aarch64"])
+        .capabilities(&["target:linux-x86_64"])
         .await
         .unwrap_err();
     let missing = missing
@@ -72,7 +72,7 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     assert_eq!(missing.code, "capabilities_missing");
     assert_eq!(
         missing.details["missing"][0]["requirement"],
-        "target:windows-aarch64"
+        "target:linux-x86_64"
     );
 
     // A published app with one development release.
