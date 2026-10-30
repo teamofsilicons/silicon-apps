@@ -4,17 +4,7 @@ use std::collections::BTreeMap;
 
 pub const APP_ID: &str = "silicon-apps";
 
-pub const TARGETS: [&str; 9] = [
-    "linux-x86_64",
-    "linux-i686",
-    "linux-aarch64",
-    "linux-armv7hf",
-    "windows-x86_64",
-    "windows-i686",
-    "windows-aarch64",
-    "macos-x86_64",
-    "macos-aarch64",
-];
+pub use silicon_apps_package::{REQUIRED_RELEASE_TARGETS, TARGETS, missing_required_targets};
 pub const COMMANDS: [&str; 3] = ["--help", "accounts --json", "login status --json"];
 pub fn now() -> String {
     chrono::Utc::now().to_rfc3339()
@@ -322,9 +312,22 @@ impl App {
             errors.push(json!({"field":"description","message":"Description must contain 200 to 600 characters."}));
         }
         if self.releases.iter().all(Release::is_withdrawn) {
-            errors.push(json!({"field":"packages","message":"Create a development release containing at least one validated package."}));
+            errors.push(json!({"field":"packages","message":"Create a development release with validated packages for linux-x86_64, windows-x86_64 and macos-aarch64.","missing_targets":REQUIRED_RELEASE_TARGETS}));
         }
-        json!({"ready":errors.is_empty(),"errors":errors,"required_commands":COMMANDS})
+        for channel in ["development", "production"] {
+            if let Some(release) = self.latest(channel) {
+                let missing = missing_required_targets(
+                    self.packages
+                        .iter()
+                        .filter(|p| release.package_ids.contains(&p.id))
+                        .map(|p| p.target.as_str()),
+                );
+                if !missing.is_empty() {
+                    errors.push(json!({"field":"packages","message":format!("The latest {channel} release is missing required targets: {}.", missing.join(", ")),"release_id":release.id,"channel":channel,"missing_targets":missing}));
+                }
+            }
+        }
+        json!({"ready":errors.is_empty(),"errors":errors,"required_commands":COMMANDS,"required_targets":REQUIRED_RELEASE_TARGETS})
     }
 }
 #[derive(Clone, Default, Serialize, Deserialize)]

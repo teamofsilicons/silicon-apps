@@ -12,9 +12,9 @@
   "DeveloperUrl": "https://developers.teamofsilicons.com",
   "AccountsDeveloperUrl": "https://developers.teamofsilicons.com",
   "Runtime": "native-systemd",
-  "ApiSourceRevision": "9332344aed5b2f4fd45e0d93d308964c45e28969",
-  "ApiArchiveSha256": "f85721370d7ff871b574d25f12ac1ba683b7af238e142bc43adbd5ebbe5713b8",
-  "ApiBinarySha256": "fe61aba873a024c968ae17d197775981d40fa2fe3177c455f3ac5ed155c13404",
+  "ApiSourceRevision": "78b52c0d8ad42d7bd6a4b59112f221464da29f81",
+  "ApiArchiveSha256": "4ea5c209bf53079ebe598209461943c4263681a6d05216fde36a501d5f3e016c",
+  "ApiBinarySha256": "25c7d911a02b65145dfde1d47747a2101fb91a651915a71ade52cd726ee741dd",
   "ApiVersion": "0.2.0",
   "WorkerSourceRevision": "1d92c9a659420d4754e8f8b5de71ae16cc74a69e",
   "PreviousWorkerSourceRevision": "b2a3db8e575701575dfc283ba8bab0ed51a1cb60",
@@ -342,7 +342,7 @@
   "StoreUser": "silicon-apps-store",
   "StoreFramework": "Next.js 16.3.8",
   "StoreNodeVersion": "24.21.0",
-  "StoreBuildId": "1Qh2-Nntaqd33V3zV8qE8",
+  "StoreBuildId": "75BqhOyFmt0eaY_PHP18-",
   "StoreBuild": "built",
   "SigningKeyId": "apps-2026-10",
   "SigningPublicKey": "5WC06dtS61w+mPv3E0xNVz5ZoNQNMpX5/8YutuLZ3DU=",
@@ -379,8 +379,8 @@
     "1b762e7b-69ee-48a0-8ef8-d4b1d885f4b3"
   ],
   "PreSigningBackupKey": "backups/20261009T070318Z.tar.gz",
-  "ApiArchiveKey": "releases/9332344aed5b2f4fd45e0d93d308964c45e28969.tar.gz",
-  "ApiArchiveVersionId": "81f7kDSQ9NPTlEx7tO5pzQ_aWqgRAiyF",
+  "ApiArchiveKey": "releases/78b52c0d8ad42d7bd6a4b59112f221464da29f81.tar.gz",
+  "ApiArchiveVersionId": "E83qyDWaBqS1RozTdR.boQ698FubTovQ",
   "StoreWebMcp": false,
   "StoreWebMcpRemovedRevision": "606a30c",
   "StoreWebMcpPublicScan": {
@@ -430,5 +430,13 @@
     "require_mcp": 422
   },
   "InstallerBackupVersionId": "1A933h1c7aQRUnopJm5VKxPj7WjUONxN",
-  "Telemetry": "none"
+  "Telemetry": "none",
+  "RequiredReleaseTargets": [
+    "linux-x86_64",
+    "windows-x86_64",
+    "macos-aarch64"
+  ],
+  "RequiredTargetsInstallCommandId": "31880e42-4ff7-4f0d-9377-df1c2b9933f0",
+  "RequiredTargetsVerifiedAt": "2026-10-18T16:18:06.162202+00:00",
+  "RequiredTargetsBackupKey": "backups/20261018T161401Z.tar.gz"
 }

@@ -287,7 +287,7 @@ async fn withdrawn_releases_are_never_served_and_installs_fall_back() {
         "POST",
         "apps/ring/releases",
         "second-release",
-        json!({"version":"0.2.0","package_ids":["ring-second"]}),
+        json!({"version":"0.2.0","package_ids":["ring-second", "ring-windows-x86_64-pkg", "ring-macos-aarch64-pkg"]}),
         Prepared::default(),
     )["id"]
         .as_str()
@@ -503,12 +503,24 @@ async fn upload(
     key: &str,
     signature: Option<(&str, &str)>,
 ) -> Response {
+    upload_target(app, bytes, key, signature, "linux-x86_64").await
+}
+async fn upload_target(
+    app: &Router,
+    bytes: &[u8],
+    key: &str,
+    signature: Option<(&str, &str)>,
+    target: &str,
+) -> Response {
     let mut request = Request::builder()
         .method("POST")
-        .uri("/v1/apps/demo-app/packages/linux-x86_64")
+        .uri(format!("/v1/apps/demo-app/packages/{target}"))
         .header("Authorization", "Bearer dev:alice:c:alice")
         .header("Content-Type", "application/gzip")
         .header("Idempotency-Key", key);
+    if !target.starts_with("linux-") {
+        request = request.header("X-Apps-Platform-Confirmed", "true");
+    }
     if let Some((key_id, signature)) = signature {
         request = request
             .header("X-Apps-Author-Key-Id", key_id)
@@ -539,7 +551,10 @@ async fn author_keys_sign_uploads_and_bad_signatures_are_refused_before_the_runn
     let mut cfg = config(dir.path());
     cfg.runner_url = Some(runner);
     cfg.runner_token = Some("runner-token-runner-token-runner-token".into());
-    cfg.runner_targets = vec!["linux-x86_64".into()];
+    cfg.runner_targets = silicon_apps_server::model::REQUIRED_RELEASE_TARGETS
+        .iter()
+        .map(|t| t.to_string())
+        .collect();
     let state = AppState::new(cfg).unwrap();
     let app = router(state.clone());
     seed_app(&state, "alice", "demo-app", &[], "linux-x86_64", true);
@@ -654,6 +669,10 @@ async fn author_keys_sign_uploads_and_bad_signatures_are_refused_before_the_runn
     let accepted = upload(&app, &bytes, "upload-signed", Some((&key_id, &good))).await;
     assert_eq!(accepted.status, 200, "{}", accepted.body);
     assert_eq!(runs.load(Ordering::SeqCst), 1);
+    let replay = upload(&app, &bytes, "upload-signed", Some((&key_id, &good))).await;
+    assert_eq!(replay.status, 200, "{}", replay.body);
+    assert_eq!(replay.body, accepted.body);
+    assert_eq!(runs.load(Ordering::SeqCst), 1);
     let package = accepted.body.clone();
     assert_eq!(package["author_signature"]["key_id"], key_id.as_str());
     assert_eq!(package["author_signature"]["signer_id"], "c:alice");
@@ -661,12 +680,34 @@ async fn author_keys_sign_uploads_and_bad_signatures_are_refused_before_the_runn
     assert_eq!(package["install_script"]["sha256"], script_digest.as_str());
     assert_eq!(package["inspected"], true);
 
+    let mut package_ids = vec![package["id"].as_str().unwrap().to_owned()];
+    for target in ["windows-x86_64", "macos-aarch64"] {
+        let bytes = scripted_package("demo-app", target, script);
+        let message = signing::author_message(
+            "demo-app",
+            target,
+            &silicon_apps_package::sha256(&bytes),
+            bytes.len() as u64,
+            Some(&script_digest),
+        );
+        let (_, signature) = author.sign(&message);
+        let uploaded = upload_target(
+            &app,
+            &bytes,
+            &format!("signed-{target}"),
+            Some((&key_id, &signature)),
+            target,
+        )
+        .await;
+        assert_eq!(uploaded.status, 200, "{}", uploaded.body);
+        package_ids.push(uploaded.body["id"].as_str().unwrap().to_owned());
+    }
     let (status, release) = call(
         &app,
         "POST",
         "/v1/apps/demo-app/releases",
         Some(alice),
-        json!({"version":"0.2.0","package_ids":[package["id"]]}),
+        json!({"version":"0.2.0","package_ids":package_ids}),
         Some("signed-release"),
     )
     .await;

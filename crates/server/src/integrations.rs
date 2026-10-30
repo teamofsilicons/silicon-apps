@@ -131,6 +131,7 @@ pub struct AuthorUploadSignature {
     pub signature: String,
     pub signer_id: String,
 }
+#[allow(clippy::too_many_arguments)]
 pub async fn validate_package(
     s: &Shared,
     app_id: &str,
@@ -139,6 +140,7 @@ pub async fn validate_package(
     bytes: &[u8],
     key: &str,
     author: Option<AuthorUploadSignature>,
+    platform_confirmed: bool,
 ) -> Result<Package> {
     if !TARGETS.contains(&target) {
         return Err(ApiError::bad(format!("Unsupported target `{target}`.")));
@@ -257,112 +259,140 @@ pub async fn validate_package(
             })
         }
     };
-    let Some(url) = s.config.runner_url.as_ref() else {
-        return Err(fail(
-            "runner",
-            ApiError::unavailable(
-                "No isolated package runner is configured. Set APPS_RUNNER_URL and APPS_RUNNER_TARGETS.",
-            ),
-        ));
-    };
-    if !s.config.runner_targets.iter().any(|t| t == target) {
-        return Err(fail(
-            "runner",
-            ApiError::unavailable(format!(
-                "No isolated runner is available for {target}; configure a native runner before uploading this target."
-            )),
-        ));
-    }
-    let Some(token) = s.config.runner_token.as_ref() else {
-        return Err(fail(
-            "runner",
-            ApiError::unavailable("APPS_RUNNER_TOKEN is required for the isolated runner."),
-        ));
-    };
-    step(
-        "package.validation_step",
-        json!({"step":"runner","status":"started","commands":COMMANDS}),
-    );
-    let response = s.http.post(format!("{}/validate",url.trim_end_matches('/'))).bearer_auth(token).json(&json!({"app_id":app_id,"target":target,"package_sha256":digest,"package_base64":base64::engine::general_purpose::STANDARD.encode(bytes),"manifest":manifest})).send().await.map_err(|e|fail("runner", ApiError::unavailable(format!("Package runner could not be reached: {e}"))))?;
-    let status = response.status();
-    let result: Value = response.json().await.map_err(|_| {
-        fail(
-            "runner",
-            ApiError::unavailable("Package runner returned invalid JSON."),
-        )
-    })?;
-    if status.is_server_error() {
-        let mut error = ApiError::unavailable(
-            "The configured isolated target runner is unavailable; retry this upload with the same idempotency key.",
-        );
-        error.details = result;
-        return Err(fail("runner", error));
-    }
-    if !status.is_success() {
-        let mut e = ApiError::new(
-            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-            "package_validation_failed",
-            "The isolated runner rejected the package.",
-            "Read the exact runner error and command results, fix the package and upload again.",
-        );
-        for check in result["validation"].as_array().into_iter().flatten() {
-            step(
-                "package.validation_step",
-                json!({"step":"command","command":check["command"],"exit_code":check["exit_code"],"passed":check["passed"],"expected":check["expected"],"stdout":crate::events::step_output(check["stdout"].as_str().unwrap_or_default()),"stderr":crate::events::step_output(check["stderr"].as_str().unwrap_or_default())}),
-            );
+    let checks = if !target.starts_with("linux-") {
+        if !platform_confirmed {
+            return Err(fail(
+                "uploader_confirmation",
+                ApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "platform_confirmation_required",
+                    format!(
+                        "Confirm that --help, accounts --json and login status --json work in this package on {target}."
+                    ),
+                    "Check all three commands on the selected platform, then upload with --confirm-platform-checks or X-Apps-Platform-Confirmed: true. Linux packages still require server validation.",
+                ),
+            ));
         }
-        e.details = result;
-        return Err(fail("runner", e));
-    }
-    if result["isolated"] != true || result["target"] != target {
-        return Err(fail(
-            "runner",
-            ApiError::unavailable(
-                "Runner did not attest isolated execution on the requested target.",
-            ),
-        ));
-    }
-    let mut checks = vec![];
-    let mut passed = true;
-    for command in COMMANDS {
-        let raw = result["validation"]
-            .as_array()
-            .and_then(|v| v.iter().find(|v| v["command"] == command));
-        let stdout = raw.and_then(|v| v["stdout"].as_str()).unwrap_or_default();
-        let stderr = raw.and_then(|v| v["stderr"].as_str()).unwrap_or_default();
-        let exit = raw.and_then(|v| v["exit_code"].as_i64());
-        let output: Option<Value> = serde_json::from_str(stdout).ok();
-        let (ok, expected) = match command {
-            "--help" => (
-                exit == Some(0) && (!stdout.trim().is_empty() || !stderr.trim().is_empty()),
-                "Exit 0 and non-empty help text.",
-            ),
-            "accounts --json" => (
-                exit == Some(0) && output.as_ref().is_some_and(|v| v["app_id"] == app_id),
-                "Exit 0 and JSON containing this exact app_id.",
-            ),
-            _ => (
-                exit == Some(0) && output.as_ref().is_some_and(|v| v["authenticated"] == false),
-                "Exit 0 and JSON containing authenticated:false in a clean signed-out sandbox.",
-            ),
-        };
-        passed &= ok;
+        let confirmed_at = now();
         step(
             "package.validation_step",
-            json!({"step":"command","command":command,"exit_code":exit,"passed":ok,"expected":expected,"stdout":crate::events::step_output(stdout),"stderr":crate::events::step_output(stderr)}),
+            json!({"step":"uploader_confirmation","status":"confirmed","confirmed_by":actor,"confirmed_at":confirmed_at,"execution":"not_run"}),
         );
-        checks.push(json!({"command":command,"exit_code":exit,"stdout":stdout.chars().take(32768).collect::<String>(),"stderr":stderr.chars().take(32768).collect::<String>(),"passed":ok,"expected":expected}));
-    }
-    if !passed {
-        let mut e = ApiError::new(
-            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-            "package_validation_failed",
-            "At least one required command failed in the isolated target runner.",
-            "These commands let Silicons discover app help, account ownership and login state. Fix the exact output shown and re-upload.",
+        COMMANDS.iter().map(|command| json!({
+            "command":command,"source":"uploader_confirmation","execution":"not_run",
+            "confirmed":true,"confirmed_by":actor,"confirmed_at":confirmed_at,
+            "passed":true,"exit_code":null,"stdout":"","stderr":"",
+            "expected":"Uploader confirms this command works on the selected platform; not executed by Silicon Apps."
+        })).collect()
+    } else {
+        let Some(url) = s.config.runner_url.as_ref() else {
+            return Err(fail(
+                "runner",
+                ApiError::unavailable(
+                    "No isolated package runner is configured. Set APPS_RUNNER_URL and APPS_RUNNER_TARGETS.",
+                ),
+            ));
+        };
+        if !s.config.runner_targets.iter().any(|t| t == target) {
+            return Err(fail(
+                "runner",
+                ApiError::unavailable(format!(
+                    "No isolated runner is available for {target}; configure a native runner before uploading this target."
+                )),
+            ));
+        }
+        let Some(token) = s.config.runner_token.as_ref() else {
+            return Err(fail(
+                "runner",
+                ApiError::unavailable("APPS_RUNNER_TOKEN is required for the isolated runner."),
+            ));
+        };
+        step(
+            "package.validation_step",
+            json!({"step":"runner","status":"started","commands":COMMANDS}),
         );
-        e.details = json!({"target":target,"sha256":digest,"validation":checks});
-        return Err(e);
-    }
+        let response = s.http.post(format!("{}/validate",url.trim_end_matches('/'))).bearer_auth(token).json(&json!({"app_id":app_id,"target":target,"package_sha256":digest,"package_base64":base64::engine::general_purpose::STANDARD.encode(bytes),"manifest":manifest})).send().await.map_err(|e|fail("runner", ApiError::unavailable(format!("Package runner could not be reached: {e}"))))?;
+        let status = response.status();
+        let result: Value = response.json().await.map_err(|_| {
+            fail(
+                "runner",
+                ApiError::unavailable("Package runner returned invalid JSON."),
+            )
+        })?;
+        if status.is_server_error() {
+            let mut error = ApiError::unavailable(
+                "The configured isolated target runner is unavailable; retry this upload with the same idempotency key.",
+            );
+            error.details = result;
+            return Err(fail("runner", error));
+        }
+        if !status.is_success() {
+            let mut e = ApiError::new(
+                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                "package_validation_failed",
+                "The isolated runner rejected the package.",
+                "Read the exact runner error and command results, fix the package and upload again.",
+            );
+            for check in result["validation"].as_array().into_iter().flatten() {
+                step(
+                    "package.validation_step",
+                    json!({"step":"command","command":check["command"],"exit_code":check["exit_code"],"passed":check["passed"],"expected":check["expected"],"stdout":crate::events::step_output(check["stdout"].as_str().unwrap_or_default()),"stderr":crate::events::step_output(check["stderr"].as_str().unwrap_or_default())}),
+                );
+            }
+            e.details = result;
+            return Err(fail("runner", e));
+        }
+        if result["isolated"] != true || result["target"] != target {
+            return Err(fail(
+                "runner",
+                ApiError::unavailable(
+                    "Runner did not attest isolated execution on the requested target.",
+                ),
+            ));
+        }
+        let mut checks = vec![];
+        let mut passed = true;
+        for command in COMMANDS {
+            let raw = result["validation"]
+                .as_array()
+                .and_then(|v| v.iter().find(|v| v["command"] == command));
+            let stdout = raw.and_then(|v| v["stdout"].as_str()).unwrap_or_default();
+            let stderr = raw.and_then(|v| v["stderr"].as_str()).unwrap_or_default();
+            let exit = raw.and_then(|v| v["exit_code"].as_i64());
+            let output: Option<Value> = serde_json::from_str(stdout).ok();
+            let (ok, expected) = match command {
+                "--help" => (
+                    exit == Some(0) && (!stdout.trim().is_empty() || !stderr.trim().is_empty()),
+                    "Exit 0 and non-empty help text.",
+                ),
+                "accounts --json" => (
+                    exit == Some(0) && output.as_ref().is_some_and(|v| v["app_id"] == app_id),
+                    "Exit 0 and JSON containing this exact app_id.",
+                ),
+                _ => (
+                    exit == Some(0) && output.as_ref().is_some_and(|v| v["authenticated"] == false),
+                    "Exit 0 and JSON containing authenticated:false in a clean signed-out sandbox.",
+                ),
+            };
+            passed &= ok;
+            step(
+                "package.validation_step",
+                json!({"step":"command","command":command,"exit_code":exit,"passed":ok,"expected":expected,"stdout":crate::events::step_output(stdout),"stderr":crate::events::step_output(stderr)}),
+            );
+            checks.push(json!({"command":command,"exit_code":exit,"stdout":stdout.chars().take(32768).collect::<String>(),"stderr":stderr.chars().take(32768).collect::<String>(),"passed":ok,"expected":expected}));
+        }
+        if !passed {
+            let mut e = ApiError::new(
+                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                "package_validation_failed",
+                "At least one required command failed in the isolated target runner.",
+                "These commands let Silicons discover app help, account ownership and login state. Fix the exact output shown and re-upload.",
+            );
+            e.details = json!({"target":target,"sha256":digest,"validation":checks});
+            return Err(e);
+        }
+        checks
+    };
     let dest = s.config.data_dir.join("packages").join(&digest);
     crate::objects::publish(&dest, bytes).await.map_err(|_| {
         fail(

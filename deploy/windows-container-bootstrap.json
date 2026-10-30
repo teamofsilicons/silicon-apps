@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-10-18T17:58:40.620197+00:00",
+  "docker": {
+    "version": "29.9.1",
+    "url": "https://download.docker.com/win/static/stable/x86_64/docker-29.9.1.zip",
+    "sha256": "5d9b66509390553fd97d590ec2ff0ce10b04c2ac653fa52f2abf2f05c4c197ca",
+    "bytes": 49729028,
+    "binaries": {
+      "docker.exe": "927ad76e666fe774e644ce954f5885aed20a7abaf87a3607fbb7400599d40212",
+      "dockerd.exe": "56781511475c00e1161873ca751f893aa29707e032ba2af00dd5efec5d984a22"
+    }
+  },
+  "python": {
+    "version": "3.14.8",
+    "url": "https://www.python.org/ftp/python/3.14.8/python-3.14.8-amd64.exe",
+    "sha256": "759be887b96e736a3ca886daf8d575f18fcae1a09efab6902f42d59e8999f8ef",
+    "bytes": 33387464,
+    "release_url": "https://www.python.org/downloads/release/python-3148/",
+    "authenticode_organization": "Python Software Foundation"
+  },
+  "image": {
+    "reference": "mcr.microsoft.com/windows/servercore@sha256:bf9263ea794d8675e0e28460c02ebbe3b0e34d1a81f2c4b7f295f68e98c2865b",
+    "source_tag": "ltsc2025",
+    "index_digest": "sha256:1d3cd3d02eb8496f47d00636b62d41904b63d0dc52ab5cfa4aa61292d3b9a26e",
+    "platform": "windows/amd64",
+    "os_version": "10.0.26100.33650",
+    "manifest_url": "https://mcr.microsoft.com/v2/windows/servercore/manifests/sha256:bf9263ea794d8675e0e28460c02ebbe3b0e34d1a81f2c4b7f295f68e98c2865b",
+    "compressed_layer_bytes": 2330843419
+  },
+  "sources": [
+    "https://learn.microsoft.com/en-us/virtualization/windowscontainers/quick-start/set-up-environment",
+    "https://docs.docker.com/engine/install/binaries/",
+    "https://docs.aws.amazon.com/systems-manager/latest/userguide/send-commands-reboot.html"
+  ]
+}

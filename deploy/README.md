@@ -31,3 +31,12 @@ Read [the operations guide](../docs/operations.md) before activating the example
 `publish-first-party.py` is an operator-only deployment helper for the `silicon-apps` and `silicon-accounts` CLI packages. It does not expose an API or change the upload validation workers. Before using it, finish the nine-target GitHub package build, verify the source commit and every archive checksum, and assemble `release.json` with `app_id`, `version`, `source_commit`, the build run URL as `workflow`, and nine report basenames as `reports`. Include the exact archives and native execution reports in the bundle.
 
 Stop `silicon-apps-api`, take a catalog and package backup with `backup.py`, then run the helper as `silicon-apps` with `--data-dir /var/lib/silicon-apps --bundle DIRECTORY --sha256 RELEASE_JSON_SHA256`. Always restart the API on failure as well as success. The helper checks the manifest identity, archive bytes and required native command outputs before changing the catalog. Repeating the same publication is safe; changing an existing version is refused. It preserves existing app metadata and install counts. Save a new backup after publication and test public resolution and a fresh managed installation on each operating system.
+
+`publish-migrated-apps.py` also accepts an optional `package_version` in
+`release.json` for a catalog correction that reuses existing native binaries.
+`version` names the new catalog release; `package_version` must match the
+unchanged archive manifest and native execution reports. Existing releases stay
+immutable. The helper still requires all six targets and records both versions
+in the audit history. Verify public resolution for every target before calling
+the publication complete; a six-target GitHub archive alone does not establish
+six-target catalog availability.

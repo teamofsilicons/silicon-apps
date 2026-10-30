@@ -1,0 +1,102 @@
+{
+  "app_id": "ting",
+  "catalog_version": "0.3.2",
+  "package_version": "0.3.1",
+  "reason": "Latest release contained six native targets, but the catalog included only the two Linux package records.",
+  "source_commit": "3eed8bb90c18c43ce1b43d58ce0e2ac46a01e0d2",
+  "operator_commit": "744ea558d181f317686e9567c5405bc65d5b3837",
+  "source_release": "https://github.com/teamofsilicons/silicon-ting/releases/tag/v0.3.1",
+  "native_proof_workflow": "https://github.com/teamofsilicons/silicon-ting/actions/runs/38983708713",
+  "verifier_commit": "bfb0f3109b59afbe50081b538282eb61c5e026ed",
+  "additional_native_proof_workflow": "https://github.com/teamofsilicons/silicon-ting/actions/runs/38983822034",
+  "package_sha256": "7cdcb96dd1883ab3048201ce2c2ff7d6c48006db0dace33cbefe10f2fca20a84",
+  "bundle_sha256": "e8d107717bb6ca6969e4ad8c9061c844443ba86f5433ef247145e571c6fbc840",
+  "release_manifest_sha256": "656208b3d6f69f3dc75a36108a41e3413fb420f2e9ddb3732ad4f0cfc862bdab",
+  "bundle_key": "releases/catalog-ting-0.3.2-e8d107717bb6ca69.tar.gz",
+  "production_release_id": "c6af3921-a76b-5528-b64f-8bc8a49b23a7",
+  "publication_ssm_command": "8deb65f3-de79-4f2d-837d-daa9136ec5e9",
+  "backup_before": "backups/20261016T235313Z.tar.gz",
+  "rollback_snapshot": "/var/lib/silicon-apps/catalog-ting-0.3.2/before.sqlite",
+  "preserved": [
+    "all other apps including Browser 3.0.1",
+    "all previous Ting releases and packages",
+    "Ting author and admin UUID"
+  ],
+  "verification": {
+    "operator_tests": {
+      "passed": 63,
+      "skipped": 8
+    },
+    "native_targets_passed": 6,
+    "public_catalog": {
+      "verified_at": "2026-10-16T23:56:10.573873+00:00",
+      "targets": [
+        {
+          "target": "linux-aarch64",
+          "release": "0.3.2",
+          "package_id": "1e76df2f-dd3f-5c5b-9ee5-a9e72eb6f11b",
+          "sha256": "7cdcb96dd1883ab3048201ce2c2ff7d6c48006db0dace33cbefe10f2fca20a84",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "linux-x86_64",
+          "release": "0.3.2",
+          "package_id": "58628ee9-734a-527a-a8d9-0359a9f20b99",
+          "sha256": "7cdcb96dd1883ab3048201ce2c2ff7d6c48006db0dace33cbefe10f2fca20a84",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "macos-aarch64",
+          "release": "0.3.2",
+          "package_id": "9b83ac20-b0d4-5e56-8bfa-0eeb2e8063ad",
+          "sha256": "7cdcb96dd1883ab3048201ce2c2ff7d6c48006db0dace33cbefe10f2fca20a84",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "macos-x86_64",
+          "release": "0.3.2",
+          "package_id": "1513c59c-8ef1-5f91-a8f7-ec0f9e7dbc78",
+          "sha256": "7cdcb96dd1883ab3048201ce2c2ff7d6c48006db0dace33cbefe10f2fca20a84",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "windows-aarch64",
+          "release": "0.3.2",
+          "package_id": "9378a81e-11cb-589f-ba9a-0e091a865aaf",
+          "sha256": "7cdcb96dd1883ab3048201ce2c2ff7d6c48006db0dace33cbefe10f2fca20a84",
+          "signed_by": "apps-2026-10"
+        },
+        {
+          "target": "windows-x86_64",
+          "release": "0.3.2",
+          "package_id": "7b32307e-5543-590d-821a-241e6437948d",
+          "sha256": "7cdcb96dd1883ab3048201ce2c2ff7d6c48006db0dace33cbefe10f2fca20a84",
+          "signed_by": "apps-2026-10"
+        }
+      ]
+    },
+    "fresh_registry_install": {
+      "target": "macos-aarch64",
+      "catalog_version": "0.3.2",
+      "binary_version": "0.3.1",
+      "signature_key_id": "apps-2026-10"
+    },
+    "project_install_and_authentication": "passed",
+    "legacy_local_daemon": {
+      "previous_version": "0.2.1",
+      "version": "0.3.1",
+      "result": "Updated existing launch agent to the Apps-managed daemon after a consistent private SQLite and configuration backup; status command no longer fails with Missing org_id."
+    },
+    "connect_smoke": {
+      "command": "silicon connect silicon.yaml",
+      "exit_code": 0,
+      "webhook_registered": true,
+      "elapsed_seconds": 53.59,
+      "apps_installed": 6,
+      "apps_authenticated": 5,
+      "silicon_online": true,
+      "ting_socket_connected": true
+    }
+  },
+  "backup_after": "backups/20261016T235554Z.tar.gz"
+}

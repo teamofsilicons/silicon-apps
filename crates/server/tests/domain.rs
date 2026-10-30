@@ -78,14 +78,17 @@ fn package(s: &mut Store, w: &Identity, id: &str, target: &str) -> Value {
     .0
 }
 fn publish(s: &mut Store, w: &Identity, id: &str) {
-    let p = package(s, w, id, "linux-x86_64");
+    let packages: Vec<_> = REQUIRED_RELEASE_TARGETS
+        .into_iter()
+        .map(|target| package(s, w, id, target)["id"].clone())
+        .collect();
     change(
         s,
         Some(w),
         "POST",
         &format!("apps/{id}/releases"),
         &format!("release-{id}"),
-        json!({"version":"1.0.0","package_ids":[p["id"]]}),
+        json!({"version":"1.0.0","package_ids":packages}),
         Prepared::default(),
     )
     .unwrap();

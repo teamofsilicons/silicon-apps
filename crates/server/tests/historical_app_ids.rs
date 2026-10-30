@@ -17,7 +17,10 @@ fn historical_state(dir: &std::path::Path, runner: Option<&str>) -> Shared {
     if let Some(url) = runner {
         cfg.runner_url = Some(url.into());
         cfg.runner_token = Some("runner-token-runner-token-runner-token".into());
-        cfg.runner_targets = vec!["linux-x86_64".into()];
+        cfg.runner_targets = silicon_apps_server::model::REQUIRED_RELEASE_TARGETS
+            .iter()
+            .map(|t| t.to_string())
+            .collect();
     }
     AppState::new(cfg).unwrap()
 }
@@ -59,6 +62,7 @@ async fn upload(app: &axum::Router, path: &str, mime: &str, bytes: Vec<u8>, key:
                 .uri(path)
                 .header("Authorization", format!("Bearer {ALICE}"))
                 .header("Content-Type", mime)
+                .header("X-Apps-Platform-Confirmed", "true")
                 .header("Idempotency-Key", key)
                 .body(Body::from(bytes))
                 .unwrap(),
@@ -381,10 +385,23 @@ async fn a_historical_app_is_set_up_published_found_and_installed_like_any_other
     .await;
     assert_eq!(package.status, 200, "{}", package.body);
     let package_id = package.body["id"].as_str().unwrap().to_owned();
+    let mut package_ids = vec![package_id.clone()];
+    for target in ["windows-x86_64", "macos-aarch64"] {
+        let uploaded = upload(
+            &app,
+            &format!("/v1/apps/dm/packages/{target}"),
+            "application/gzip",
+            package_bytes("dm", target),
+            &format!("dm-{target}"),
+        )
+        .await;
+        assert_eq!(uploaded.status, 200, "{}", uploaded.body);
+        package_ids.push(uploaded.body["id"].as_str().unwrap().to_owned());
+    }
     let release = as_alice(
         "POST",
         "/v1/apps/dm/releases".into(),
-        json!({"version":"0.1.0","package_ids":[package_id]}),
+        json!({"version":"0.1.0","package_ids":package_ids}),
         "dm-release",
     )
     .await;

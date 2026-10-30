@@ -2592,7 +2592,7 @@
       "post": {
         "operationId": "uploadPackage",
         "summary": "Upload a package for a target",
-        "description": "Send the raw `.tar.gz`. The service checks the archive and manifest, then runs `--help`, `accounts --json` and `login status --json` in an isolated runner for that target. Each step is published on the app's event stream as `package.validation_step`. A failure returns 422 with the exact command results.\n\nTo sign the package as its author, send `X-Apps-Author-Key-Id` (a key from `/v1/keys`) and `X-Apps-Author-Signature`: a base64 Ed25519 signature over the lines `silicon-apps-author-package-v1`, `app_id=`, `target=`, `sha256=`, `size=` and `install_script_sha256=` (the digest or `none`), each ending in a newline. A signature that does not verify returns 422 `invalid_author_signature` before any command runs.",
+        "description": "Send the raw `.tar.gz`. The service checks the archive and manifest, then runs `--help`, `accounts --json` and `login status --json` in an isolated runner for Linux. For Windows and macOS, send `X-Apps-Platform-Confirmed: true` after checking these commands on that platform; missing confirmation returns 400 `platform_confirmation_required`. The uploader identity and confirmation time are recorded, and no binary is run by the server for those targets. Each step is published on the app's event stream as `package.validation_step`. A failure returns 422 with the exact command results.\n\nTo sign the package as its author, send `X-Apps-Author-Key-Id` (a key from `/v1/keys`) and `X-Apps-Author-Signature`: a base64 Ed25519 signature over the lines `silicon-apps-author-package-v1`, `app_id=`, `target=`, `sha256=`, `size=` and `install_script_sha256=` (the digest or `none`), each ending in a newline. A signature that does not verify returns 422 `invalid_author_signature` before any command runs.",
         "tags": [
           "Releases"
         ],
@@ -2625,6 +2625,18 @@
                 "windows-aarch64",
                 "macos-x86_64",
                 "macos-aarch64"
+              ]
+            }
+          },
+          {
+            "name": "X-Apps-Platform-Confirmed",
+            "in": "header",
+            "required": false,
+            "description": "Required as true for Windows and macOS after the uploader checks the three commands on the selected platform. Cannot bypass Linux validation.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
               ]
             }
           },
@@ -6168,6 +6180,26 @@
           },
           "expected": {
             "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "uploader_confirmation for non-Linux declarations; these checks were not executed by Apps."
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "not_run"
+            ]
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "confirmed_by": {
+            "type": "string"
+          },
+          "confirmed_at": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [

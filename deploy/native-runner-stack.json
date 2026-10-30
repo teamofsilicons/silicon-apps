@@ -1,0 +1,209 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Native Apps validator trust and access. Instances launched separately with explicit nested-virtualization or Mac host placement.",
+  "Parameters": {
+    "VpcId": {
+      "Type": "String"
+    },
+    "GatewaySecurityGroup": {
+      "Type": "String"
+    },
+    "ArtifactBucket": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "WorkerSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Native validators: TLS only from Apps Linux gateway; SSM administration",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 4313,
+            "ToPort": 4313,
+            "SourceSecurityGroupId": {
+              "Ref": "GatewaySecurityGroup"
+            }
+          }
+        ]
+      }
+    },
+    "WindowsSecret": {
+      "Type": "AWS::SecretsManager::Secret",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "Name": "silicon-apps/production/native-windows",
+        "GenerateSecretString": {
+          "SecretStringTemplate": "{}",
+          "GenerateStringKey": "APPS_RUNNER_TOKEN",
+          "PasswordLength": 64,
+          "ExcludePunctuation": true
+        },
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "silicon-apps-native-runners"
+          }
+        ]
+      }
+    },
+    "WindowsRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "NativeWorkerOnly",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "secretsmanager:GetSecretValue",
+                  "Resource": {
+                    "Ref": "WindowsSecret"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:GetObject",
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:s3:::${ArtifactBucket}/releases/native-runners/*"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "WindowsProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "WindowsRole"
+          }
+        ]
+      }
+    },
+    "MacSecret": {
+      "Type": "AWS::SecretsManager::Secret",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "Name": "silicon-apps/production/native-mac",
+        "GenerateSecretString": {
+          "SecretStringTemplate": "{}",
+          "GenerateStringKey": "APPS_RUNNER_TOKEN",
+          "PasswordLength": 64,
+          "ExcludePunctuation": true
+        },
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "silicon-apps-native-runners"
+          }
+        ]
+      }
+    },
+    "MacRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "NativeWorkerOnly",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "secretsmanager:GetSecretValue",
+                  "Resource": {
+                    "Ref": "MacSecret"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:GetObject",
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:s3:::${ArtifactBucket}/releases/native-runners/*"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "MacProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "MacRole"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "WorkerSecurityGroup": {
+      "Value": {
+        "Ref": "WorkerSecurityGroup"
+      }
+    },
+    "WindowsSecret": {
+      "Value": {
+        "Ref": "WindowsSecret"
+      }
+    },
+    "WindowsProfile": {
+      "Value": {
+        "Ref": "WindowsProfile"
+      }
+    },
+    "MacSecret": {
+      "Value": {
+        "Ref": "MacSecret"
+      }
+    },
+    "MacProfile": {
+      "Value": {
+        "Ref": "MacProfile"
+      }
+    }
+  }
+}

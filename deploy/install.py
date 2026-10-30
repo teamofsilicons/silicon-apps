@@ -7,6 +7,7 @@ import argparse
 import base64
 import binascii
 import hashlib
+import ipaddress
 import json
 import os
 import pathlib
@@ -19,6 +20,7 @@ import tarfile
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 ROOT = pathlib.Path('/opt/silicon-apps')
@@ -74,6 +76,8 @@ EMULATORS = ('qemu-aarch64', 'qemu-arm')  # binfmt_misc entries for linux/arm64 
 BINFMT_MISC = pathlib.Path('/proc/sys/fs/binfmt_misc')
 BINFMT_SERVICE = 'silicon-apps-binfmt'
 RUNNER_SERVICE = 'silicon-apps-runner'
+RUNNER_TARGETS = {*WORKER_IMAGES, 'windows-x86_64', 'windows-i686', 'windows-aarch64',
+                  'macos-x86_64', 'macos-aarch64'}
 
 # Ed25519 public key derivation (RFC 8032, section 5.1.5), so the seed in the runtime
 # secret can be checked against the pinned public key without third-party modules.
@@ -159,6 +163,51 @@ def check_api_secret(secret):
         raise ValueError('APPS_ALLOWED_ORIGINS must include ' + STORE_PUBLIC_URL + ': the store sends that Origin '
                          'with every visitor write.')
     return check_signing_keys(secret)
+
+
+def check_worker_routes(secret):
+    """Validate optional gateway routes before host changes, without logging credentials.
+
+    Keep this dependency-free preflight in step with runner.server.worker_config;
+    the runner's PyYAML environment is not installed yet. A parity test covers both.
+    The worker secret is authoritative: an explicit empty object removes routes.
+    """
+    raw = secret.get('APPS_RUNNER_WORKERS')
+    if raw is None:
+        return None
+    try:
+        routes = json.loads(raw)
+    except (TypeError, ValueError):
+        raise ValueError('APPS_RUNNER_WORKERS must contain valid JSON.') from None
+    if not isinstance(routes, dict) or len(routes) > len(RUNNER_TARGETS):
+        raise ValueError('APPS_RUNNER_WORKERS must be an object keyed by supported target.')
+    result = {}
+    for target, spec in routes.items():
+        if target not in RUNNER_TARGETS or not isinstance(spec, dict) or set(spec) != {'url', 'token'}:
+            raise ValueError('Each worker needs a supported target and exactly url/token fields.')
+        token, raw_url = spec['token'], spec['url']
+        if not isinstance(token, str) or len(token) < 32 or not token.isascii() or any(c.isspace() for c in token):
+            raise ValueError('Worker credentials must contain at least 32 ASCII non-space characters.')
+        if not isinstance(raw_url, str):
+            raise ValueError('Worker URL must be a string.')
+        try:
+            url = urllib.parse.urlsplit(raw_url)
+            local = url.hostname == 'localhost'
+            try:
+                local = local or ipaddress.ip_address(url.hostname).is_loopback
+            except ValueError:
+                pass
+            if (url.scheme not in ('http', 'https') or not url.hostname or
+                    url.username or url.password or url.query or url.fragment or
+                    url.path not in ('', '/', '/validate') or
+                    url.scheme == 'http' and not local):
+                raise ValueError()
+            url.port  # Validate malformed or out-of-range ports before installing.
+        except ValueError:
+            raise ValueError('Workers require HTTPS, or literal loopback HTTP, without URL credentials, '
+                             'queries or fragments; only /validate is allowed and the port must be valid.') from None
+        result[target] = {'url': raw_url.rstrip('/'), 'token': token}
+    return json.dumps(result, separators=(',', ':'))
 
 
 def run(args, **kwargs):
@@ -597,6 +646,7 @@ def main():
         raise ValueError('Production runner token must contain at least 32 ASCII non-space characters.')
     # Includes APPS_SIGNING_KEYS: the API refuses to start without it, so fail before any change.
     active_key = check_api_secret(secret) if args.role == 'api' else None
+    worker_routes = check_worker_routes(secret) if args.role == 'worker' else None
     release = prepare_release(pathlib.Path(args.archive), args.sha256, args.revision)
     directory(ETC / 'silicon-apps', 'root', 0o700)
     files = {}
@@ -638,6 +688,8 @@ def main():
         images = {target: image for target, (_, image) in WORKER_IMAGES.items()}
         env = {'APPS_RUNNER_TOKEN': token, 'APPS_RUNNER_HOST': '0.0.0.0', 'APPS_RUNNER_PORT': '4312',
                'TMPDIR': str(STATE / name / 'jobs'), 'APPS_RUNNER_IMAGES': json.dumps(images, separators=(',', ':'))}
+        if worker_routes is not None:
+            env['APPS_RUNNER_WORKERS'] = worker_routes
         unit = '''[Unit]\nDescription=Silicon Apps isolated Linux validator\nAfter=network-online.target docker.service BINFMT.service\nRequires=docker.service BINFMT.service\n[Service]\nUser=silicon-apps-runner\nGroup=silicon-apps-runner\nSupplementaryGroups=docker\nWorkingDirectory=/opt/silicon-apps/current\nEnvironmentFile=/etc/silicon-apps/worker.env\nExecStart=VENVPYTHON /opt/silicon-apps/current/runner/server.py\nRestart=on-failure\nRestartSec=3\nUMask=0077\nNoNewPrivileges=true\nProtectHome=true\nProtectSystem=strict\nReadWritePaths=/var/lib/silicon-apps-runner\n[Install]\nWantedBy=multi-user.target\n'''.replace('VENVPYTHON', str(venv / 'bin/python')).replace('BINFMT', BINFMT_SERVICE)
         service = RUNNER_SERVICE
         services = [service, BINFMT_SERVICE]

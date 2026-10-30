@@ -109,7 +109,7 @@ An app can switch between public and private at any time.
 
 ## 3) Packages
 
-Every release is a CLI. The author uploads a package for every target they support. Every target is optional, but there must be at least one, and the more the better:
+Every release is a CLI. The author uploads a package for every target they support. Every new development release and production promotion must include Linux Intel/AMD 64-bit (`linux-x86_64`), Windows Intel/AMD 64-bit (`windows-x86_64`), and macOS Apple Silicon (`macos-aarch64`). Other targets are optional. Packages can be uploaded one at a time; all three required targets must be included in the same release. Publishing checks the latest non-withdrawn release on each existing channel. Existing releases remain installable:
 
 | OS      | Architecture                 | Package target    |
 | ------- | ---------------------------- | ----------------- |

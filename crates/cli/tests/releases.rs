@@ -90,8 +90,7 @@ async fn runner() -> String {
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     url
 }
-fn pack(dir: &Path, version: &str, script: &str) -> std::path::PathBuf {
-    let target = silicon_apps_client::package::current_target().unwrap();
+fn pack(dir: &Path, version: &str, script: &str, target: &str) -> std::path::PathBuf {
     let source = dir.join(format!("source-{version}"));
     fs::create_dir_all(&source).unwrap();
     fs::write(
@@ -164,33 +163,37 @@ async fn authors_sign_and_withdraw_and_installers_verify_in_ci_mode() {
         ("0.1.0", "#!/bin/sh\nexit 0\n"),
         ("0.2.0", "#!/bin/sh\necho second\n"),
     ] {
-        let file = pack(work.path(), version, script);
-        let (package, _) = run_ok(
-            &mut author(&[
-                "upload",
-                "ring",
-                "--target",
-                target,
-                file.to_str().unwrap(),
-                "--sign-key",
-                &key_id,
-            ]),
-            &[],
-        )
-        .await;
-        assert_eq!(package["author_signature"]["key_id"], key_id.as_str());
-        let (release, _) = run_ok(
-            &mut author(&[
-                "release",
-                "ring",
-                "--version",
-                version,
-                "--package",
-                package["id"].as_str().unwrap(),
-            ]),
-            &[],
-        )
-        .await;
+        let mut package_ids = vec![];
+        let mut targets = vec![target];
+        targets.extend(
+            silicon_apps_client::package::REQUIRED_RELEASE_TARGETS
+                .into_iter()
+                .filter(|t| *t != target),
+        );
+        for package_target in targets {
+            let file = pack(work.path(), version, script, package_target);
+            let (package, _) = run_ok(
+                &mut author(&[
+                    "upload",
+                    "--confirm-platform-checks",
+                    "ring",
+                    "--target",
+                    package_target,
+                    file.to_str().unwrap(),
+                    "--sign-key",
+                    &key_id,
+                ]),
+                &[],
+            )
+            .await;
+            assert_eq!(package["author_signature"]["key_id"], key_id.as_str());
+            package_ids.push(package["id"].as_str().unwrap().to_owned());
+        }
+        let mut release_args = vec!["release", "ring", "--version", version];
+        for id in &package_ids {
+            release_args.extend(["--package", id.as_str()]);
+        }
+        let (release, _) = run_ok(&mut author(&release_args), &[]).await;
         assert_eq!(release["signed_by_author"], true);
         let prod_version = if version == "0.1.0" { "1.0.0" } else { "1.1.0" };
         let (promoted, _) = run_ok(
@@ -214,10 +217,11 @@ async fn authors_sign_and_withdraw_and_installers_verify_in_ci_mode() {
     // A key that is not registered is refused, with a structured error.
     let stray = work.path().join("stray.key");
     fs::write(&stray, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=\n").unwrap();
-    let file = pack(work.path(), "0.3.0", "#!/bin/sh\nexit 0\n");
+    let file = pack(work.path(), "0.3.0", "#!/bin/sh\nexit 0\n", target);
     let error = run_err(
         &mut author(&[
             "upload",
+            "--confirm-platform-checks",
             "ring",
             "--target",
             target,
@@ -300,6 +304,7 @@ async fn authors_sign_and_withdraw_and_installers_verify_in_ci_mode() {
     let error = run_err(
         &mut author(&[
             "upload",
+            "--confirm-platform-checks",
             "ring",
             "--target",
             target,

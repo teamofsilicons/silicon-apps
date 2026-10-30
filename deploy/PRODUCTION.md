@@ -106,8 +106,34 @@ The API secret requires `APPS_ACCOUNTS_APP_SECRET`,
 allowed origins (`APPS_ALLOWED_ORIGINS` must include
 `https://apps.teamofsilicons.com`, the Origin the store sends with every visitor
 write) and `APPS_SIGNING_KEYS`. Its data directory is `/var/lib/silicon-apps`.
-The worker secret contains only its runner token. Mail defaults to the official
-Accounts integration. The store needs no secret.
+The worker secret requires `APPS_RUNNER_TOKEN`. A Linux worker that also acts as
+a gateway may include `APPS_RUNNER_WORKERS`, a single-line JSON object mapping
+supported targets to exactly `url` and `token` fields. Each downstream token must
+contain at least 32 ASCII characters without spaces. Remote URLs require verified
+HTTPS; plain HTTP is limited to loopback. URL credentials, queries, fragments,
+arbitrary paths, invalid ports and unsupported target names are rejected before
+release preparation or host changes. See `deploy/runner-gateway.env.example`.
+
+The installer carries these validated routes from the worker secret into
+root-readable `worker.env`, alongside all four pinned Linux images. Keep the
+routes in the secret: manual edits to `worker.env` are replaced on installation;
+omitting the key or setting it to `{}` removes downstream routes. A failed
+cutover restores the previous routes, credentials and environment-file mode.
+Routes do not enable API targets or prove worker execution; verify each native
+worker before changing `APPS_RUNNER_TARGETS`.
+
+For workers using a private certificate authority, install that CA certificate in
+the gateway host's system trust store before configuring the route. On the
+Amazon Linux gateway, place the CA certificate in
+`/etc/pki/ca-trust/source/anchors/` and run `update-ca-trust extract`. The worker
+certificate must match the route's hostname or IP address in its subject
+alternative names. The gateway uses Python's verified default TLS context;
+there is no insecure verification option or per-route trust override. Keep
+native worker ingress limited to the gateway and use separate downstream bearer
+tokens. The CA certificate is public trust material; private keys stay on their
+respective worker hosts.
+
+Mail defaults to the official Accounts integration. The store needs no secret.
 
 Silicon Apps records no telemetry. The API ignores the retired `APPS_TELEMETRY`,
 `APPS_TELEMETRY_*`, `SPACE_STATION_URL` and `SPACE_STATION_HOME` keys and names
@@ -186,8 +212,8 @@ unavailable" answer instead of ARM packages failing validation.
 
 On the worker host the installer, in order:
 
-1. validates the runner token, extracts and verifies the archive, and prepares
-   the revision's Python environment, as before;
+1. validates the runner token and optional downstream gateway routes, extracts
+   and verifies the archive, and prepares the revision's Python environment;
 2. pulls the four pinned images and the binfmt image, each with `--platform`;
 3. registers `qemu-aarch64` and `qemu-arm` by running the binfmt image once,
    touching only those two entries, then requires both to be enabled with the
@@ -198,7 +224,8 @@ On the worker host the installer, in order:
    `uname -m` (`x86_64`; `i686` or `x86_64`; `aarch64`; `armv7l` or `armv8l`)
    and word size (64, 32, 64, 32 bits). Any failure names the target, its exit
    code and error, and stops the install before any file or service changes;
-5. writes `worker.env` with all four images in `APPS_RUNNER_IMAGES`, the worker
+5. writes `worker.env` with all four images in `APPS_RUNNER_IMAGES` and the
+   secret's optional `APPS_RUNNER_WORKERS` routes, the worker
    and binfmt units and `/etc/silicon-apps/worker-image.json` (the four images,
    the index and the emulator image), switches `current`, enables and restarts
    `silicon-apps-binfmt` (proving the boot unit and registering from the pinned

@@ -1,6 +1,6 @@
 # Operate Silicon Apps
 
-The repository provides application code and local development tooling. A deployment still needs Accounts registration and the corresponding Accounts server integration, persistent storage, HTTPS for both websites, authenticated isolated target workers and mail delivery. The example configuration does not provision those services.
+The repository provides application code and local development tooling. A deployment still needs Accounts registration and the corresponding Accounts server integration, persistent storage, HTTPS for both websites, authenticated isolated Linux workers and mail delivery. The example configuration does not provision those services.
 
 ## Start the full stack
 
@@ -8,7 +8,7 @@ The repository provides application code and local development tooling. A deploy
 2. Run Silicon Accounts using that service’s own deployment instructions, database migrations, and mail configuration. Its server must include the registry export/sync, accepted-author authorization, private Apps mail bridge, and webhook configuration methods used by this Apps version.
 3. Register the `apps` application and callbacks in Accounts, then copy `deploy/local.env.example` to `.env` and set the Accounts URL, app secret, and internal service token. Use a separate local Accounts environment when developing locally.
 4. Set `APPS_PUBLIC_URL=http://127.0.0.1:4311` and allow that same origin. The browser enters through Vite on 4311; the Rust API listens on 4310. For browser sign-in, register `http://127.0.0.1:4311/v1/auth/callback` in the local Accounts app.
-5. Configure an isolated runner and a random runner token if package uploads are needed. Set `APPS_RUNNER_TARGETS` only to targets this worker or gateway can execute. On an Apple Silicon Mac, the bundled native target is `macos-aarch64`; an Intel Mac has `macos-x86_64`.
+5. Configure an isolated runner and a random runner token if Linux package uploads are needed. Windows and macOS uploads require explicit uploader confirmation of the three discovery commands, via `--confirm-platform-checks` or `X-Apps-Platform-Confirmed: true`; Apps inspects these archives without executing them. Set `APPS_RUNNER_TARGETS` only to targets this worker or gateway can execute. On an Apple Silicon Mac, the bundled native target is `macos-aarch64`; an Intel Mac has `macos-x86_64`.
 6. Run `bash scripts/dev.sh`. It builds the workspace, installs frontend dependencies if needed, starts the API and frontend, and starts the Python runner when a runner token exists. Logs go to `.dev/logs/`. It stops its child processes when interrupted.
 7. Open `/store` on port 4311. Run the common frontend in `silicon-accounts/developer` for authoring, setting its `APPS_API_URL` to this API and the store's `VITE_DEVELOPERS_URL` to that frontend. Sign in through Accounts, create a draft, upload a real package, create a development release, promote it, and publish. Empty catalog data is expected before authors publish.
 
@@ -213,7 +213,7 @@ A worker receives `app_id`, `target`, `package_sha256`, `package_base64` and `ma
 }
 ```
 
-The example omits the other two entries for brevity; every real response must include `accounts --json` and `login status --json`. The Apps API independently checks the result, requires the matching `app_id`, and expects `authenticated:false` in the clean signed-out validation environment. It persists exact command output and failed validation history. Missing or unavailable workers fail uploads instead of accepting untested packages. Installation scripts are not executed during upload validation.
+The example omits the other two entries for brevity; every real response must include `accounts --json` and `login status --json`. The Apps API independently checks the result, requires the matching `app_id`, and expects `authenticated:false` in the clean signed-out validation environment. It persists exact command output and failed validation history. Missing or unavailable workers fail Linux uploads. Windows and macOS uploads instead require an explicit uploader confirmation, recorded with the author identity and time; their command records have `source: uploader_confirmation`, `execution: not_run` and a null exit code. Installation scripts are not executed during upload validation.
 
 The package library permits at most 512 MiB compressed and 1 GiB expanded archives. The bundled runner is stricter: 128 MiB compressed, 512 MiB expanded and 20,000 entries. The effective upload limit is the smallest configured proxy/API/worker limit. Media uploads accept PNG, JPEG, WebP, GIF, MP4 or WebM up to 100 MiB; new SVG uploads are rejected. Existing Accounts inline logos are handled by the migration path.
 
@@ -285,7 +285,7 @@ Use the version declared by the CLI package; its patch version may differ from t
 
 `.github/workflows/package-artifacts.yml` is manually triggered and builds all nine supported target archives using [GitHub's hosted runner labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Each archive is checked on a native or compatible host; Linux ARMv7 uses QEMU. Evidence records exact archive hashes, source revisions, arguments, exit codes and complete command output. The workflow can reverify existing bytes without rebuilding them. It does not upload to the store, promote releases, publish crates or create GitHub releases. CI artifact retention is not a permanent distribution channel; publish the reviewed archives and their evidence as immutable release assets.
 
-To publish in the Apps catalog, verify the package on its actual isolated target runner, then upload to the `silicon-apps` app, create a development release, test fresh install/update/uninstall and service behavior, promote it, and verify public resolution/download checksums. Only after artifacts are published at their real distribution URLs should bootstrap installers be advertised as a working network install. Their local-archive modes can be used before public artifact hosting exists.
+To publish in the Apps catalog, check the three discovery commands on the target platform, then upload (Linux runs in the server runner; Windows and macOS require `--confirm-platform-checks`) to the `silicon-apps` app, create a development release, test fresh install/update/uninstall and service behavior, promote it, and verify public resolution/download checksums. Only after artifacts are published at their real distribution URLs should bootstrap installers be advertised as a working network install. Their local-archive modes can be used before public artifact hosting exists.
 
 Our own `silicon-apps` and `silicon-accounts` releases may be deployed from the completed nine-target CI execution evidence with the [operator publication helper](../deploy/README.md#first-party-native-releases). This does not enable additional public upload workers.
 

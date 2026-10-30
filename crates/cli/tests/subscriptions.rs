@@ -122,8 +122,48 @@ async fn cli_subscribes_follows_events_and_negotiates_capabilities() {
         ),
         (
             "POST",
+            "apps/demo-app/packages/windows-x86_64",
+            json!({}),
+            Prepared {
+                package: Some(Package {
+                    id: "pkg-windows-x86_64".into(),
+                    target: "windows-x86_64".into(),
+                    sha256: hash(bytes),
+                    size: bytes.len() as u64,
+                    command: "demo-app".into(),
+                    validation: vec![],
+                    created_at: now(),
+                    install_script: None,
+                    inspected: true,
+                    author_signature: None,
+                }),
+                ..Default::default()
+            },
+        ),
+        (
+            "POST",
+            "apps/demo-app/packages/macos-aarch64",
+            json!({}),
+            Prepared {
+                package: Some(Package {
+                    id: "pkg-macos-aarch64".into(),
+                    target: "macos-aarch64".into(),
+                    sha256: hash(bytes),
+                    size: bytes.len() as u64,
+                    command: "demo-app".into(),
+                    validation: vec![],
+                    created_at: now(),
+                    install_script: None,
+                    inspected: true,
+                    author_signature: None,
+                }),
+                ..Default::default()
+            },
+        ),
+        (
+            "POST",
             "apps/demo-app/releases",
-            json!({"version":"0.1.0","package_ids":["pkg-1"]}),
+            json!({"version":"0.1.0","package_ids":["pkg-1", "pkg-windows-x86_64", "pkg-macos-aarch64"]}),
             Prepared::default(),
         ),
         (

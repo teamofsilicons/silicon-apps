@@ -71,6 +71,15 @@ impl AppState {
                 )?;
             }
         }
+        if !store.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name='refresh_key')",
+            [],
+            |r| r.get::<_, bool>(0),
+        )? {
+            store
+                .connection
+                .execute_batch("ALTER TABLE sessions ADD COLUMN refresh_key TEXT")?;
+        }
         store.migrate_silicon_apps_id()?;
         let signer = Arc::new(signing::Keyring::load(&config)?);
         signer.record(&store.connection)?;
@@ -419,17 +428,28 @@ async fn dispatch(
     } else {
         None
     };
-    let fingerprint = match &author_signature {
-        Some(a) => format!(
-            "{}:{}:{}:{}:{}",
-            method.as_str(),
-            path,
-            digest,
-            a.key_id,
-            a.signature
-        ),
-        None => format!("{}:{}:{}", method.as_str(), path, digest),
+    let platform_confirmed = if upload {
+        match headers.get("X-Apps-Platform-Confirmed") {
+            None => false,
+            Some(value) if value == "true" => true,
+            Some(_) => {
+                return Err(ApiError::bad(
+                    "X-Apps-Platform-Confirmed must be true when confirming platform checks.",
+                ));
+            }
+        }
+    } else {
+        false
     };
+    // The early replay lookup and the committed mutation must use the same digest.
+    let mut mutation_digest = match &author_signature {
+        Some(a) => format!("{}:{}:{}", digest, a.key_id, a.signature),
+        None => digest.clone(),
+    };
+    if platform_confirmed {
+        mutation_digest.push_str(":platform-confirmed");
+    }
+    let fingerprint = format!("{}:{}:{}", method.as_str(), path, mutation_digest);
     s.store.lock().unwrap().expire_secret_replays()?;
     s.store
         .lock()
@@ -558,8 +578,17 @@ async fn dispatch(
         ));
     }
     if upload {
-        match integrations::validate_package(&s, p[1], p[3], actor, &raw, key, author_signature)
-            .await
+        match integrations::validate_package(
+            &s,
+            p[1],
+            p[3],
+            actor,
+            &raw,
+            key,
+            author_signature,
+            platform_confirmed,
+        )
+        .await
         {
             Ok(package) => prepared.package = Some(package),
             Err(error) => {
@@ -651,7 +680,7 @@ async fn dispatch(
         key,
         who: who.as_ref(),
         body: &body,
-        digest: &digest,
+        digest: &mutation_digest,
         prepared,
     })?;
     Ok((

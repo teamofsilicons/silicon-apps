@@ -137,7 +137,7 @@ pub fn mutate(
         .0
 }
 
-/// A published app by `author` with a validated package and a development
+/// A published app by `author` with the required validated packages and a development
 /// release, without a runner. Returns (package_id, development release id).
 pub fn seed_app(
     state: &Shared,
@@ -168,44 +168,54 @@ pub fn seed_app(
         json!({"tags":tags}),
         Prepared::default(),
     );
-    let bytes = format!("package for {app_id} {target}");
-    let package = Package {
-        id: format!("{app_id}-{target}-pkg"),
-        target: target.into(),
-        sha256: hash(bytes.as_bytes()),
-        size: bytes.len() as u64,
-        command: app_id.into(),
-        validation: vec![],
-        created_at: now(),
-        install_script: None,
-        inspected: true,
-        author_signature: None,
-    };
-    std::fs::write(
-        state.config.data_dir.join("packages").join(&package.sha256),
-        bytes,
-    )
-    .unwrap();
-    let package_id = package.id.clone();
-    mutate(
-        state,
-        author,
-        "POST",
-        &format!("apps/{app_id}/packages/{target}"),
-        &format!("{app_id}-package"),
-        json!({}),
-        Prepared {
-            package: Some(package),
-            ..Default::default()
-        },
+    let package_id = format!("{app_id}-{target}-pkg");
+    let mut package_ids = vec![];
+    let mut targets = vec![target];
+    targets.extend(
+        REQUIRED_RELEASE_TARGETS
+            .into_iter()
+            .filter(|t| *t != target),
     );
+    for target in targets {
+        let bytes = format!("package for {app_id} {target}");
+        let package = Package {
+            id: format!("{app_id}-{target}-pkg"),
+            target: target.into(),
+            sha256: hash(bytes.as_bytes()),
+            size: bytes.len() as u64,
+            command: app_id.into(),
+            validation: vec![],
+            created_at: now(),
+            install_script: None,
+            inspected: true,
+            author_signature: None,
+        };
+        std::fs::write(
+            state.config.data_dir.join("packages").join(&package.sha256),
+            bytes,
+        )
+        .unwrap();
+        package_ids.push(package.id.clone());
+        mutate(
+            state,
+            author,
+            "POST",
+            &format!("apps/{app_id}/packages/{target}"),
+            &format!("{app_id}-package-{target}"),
+            json!({}),
+            Prepared {
+                package: Some(package),
+                ..Default::default()
+            },
+        );
+    }
     let release = mutate(
         state,
         author,
         "POST",
         &format!("apps/{app_id}/releases"),
         &format!("{app_id}-release"),
-        json!({"version":"0.1.0","package_ids":[package_id]}),
+        json!({"version":"0.1.0","package_ids":package_ids}),
         Prepared::default(),
     );
     if publish {

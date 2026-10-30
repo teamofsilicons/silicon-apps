@@ -62,7 +62,7 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     assert_eq!(capabilities["requirements"]["satisfied"], true);
     // A requirement the server cannot meet is a structured 422.
     let missing = alice
-        .capabilities(&["target:windows-aarch64"])
+        .capabilities(&["target:linux-x86_64"])
         .await
         .unwrap_err();
     let missing = missing
@@ -72,7 +72,7 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     assert_eq!(missing.code, "capabilities_missing");
     assert_eq!(
         missing.details["missing"][0]["requirement"],
-        "target:windows-aarch64"
+        "target:linux-x86_64"
     );
 
     // A published app with one development release.
@@ -95,42 +95,46 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     };
     let bytes = b"client package";
     std::fs::write(dir.path().join("packages").join(hash(bytes)), bytes).unwrap();
-    let package = Package {
-        id: "pkg-1".into(),
-        target: "linux-x86_64".into(),
-        sha256: hash(bytes),
-        size: bytes.len() as u64,
-        command: "demo-app".into(),
-        validation: vec![],
-        created_at: now(),
-        install_script: None,
-        inspected: true,
-        author_signature: None,
-    };
-    {
-        let mut store = state.store.lock().unwrap();
-        let body = json!({});
-        store
-            .mutate(Mutation {
-                method: "POST",
-                path: "apps/demo-app/packages/linux-x86_64",
-                key: "client-package",
-                who: Some(&who),
-                body: &body,
-                digest: &hash(b"{}"),
-                prepared: Prepared {
-                    package: Some(package),
-                    ..Default::default()
-                },
-            })
-            .unwrap();
+    let mut package_ids = vec![];
+    for target in silicon_apps_server::model::REQUIRED_RELEASE_TARGETS {
+        package_ids.push(format!("pkg-{target}"));
+        let package = Package {
+            id: format!("pkg-{target}"),
+            target: target.into(),
+            sha256: hash(bytes),
+            size: bytes.len() as u64,
+            command: "demo-app".into(),
+            validation: vec![],
+            created_at: now(),
+            install_script: None,
+            inspected: true,
+            author_signature: None,
+        };
+        {
+            let mut store = state.store.lock().unwrap();
+            let body = json!({});
+            store
+                .mutate(Mutation {
+                    method: "POST",
+                    path: &format!("apps/demo-app/packages/{target}"),
+                    key: &format!("client-package-{target}"),
+                    who: Some(&who),
+                    body: &body,
+                    digest: &hash(b"{}"),
+                    prepared: Prepared {
+                        package: Some(package),
+                        ..Default::default()
+                    },
+                })
+                .unwrap();
+        }
     }
     let release = alice
         .action(
             "POST",
             "demo-app",
             &["releases"],
-            Some(json!({"version":"0.1.0","package_ids":["pkg-1"]})),
+            Some(json!({"version":"0.1.0","package_ids":package_ids})),
             None,
         )
         .await

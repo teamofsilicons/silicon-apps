@@ -11,7 +11,7 @@ const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TELEMETRY_REMOVED: &str =
     "Telemetry was removed from Silicon Apps; there is nothing to turn on or off.";
 
-const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login --slt TOKEN\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Only isolated server runners\nexecute upload validation. Bundled install scripts run automatically during installation and updates.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
+const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login --slt TOKEN\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target linux-x86_64 ring.tar.gz\n  silicon-apps upload ring --target windows-x86_64 --confirm-platform-checks ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 --confirm-platform-checks ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package LINUX_PACKAGE_ID --package WINDOWS_PACKAGE_ID --package MACOS_PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Linux validation runs in isolated server runners. Windows and macOS uploads require\n--confirm-platform-checks after checking the required commands on that platform. Bundled install scripts run automatically during installation and updates.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
 
 #[derive(Parser)]
 #[command(name="silicon-apps",version,about="Create, publish, discover and install Silicon Apps",long_about=HELP,subcommand_required=true,arg_required_else_help=true)]
@@ -111,7 +111,7 @@ enum Command {
         #[arg(short, long)]
         output: PathBuf,
     },
-    /// Upload for isolated target validation of --help, accounts and login status.
+    /// Upload a package: Linux is server-validated; other platforms need your confirmation.
     /// Add --sign-key to sign the package with your author key as well.
     Upload {
         app: String,
@@ -121,10 +121,15 @@ enum Command {
         /// Sign with an author key: its ID from `silicon-apps keys list`, or a key file's path.
         #[arg(long)]
         sign_key: Option<String>,
+        /// Confirm --help, accounts --json and login status --json work on this target.
+        /// Required for Windows and macOS; Linux still runs server-side checks.
+        #[arg(long)]
+        confirm_platform_checks: bool,
     },
     /// List uploaded packages and exact validation results.
     Packages { app: String },
     /// Create an immutable DEVELOPMENT release. Next: promote and publish.
+    /// Include --package for linux-x86_64, windows-x86_64 and macos-aarch64.
     Release {
         app: String,
         #[arg(long)]
@@ -819,18 +824,24 @@ async fn execute(cli: &Cli) -> Result<Value> {
             target,
             file,
             sign_key,
+            confirm_platform_checks,
         } => {
+            ensure!(
+                target.starts_with("linux-") || *confirm_platform_checks,
+                "Check --help, accounts --json and login status --json on {target}, then pass --confirm-platform-checks to confirm they work."
+            );
             let author = sign_key
                 .as_deref()
                 .map(|id| apps::signing::AuthorKey::load(&state, id))
                 .transpose()?;
             client
-                .upload_signed(
+                .upload_confirmed(
                     app,
                     target,
                     std::fs::read(file)
                         .with_context(|| format!("cannot read {}", file.display()))?,
                     author.as_ref(),
+                    *confirm_platform_checks,
                     key,
                 )
                 .await?

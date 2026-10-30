@@ -1233,9 +1233,6 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     "{channel} version {version} already exists."
                 )));
             }
-            if package_ids.is_empty() {
-                return Err(ApiError::bad("At least one validated package is required."));
-            }
             let mut targets = std::collections::BTreeSet::new();
             for id in &package_ids {
                 let pkg = app.packages.iter().find(|p| &p.id == id).ok_or_else(|| {
@@ -1248,6 +1245,21 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                         "A release can contain only one package for each target.",
                     ));
                 }
+            }
+            let missing = missing_required_targets(targets.iter().map(|target| target.as_str()));
+            if !missing.is_empty() {
+                let mut error = ApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "required_targets_missing",
+                    format!(
+                        "Release is missing required targets: {}.",
+                        missing.join(", ")
+                    ),
+                    "Upload validated packages for linux-x86_64, windows-x86_64 and macos-aarch64, then include all three in a new development release.",
+                );
+                error.details =
+                    json!({"required_targets":REQUIRED_RELEASE_TARGETS,"missing_targets":missing});
+                return Err(error);
             }
             let release = Release {
                 id: new_id(),

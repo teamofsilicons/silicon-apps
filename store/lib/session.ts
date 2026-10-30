@@ -5,7 +5,7 @@
  */
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { api, SESSION_COOKIE } from "./api";
+import { api, ApiError, SESSION_COOKIE } from "./api";
 import type { Account, Session } from "./types";
 
 /** The signed-in Carbon or Silicon for this request, or null. One API call per request at most. */
@@ -13,10 +13,13 @@ export const getAccount = cache(async (): Promise<Account | null> => {
   const jar = await cookies();
   if (!jar.get(SESSION_COOKIE)?.value) return null;
   try {
-    const session = await api<Session>("/v1/session", { timeoutMs: 5_000 });
+    const session = await api<Session>("/v1/session", { timeoutMs: 25_000 });
     return session.authenticated ? session.account : null;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return null;
+    // A timeout or service failure is not evidence that this browser signed out.
+    // Let the page's retry boundary show the failure while the cookie remains intact.
+    throw error;
   }
 });
 
