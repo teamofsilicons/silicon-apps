@@ -71,6 +71,15 @@ impl AppState {
                 )?;
             }
         }
+        if !store.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name='refresh_key')",
+            [],
+            |r| r.get::<_, bool>(0),
+        )? {
+            store
+                .connection
+                .execute_batch("ALTER TABLE sessions ADD COLUMN refresh_key TEXT")?;
+        }
         store.migrate_silicon_apps_id()?;
         let signer = Arc::new(signing::Keyring::load(&config)?);
         signer.record(&store.connection)?;

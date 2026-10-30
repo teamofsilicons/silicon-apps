@@ -1296,3 +1296,133 @@ async fn account_uuid_backfill_preserves_signed_private_catalog_and_denies_old_j
     assert!(migrated.history.iter().all(|e| e.actor_uuid == new));
     task.abort();
 }
+
+#[tokio::test]
+async fn browser_refresh_operation_survives_lost_reply_and_server_restart() {
+    use axum::{Form, http::HeaderMap, routing::post};
+    use std::sync::{Arc, Mutex};
+    let keys = Arc::new(Mutex::new(Vec::<String>::new()));
+    let observed = keys.clone();
+    let failing = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let fail = failing.clone();
+    let provider = Router::new().route("/v1/oauth/token", post(move |headers: HeaderMap, Form(form): Form<std::collections::HashMap<String, String>>| {
+        let observed = observed.clone();
+        let fail = fail.clone();
+        async move {
+            assert_eq!(form["refresh_token"], "sar_old");
+            let mut keys = observed.lock().unwrap();
+            keys.push(headers["idempotency-key"].to_str().unwrap().to_owned());
+            if fail.load(std::sync::atomic::Ordering::SeqCst) { return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":"temporarily_unavailable"}))); }
+            (StatusCode::OK, Json(json!({"access_token":"dev:alice:c:alice","refresh_token":"sar_next","expires_in":1800})))
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let issuer = format!("http://{}", listener.local_addr().unwrap());
+    let task = tokio::spawn(async move { axum::serve(listener, provider).await.unwrap() });
+    let dir = tempfile::tempdir().unwrap();
+    let mut cfg = config(dir.path());
+    cfg.accounts_url = issuer;
+    cfg.accounts_app_secret = Some("sa_app_test_browser_refresh".into());
+    let state = AppState::new(cfg.clone()).unwrap();
+    state.store.lock().unwrap().connection.execute("INSERT INTO sessions(id,access_token,refresh_token,expires_at) VALUES('browser','expired','sar_old',0)", []).unwrap();
+    let first = router(state.clone())
+        .oneshot(
+            Request::builder()
+                .uri("/v1/session")
+                .header("Cookie", "apps_session=browser")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let saved: String = state
+        .store
+        .lock()
+        .unwrap()
+        .connection
+        .query_row(
+            "SELECT refresh_key FROM sessions WHERE id='browser'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(!saved.is_empty());
+    drop(state);
+    failing.store(false, std::sync::atomic::Ordering::SeqCst);
+    let restarted = AppState::new(cfg).unwrap();
+    let second = router(restarted.clone())
+        .oneshot(
+            Request::builder()
+                .uri("/v1/session")
+                .header("Cookie", "apps_session=browser")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::OK);
+    let bytes = second.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&bytes).unwrap()["authenticated"],
+        true
+    );
+    assert!(keys.lock().unwrap().len() >= 2);
+    assert!(keys.lock().unwrap().iter().all(|key| key == &saved));
+    let stored: (String, Option<String>) = restarted
+        .store
+        .lock()
+        .unwrap()
+        .connection
+        .query_row(
+            "SELECT refresh_token,refresh_key FROM sessions WHERE id='browser'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(stored, ("sar_next".into(), None));
+    task.abort();
+}
+
+#[tokio::test]
+async fn expired_recovery_is_saved_and_rotated_again_without_extending_access_expiry() {
+    use axum::{Form, http::HeaderMap, routing::post};
+    use std::sync::{Arc, Mutex};
+    let calls = Arc::new(Mutex::new(Vec::<(String, String)>::new()));
+    let observed = calls.clone();
+    let provider = Router::new().route("/v1/oauth/token", post(move |headers: HeaderMap, Form(form): Form<std::collections::HashMap<String, String>>| {
+        let observed = observed.clone();
+        async move {
+            let mut calls = observed.lock().unwrap();
+            calls.push((form["refresh_token"].clone(), headers["idempotency-key"].to_str().unwrap().to_owned()));
+            if calls.len() == 1 { return Json(json!({"access_token":"expired-recovery","refresh_token":"sar_middle","expires_in":1800,"access_token_expires_at":"2020-01-01T00:00:00Z"})); }
+            Json(json!({"access_token":"dev:alice:c:alice","refresh_token":"sar_final","expires_in":1800}))
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let issuer = format!("http://{}", listener.local_addr().unwrap());
+    let task = tokio::spawn(async move { axum::serve(listener, provider).await.unwrap() });
+    let dir = tempfile::tempdir().unwrap();
+    let mut cfg = config(dir.path());
+    cfg.accounts_url = issuer;
+    cfg.accounts_app_secret = Some("sa_app_test_browser_refresh".into());
+    let state = AppState::new(cfg).unwrap();
+    state.store.lock().unwrap().connection.execute("INSERT INTO sessions(id,access_token,refresh_token,expires_at) VALUES('browser','expired','sar_old',0)", []).unwrap();
+    let response = router(state.clone())
+        .oneshot(
+            Request::builder()
+                .uri("/v1/session")
+                .header("Cookie", "apps_session=browser")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let observed = calls.lock().unwrap();
+    assert_eq!(observed.len(), 2);
+    assert_eq!(observed[0].0, "sar_old");
+    assert_eq!(observed[1].0, "sar_middle");
+    assert_ne!(observed[0].1, observed[1].1);
+    task.abort();
+}
