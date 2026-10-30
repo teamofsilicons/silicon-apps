@@ -46,7 +46,8 @@ class ReleaseSessionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ReleaseSession("write", "macos-aarch64", self.sha, len(self.data), 7201)
 
-    def test_private_token_file_and_environment_without_command_line_secret(self):
+    @unittest.skipUnless(os.name == "posix", "Native Mac token files require POSIX permissions and O_NOFOLLOW")
+    def test_private_token_file_rejects_public_permissions_and_symlinks(self):
         token = "test-secret-" + "a" * 40
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "token"
@@ -60,7 +61,15 @@ class ReleaseSessionTests(unittest.TestCase):
             link.symlink_to(path)
             with self.assertRaises(OSError):
                 read_token(link, {})
+
+    def test_environment_token_without_command_line_secret(self):
+        token = "test-secret-" + "a" * 40
         self.assertEqual(read_token(None, {"APPS_RELEASE_SESSION_TOKEN": token}), token)
+        for invalid in ("", "a" * 31, "a" * 1025, "a" * 32 + " ", "a" * 32 + "\u00e9"):
+            with self.subTest(token=invalid), self.assertRaises(ValueError):
+                read_token(None, {"APPS_RELEASE_SESSION_TOKEN": invalid})
+        with self.assertRaises(ValueError):
+            read_token(None, {})
 
     def test_http_authentication_and_archive_gate_precede_validator(self):
         with server.RunnerHTTPServer(("127.0.0.1", 0), ReleaseHandler) as service:

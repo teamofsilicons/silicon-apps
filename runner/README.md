@@ -51,6 +51,13 @@ VM memory cap, so run this worker on a disposable dedicated machine with host-le
 Native macOS command execution and filesystem/network denial have been tested on the local
 Apple Silicon machine. Intel macOS needs its own matching worker before acceptance.
 
+`release_session.py` is a temporary loopback helper for an explicitly approved archive on
+the matching native Mac, with `sandbox-exec`; it is not a Windows worker. Its token-file
+option requires a regular file owned by the current user, mode `0600`, and refuses symlinks
+using POSIX `O_NOFOLLOW`. The file permission and symlink tests run on POSIX CI hosts;
+environment-token validation and the archive, lease and HTTP authorization checks run on
+every CI platform, including Windows.
+
 ## Linux Docker workers
 
 Set `APPS_RUNNER_IMAGES` to immutable image references, for example:
