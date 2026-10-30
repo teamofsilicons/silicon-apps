@@ -96,65 +96,75 @@ pub async fn bearer(s: &Shared, headers: &HeaderMap) -> Result<Option<String>> {
     let Some(id) = cookie(headers, "apps_session") else {
         return Ok(None);
     };
-    let row: Option<(String, Option<String>, i64)> = s
-        .store
-        .lock()
-        .unwrap()
-        .connection
-        .query_row(
-            "SELECT access_token,refresh_token,expires_at FROM sessions WHERE id=?1",
-            [&id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )
-        .optional()?;
-    let Some((access, refresh, expiry)) = row else {
-        return Ok(None);
-    };
-    if expiry > chrono::Utc::now().timestamp() + 30 {
-        return Ok(Some(access));
-    }
-    let Some(refresh) = refresh else {
-        return Ok(None);
-    };
     let secret = s.config.accounts_app_secret.as_deref().ok_or_else(|| {
         ApiError::unavailable("APPS_ACCOUNTS_APP_SECRET is required for browser sign-in.")
     })?;
-    // Serialize rotating refreshes so concurrent browser calls cannot replay a retired token.
     let _guard = s.mutation_gate.lock().await;
-    let current: Option<(String, i64)> = s
-        .store
-        .lock()
-        .unwrap()
-        .connection
-        .query_row(
-            "SELECT access_token,expires_at FROM sessions WHERE id=?1",
-            [&id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .optional()?;
-    if let Some((current, exp)) = current
-        && exp > chrono::Utc::now().timestamp() + 30
-    {
-        return Ok(Some(current));
+    for _ in 0..8 {
+        // Re-read ALL fields after the lock: the old refresh token may already have rotated.
+        let row: Option<(String, Option<String>, i64, Option<String>)> = s.store.lock().unwrap().connection.query_row(
+            "SELECT access_token,refresh_token,expires_at,refresh_key FROM sessions WHERE id=?1", [&id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        ).optional()?;
+        let Some((access, refresh, expiry, operation)) = row else {
+            return Ok(None);
+        };
+        if operation.is_none() && expiry > chrono::Utc::now().timestamp() + 30 {
+            return Ok(Some(access));
+        }
+        let Some(refresh) = refresh else {
+            return Ok(None);
+        };
+        let Some(operation) = operation else {
+            s.store.lock().unwrap().connection.execute(
+                "UPDATE sessions SET refresh_key=?1 WHERE id=?2 AND refresh_token=?3 AND refresh_key IS NULL",
+                params![uuid::Uuid::new_v4().to_string(), id, refresh],
+            )?;
+            continue;
+        };
+        let tokens = match s
+            .accounts
+            .as_app(APP_ID, secret)
+            .refresh_with_key(&refresh, &operation)
+            .await
+        {
+            Ok(tokens) => tokens,
+            Err(error) if error.code() == "invalid_grant" => {
+                s.store.lock().unwrap().connection.execute(
+                    "DELETE FROM sessions WHERE id=?1 AND refresh_token=?2 AND refresh_key=?3",
+                    params![id, refresh, operation],
+                )?;
+                return Ok(None);
+            }
+            // Conflicts, credential/config errors and network failures preserve the saved operation.
+            Err(_) => {
+                return Err(ApiError::unavailable(
+                    "Your sign-in could not be renewed. Retry shortly; the session is preserved.",
+                ));
+            }
+        };
+        let expires = tokens
+            .access_token_expires_at
+            .map(|t| t.unix_timestamp())
+            .unwrap_or_else(|| {
+                chrono::Utc::now()
+                    .timestamp()
+                    .saturating_add(i64::try_from(tokens.expires_in).unwrap_or(i64::MAX))
+            });
+        let successor = tokens.refresh_token.as_ref().ok_or_else(|| {
+            ApiError::unavailable("Accounts did not return the successor refresh token.")
+        })?;
+        // Never recreate a deleted sign-in or overwrite a newer rotation. Save expired recovered results too.
+        s.store.lock().unwrap().connection.execute(
+            "UPDATE sessions SET access_token=?1,refresh_token=?2,expires_at=?3,refresh_key=NULL WHERE id=?4 AND refresh_token=?5 AND refresh_key=?6",
+            params![tokens.access_token.expose(), successor.expose(), expires, id, refresh, operation],
+        )?;
     }
-    let tokens = s
-        .accounts
-        .as_app(APP_ID, secret)
-        .refresh(&refresh)
-        .await
-        .map_err(accounts_error)?;
-    let access = tokens.access_token.expose().to_owned();
-    s.store.lock().unwrap().connection.execute(
-        "UPDATE sessions SET access_token=?1,refresh_token=?2,expires_at=?3 WHERE id=?4",
-        params![
-            access,
-            tokens.refresh_token.as_ref().map(|r| r.expose()),
-            chrono::Utc::now().timestamp() + tokens.expires_in as i64,
-            id
-        ],
-    )?;
-    Ok(Some(access))
+    Err(ApiError::unavailable(
+        "Your sign-in is being renewed. Please retry shortly.",
+    ))
 }
+
 pub async fn identity(s: &Shared, token: Option<&str>) -> Result<Option<Identity>> {
     verified_identity(s, token, false).await
 }

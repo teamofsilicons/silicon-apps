@@ -19,6 +19,13 @@ pub struct TokenResponse {
     pub token_type: String,
     /// Seconds until the access token expires.
     pub expires_in: u64,
+    /// Original expiry is preserved by Accounts recovery.
+    #[serde(
+        default,
+        with = "crate::serde_util::rfc3339_ms::option",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_token_expires_at: Option<OffsetDateTime>,
     /// Rotating refresh token (`sar_…`), valid up to 900 days from the first sign-in.
     /// Every use returns a new one; presenting a used one revokes the whole family.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -60,6 +67,9 @@ impl TokenResponse {
     /// When the access token expires, counted from `issued_at` (use the time you
     /// received the response).
     pub fn access_expires_at(&self, issued_at: OffsetDateTime) -> OffsetDateTime {
+        if let Some(expiry) = self.access_token_expires_at {
+            return expiry;
+        }
         let seconds = i64::try_from(self.expires_in).unwrap_or(i64::MAX);
         issued_at.saturating_add(time::Duration::seconds(seconds))
     }
@@ -232,6 +242,13 @@ pub struct DeviceAuthorization {
     pub verification_uri_complete: Option<String>,
     /// Seconds until the codes expire (600).
     pub expires_in: u64,
+    /// Original expiry is preserved by Accounts recovery.
+    #[serde(
+        default,
+        with = "crate::serde_util::rfc3339_ms::option",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_token_expires_at: Option<OffsetDateTime>,
     /// Minimum seconds between polls (5).
     #[serde(default = "default_interval")]
     pub interval: u64,

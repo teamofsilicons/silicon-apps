@@ -209,6 +209,21 @@ impl<'a> AppClient<'a> {
         .await
     }
 
+    /// Retryable rotation. Persist a random key with the current refresh token before calling.
+    pub async fn refresh_with_key(&self, refresh_token: &str, key: &str) -> Result<TokenResponse> {
+        let request = Request::new(
+            Method::POST,
+            self.client.endpoint(&["v1", "oauth", "token"]),
+            self.credentials("Refreshing tokens")?,
+        )
+        .form(&[
+            ("grant_type", "refresh_token"),
+            ("refresh_token", refresh_token.trim()),
+        ])
+        .idempotency_key(Some(key))?;
+        self.client.execute(request).await?.json()
+    }
+
     /// Revokes the token family of an access or refresh token issued to this app (the
     /// account gets signed out of the app).
     pub async fn revoke(&self, token: &str) -> Result<()> {
