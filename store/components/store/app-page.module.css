@@ -93,6 +93,15 @@
 .moreBody p { margin: 0 0 6px; font-size: var(--text-sm); }
 
 .platforms { display: grid; gap: 4px; margin: 0; padding: 0; color: var(--foreground); font-size: .9375rem; list-style: none; }
+/* The three required platforms as marks; a greyed one explains itself on hover or focus, without script. */
+.platformLogos { position: relative; display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.platformLogo { --sq-r: 10px; --sq-fill: transparent; --sq-stroke: var(--border); display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--sq-stroke); color: var(--foreground); cursor: default; outline: none; }
+.platformLogo svg { width: 17px; height: 17px; fill: currentColor; }
+.platformLogo[data-supported="false"] { --sq-stroke: var(--border-subtle); color: var(--text-muted); opacity: .4; cursor: help; }
+.platformLogo:focus-visible { --sq-stroke: var(--accent); opacity: 1; }
+.platformTip { --sq-r: 10px; --sq-fill: var(--surface-raised); --sq-stroke: var(--border); position: absolute; top: calc(100% + 8px); left: 0; z-index: 5; display: none; width: min(28rem, 100%); padding: 10px 12px; border: 1px solid var(--sq-stroke); background: var(--sq-fill); box-shadow: var(--shadow-floating); color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.platformTip strong { color: var(--foreground); font-weight: 500; }
+.platformLogo:hover + .platformTip, .platformLogo:focus-visible + .platformTip, .platformLogo:focus + .platformTip { display: block; }
 
 .people { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .person { display: inline-flex; align-items: center; gap: 10px; color: var(--foreground); font-size: .9375rem; text-decoration: none; }

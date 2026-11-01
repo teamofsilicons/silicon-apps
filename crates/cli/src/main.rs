@@ -53,6 +53,7 @@ enum Command {
         mine: bool,
     },
     /// View an app's page: authors, packages, links, media, rating and installs.
+    /// unsupported_targets gives the authors' reason for each required target left out.
     /// --install-script prints the script a release runs on install and update, with its sha256.
     Show {
         /// An app ID, or 'app>dev', 'app@1.2.3' or 'app>dev@1.2.3' with --install-script.
@@ -129,7 +130,8 @@ enum Command {
     /// List uploaded packages and exact validation results.
     Packages { app: String },
     /// Create an immutable DEVELOPMENT release. Next: promote and publish.
-    /// Include --package for linux-x86_64, windows-x86_64 and macos-aarch64.
+    /// Include --package for linux-x86_64, windows-x86_64 and macos-aarch64, or leave
+    /// one out with --unsupported-file windows-x86_64=why-no-windows.txt.
     Release {
         app: String,
         #[arg(long)]
@@ -138,6 +140,13 @@ enum Command {
         packages: Vec<String>,
         #[arg(long, default_value = "")]
         notes: String,
+        /// Leave out a required target, with a reason of 200 to 1000 characters. Shown
+        /// publicly on the app page and in `silicon-apps show`. Repeatable.
+        #[arg(long = "unsupported", value_name = "TARGET=REASON")]
+        unsupported: Vec<String>,
+        /// Like --unsupported, with the reason read from a file. Repeatable.
+        #[arg(long = "unsupported-file", value_name = "TARGET=PATH")]
+        unsupported_files: Vec<String>,
     },
     /// List immutable release history, optionally restricted to a channel.
     Releases {
@@ -852,15 +861,37 @@ async fn execute(cli: &Cli) -> Result<Value> {
             version,
             packages,
             notes,
+            unsupported,
+            unsupported_files,
         } => {
+            let mut body = json!({"version":version,"package_ids":packages,"notes":notes});
+            let mut reasons = serde_json::Map::new();
+            for (pair, from_file) in unsupported
+                .iter()
+                .map(|p| (p, false))
+                .chain(unsupported_files.iter().map(|p| (p, true)))
+            {
+                let (target, value) = pair
+                    .split_once('=')
+                    .with_context(|| format!("`{pair}` must be TARGET=REASON or TARGET=PATH"))?;
+                let reason = if from_file {
+                    std::fs::read_to_string(value)
+                        .with_context(|| format!("cannot read {value}"))?
+                } else {
+                    value.to_owned()
+                };
+                ensure!(
+                    reasons
+                        .insert(target.to_owned(), json!(reason.trim()))
+                        .is_none(),
+                    "{target} has more than one reason"
+                );
+            }
+            if !reasons.is_empty() {
+                body["unsupported_targets"] = Value::Object(reasons);
+            }
             client
-                .action(
-                    "POST",
-                    app,
-                    &["releases"],
-                    Some(json!({"version":version,"package_ids":packages,"notes":notes})),
-                    key,
-                )
+                .action("POST", app, &["releases"], Some(body), key)
                 .await?
         }
         Command::Releases { app, channel } => {

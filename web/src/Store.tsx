@@ -19,6 +19,7 @@ import { useSession } from "./context";
 import { developerUrl } from "./portal";
 import type { Account, App, Review } from "./types";
 import { targetLabel } from "./types";
+import { PlatformLogos } from "./platforms";
 import {
   AppCard,
   AppLogo,
@@ -355,6 +356,7 @@ export function AppDetail() {
             </p>
           </Section>
           <Section title="Available on">
+            <PlatformLogos app={a} />
             <div className="stack compact">
               {a.targets.map((target) => (
                 <div className="row small" key={target}>

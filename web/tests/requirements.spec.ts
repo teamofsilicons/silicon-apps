@@ -188,3 +188,35 @@ test("store documentation links use the combined developer docs", async ({
       .getByRole("link", { name: "Docs", exact: true }),
   ).toHaveAttribute("href", "https://developers.teamofsilicons.com/docs/apps");
 });
+
+test("store greys out a required platform the authors left out and explains why on hover", async ({
+  page,
+}) => {
+  const reason =
+    "Ring routes calls through the PulseAudio and Core Audio servers, and Windows has no audio routing service that a command-line tool can use without a signed kernel driver. We will ship a Windows build when that changes.";
+  await mock(page, false, {
+    published: true,
+    is_author: false,
+    latest_production: { ...release, channel: "production", version: "1.0.0" },
+    targets: ["linux-x86_64", "macos-aarch64"],
+    unsupported_targets: { "windows-x86_64": reason },
+  });
+  await page.goto("/store/test-app");
+  const logos = page.getByRole("list", { name: "Required platforms" });
+  await expect(logos.getByLabel("macOS supported")).toBeVisible();
+  await expect(logos.getByLabel("Linux supported")).toBeVisible();
+  const windows = logos.getByLabel("Windows not supported");
+  await expect(windows).toHaveClass(/unsupported/);
+  const tooltip = logos.getByRole("tooltip", { includeHidden: true }).nth(0);
+  await expect(tooltip).toBeHidden();
+  await windows.hover();
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveText(`No Windows · x64 build. ${reason}`);
+  await page.mouse.move(0, 0);
+  await expect(tooltip).toBeHidden();
+  await windows.focus();
+  await expect(tooltip).toBeVisible();
+  await expect(windows).toHaveAccessibleDescription(
+    `No Windows · x64 build. ${reason}`,
+  );
+});

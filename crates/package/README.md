@@ -18,7 +18,7 @@ targets:
     # install_script: scripts/install.cmd
 ```
 
-Every new release and promotion requires `linux-x86_64`, `windows-x86_64`, and `macos-aarch64`. Individual package archives may contain one target; include validated packages for all three when creating the release. Other targets are optional.
+Every new release and promotion requires `linux-x86_64`, `windows-x86_64`, and `macos-aarch64`. Individual package archives may contain one target; include validated packages for all three when creating the release, or a public reason of 200–1000 characters for each one left out. Other targets are optional.
 
 All target paths are relative to the root. Supported targets: `linux-x86_64`, `linux-i686`, `linux-aarch64`, `linux-armv7hf`, `windows-x86_64`, `windows-i686`, `windows-aarch64`, `macos-x86_64`, `macos-aarch64`.
 

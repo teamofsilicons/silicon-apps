@@ -5,6 +5,8 @@ use std::collections::BTreeMap;
 pub const APP_ID: &str = "silicon-apps";
 
 pub use silicon_apps_package::{REQUIRED_RELEASE_TARGETS, TARGETS, missing_required_targets};
+/// A required target left out of a release needs a public reason of this many characters.
+pub const UNSUPPORTED_REASON_CHARS: std::ops::RangeInclusive<usize> = 200..=1000;
 pub const COMMANDS: [&str; 3] = ["--help", "accounts --json", "login status --json"];
 pub fn now() -> String {
     chrono::Utc::now().to_rfc3339()
@@ -73,6 +75,10 @@ pub struct Release {
     pub notes: String,
     pub created_at: String,
     pub promoted_from: Option<String>,
+    /// Why each required target left out of this release is not supported, by
+    /// target. Shown publicly on the app page and in the CLI.
+    #[serde(default)]
+    pub unsupported_targets: BTreeMap<String, String>,
     /// The API's signature over each package's release manifest, by package ID.
     #[serde(default)]
     pub signatures: BTreeMap<String, ReleaseSignature>,
@@ -87,6 +93,16 @@ impl Release {
     pub fn is_withdrawn(&self) -> bool {
         self.withdrawn.is_some()
     }
+}
+/// Required targets that have neither a package nor a reason in a release.
+pub fn uncovered_targets<'a>(
+    targets: impl IntoIterator<Item = &'a str>,
+    unsupported: &BTreeMap<String, String>,
+) -> Vec<&'static str> {
+    missing_required_targets(targets)
+        .into_iter()
+        .filter(|target| !unsupported.contains_key(*target))
+        .collect()
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReleaseSignature {
@@ -285,7 +301,7 @@ impl App {
             .unwrap_or_default();
         signed_by.sort();
         signed_by.dedup();
-        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
+        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"unsupported_targets":latest.map(|r| r.unsupported_targets.clone()).unwrap_or_default(),"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
         if self.is_author(who) {
             v["domains"] = json!(self.domains);
             v["account_ids"] = json!(self.account_ids);
@@ -312,18 +328,19 @@ impl App {
             errors.push(json!({"field":"description","message":"Description must contain 200 to 600 characters."}));
         }
         if self.releases.iter().all(Release::is_withdrawn) {
-            errors.push(json!({"field":"packages","message":"Create a development release with validated packages for linux-x86_64, windows-x86_64 and macos-aarch64.","missing_targets":REQUIRED_RELEASE_TARGETS}));
+            errors.push(json!({"field":"packages","message":"Create a development release with validated packages for linux-x86_64, windows-x86_64 and macos-aarch64, or a reason for each one it leaves out.","missing_targets":REQUIRED_RELEASE_TARGETS}));
         }
         for channel in ["development", "production"] {
             if let Some(release) = self.latest(channel) {
-                let missing = missing_required_targets(
+                let missing = uncovered_targets(
                     self.packages
                         .iter()
                         .filter(|p| release.package_ids.contains(&p.id))
                         .map(|p| p.target.as_str()),
+                    &release.unsupported_targets,
                 );
                 if !missing.is_empty() {
-                    errors.push(json!({"field":"packages","message":format!("The latest {channel} release is missing required targets: {}.", missing.join(", ")),"release_id":release.id,"channel":channel,"missing_targets":missing}));
+                    errors.push(json!({"field":"packages","message":format!("The latest {channel} release is missing required targets without a reason: {}.", missing.join(", ")),"release_id":release.id,"channel":channel,"missing_targets":missing}));
                 }
             }
         }

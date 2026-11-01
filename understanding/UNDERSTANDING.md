@@ -109,7 +109,9 @@ An app can switch between public and private at any time.
 
 ## 3) Packages
 
-Every release is a CLI. The author uploads a package for every target they support. Every new development release and production promotion must include Linux Intel/AMD 64-bit (`linux-x86_64`), Windows Intel/AMD 64-bit (`windows-x86_64`), and macOS Apple Silicon (`macos-aarch64`). Other targets are optional. Packages can be uploaded one at a time; all three required targets must be included in the same release. Publishing checks the latest non-withdrawn release on each existing channel. Existing releases remain installable:
+Every release is a CLI. The author uploads a package for every target they support. Every new development release and production promotion must include Linux Intel/AMD 64-bit (`linux-x86_64`), Windows Intel/AMD 64-bit (`windows-x86_64`), and macOS Apple Silicon (`macos-aarch64`). Other targets are optional. Packages can be uploaded one at a time; all three required targets must be included in the same release. Publishing checks the latest non-withdrawn release on each existing channel. Existing releases remain installable.
+
+If an app can't support one of the three, the author leaves it out of the release and says why, in 200 to 1000 characters. The reason is public. On the app page that OS's logo is greyed out, and hovering over it shows the reason. The CLI shows it too: `silicon-apps show` lists it, and an install on that platform fails with it. Promoting a release keeps its reasons.
 
 | OS      | Architecture                 | Package target    |
 | ------- | ---------------------------- | ----------------- |

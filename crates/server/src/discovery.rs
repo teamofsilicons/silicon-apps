@@ -339,6 +339,7 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
         "targets":targets,
         "upload_confirmation":{"targets":"windows-* and macos-*","header":"X-Apps-Platform-Confirmed","value":"true","cli_flag":"--confirm-platform-checks","commands":COMMANDS,"meaning":"The uploading Carbon or Silicon confirms these commands work on the selected platform. Silicon Apps inspects the archive but does not execute non-Linux binaries."},
         "required_release_targets":REQUIRED_RELEASE_TARGETS,
+        "unsupported_target_reason":{"field":"unsupported_targets","min_chars":crate::model::UNSUPPORTED_REASON_CHARS.start(),"max_chars":crate::model::UNSUPPORTED_REASON_CHARS.end(),"public":true},
         "validation_runner":{
             "configured":probe.is_some(),
             "reachable":probe.as_ref().map(|(ok,_)|*ok),

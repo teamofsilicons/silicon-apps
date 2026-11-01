@@ -993,6 +993,7 @@ fn platform_id_migration_keeps_release_history_and_refuses_collisions() {
         notes: "Original".into(),
         created_at: now(),
         promoted_from: None,
+        unsupported_targets: Default::default(),
         signatures: Default::default(),
         signed_by_author: false,
         withdrawn: None,
