@@ -1,7 +1,8 @@
 "use client";
 /**
  * On an app's page, a quiet warning when the app has no package for the visitor's own system (detected in the
- * browser), before they try the install command: "Not available for macOS yet. It runs on Linux." Nothing is shown
+ * browser), before they try the install command: "Not available for macOS yet. It runs on Linux." When the authors left
+ * that system out on purpose, their reason follows. Nothing is shown
  * when it is available, when the system is unknown, or without script.
  */
 import { useSyncExternalStore } from "react";
@@ -20,8 +21,9 @@ function visitorSystem(): string | null {
 
 const noop = () => () => {};
 
-/** `systems` are the operating systems the app has packages for, by name (macOS, Linux, Windows). */
-export function SystemNotice({ systems }: { systems: string[] }) {
+/** `systems` are the operating systems the app has packages for, by name (macOS, Linux, Windows); `reasons` are the
+ * authors' reasons for leaving one out, by the same name. */
+export function SystemNotice({ systems, reasons = {} }: { systems: string[]; reasons?: Record<string, string> }) {
   // The server (and the first hydration pass) knows no system; the browser reads it once.
   const system = useSyncExternalStore(noop, visitorSystem, () => null);
   if (!system || !systems.length) return null;
@@ -29,5 +31,11 @@ export function SystemNotice({ systems }: { systems: string[] }) {
     return <p className={styles.notice}><CircleAlert size={15} strokeWidth={1.75} aria-hidden="true" />Install it from a computer: it runs on {systems.join(", ")}.</p>;
   }
   if (systems.includes(system)) return null;
-  return <p className={styles.notice} role="note"><CircleAlert size={15} strokeWidth={1.75} aria-hidden="true" />Not available for {system} yet. It runs on {systems.join(", ")}.</p>;
+  const reason = reasons[system];
+  return (
+    <p className={styles.notice} role="note">
+      <CircleAlert size={15} strokeWidth={1.75} aria-hidden="true" />
+      {reason ? <span>Not available for {system}. It runs on {systems.join(", ")}. The authors say: {reason}</span> : <>Not available for {system} yet. It runs on {systems.join(", ")}.</>}
+    </p>
+  );
 }

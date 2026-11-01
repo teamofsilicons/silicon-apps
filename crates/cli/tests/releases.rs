@@ -319,3 +319,95 @@ async fn authors_sign_and_withdraw_and_installers_verify_in_ci_mode() {
     assert_eq!(error["error"]["details"]["status"], "revoked");
     task.abort();
 }
+
+#[tokio::test]
+async fn authors_leave_out_a_required_target_with_a_public_reason() {
+    let data = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let runner = runner().await;
+    let state = AppState::new(config(data.path(), &runner)).unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let server = format!("http://{}", listener.local_addr().unwrap());
+    let app = router(state.clone()).into_make_service_with_connect_info::<std::net::SocketAddr>();
+    let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let author = |args: &[&str]| {
+        let mut command = cli(home.path(), &server, "dev:alice:c:alice");
+        command.args(args);
+        command
+    };
+    let description = "d".repeat(200);
+    run_ok(
+        &mut author(&[
+            "create",
+            "ring",
+            "--name",
+            "Ring",
+            "--description",
+            &description,
+        ]),
+        &[],
+    )
+    .await;
+    let mut package_ids = vec![];
+    for target in ["linux-x86_64", "macos-aarch64"] {
+        let file = pack(work.path(), "0.1.0", "#!/bin/sh\nexit 0\n", target);
+        let (package, _) = run_ok(
+            &mut author(&[
+                "upload",
+                "--confirm-platform-checks",
+                "ring",
+                "--target",
+                target,
+                file.to_str().unwrap(),
+            ]),
+            &[],
+        )
+        .await;
+        package_ids.push(package["id"].as_str().unwrap().to_owned());
+    }
+    let mut release = vec!["release", "ring", "--version", "0.1.0"];
+    for id in &package_ids {
+        release.extend(["--package", id.as_str()]);
+    }
+
+    let missing = run_err(&mut author(&release), &[]).await;
+    assert_eq!(missing["error"]["code"], "required_targets_missing");
+    assert_eq!(missing["error"]["details"]["reason_chars"]["min"], 200);
+    let short = run_err(
+        &mut author(&release),
+        &["--unsupported", "windows-x86_64=Not yet."],
+    )
+    .await;
+    assert_eq!(
+        short["error"]["code"], "unsupported_reason_length",
+        "{short}"
+    );
+
+    let reason = "Ring talks to the PulseAudio and Core Audio servers directly to route calls, and Windows has no equivalent audio routing service that a command-line tool can use without a signed kernel driver. We will ship a Windows build when that changes.";
+    assert!(reason.chars().count() >= 200);
+    let file = work.path().join("why-no-windows.txt");
+    fs::write(&file, format!("{reason}\n")).unwrap();
+    let pair = format!("windows-x86_64={}", file.display());
+    let twice = run_err(
+        &mut author(&release),
+        &[
+            "--unsupported-file",
+            &pair,
+            "--unsupported",
+            &format!("windows-x86_64={reason}"),
+        ],
+    )
+    .await;
+    assert!(
+        twice["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("more than one reason")
+    );
+    let (created, _) = run_ok(&mut author(&release), &["--unsupported-file", &pair]).await;
+    assert_eq!(created["unsupported_targets"]["windows-x86_64"], reason);
+    let (shown, _) = run_ok(&mut author(&["show", "ring"]), &[]).await;
+    assert_eq!(shown["unsupported_targets"]["windows-x86_64"], reason);
+    task.abort();
+}

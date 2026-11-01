@@ -14,6 +14,8 @@ export type Release = {
   notes: string;
   created_at: string;
   promoted_from?: string;
+  /** Why each required target left out of this release is not supported. Public. */
+  unsupported_targets?: Record<string, string>;
 };
 export type Media = { url: string; kind: "image" | "video"; alt: string };
 export type Links = {
@@ -43,6 +45,7 @@ export type App = {
   updated_at: string;
   authors: Author[];
   targets: string[];
+  unsupported_targets?: Record<string, string>;
   latest_production: Release | null;
   latest_development: Release | null;
   rating: number | null;
@@ -103,6 +106,13 @@ export const TARGETS = [
   "macos-x86_64",
   "macos-aarch64",
 ] as const;
+/** Every release includes these, or gives a public reason for each one it leaves out. */
+export const REQUIRED_TARGETS = [
+  "linux-x86_64",
+  "windows-x86_64",
+  "macos-aarch64",
+] as const;
+export const UNSUPPORTED_REASON = { min: 200, max: 1000 };
 export const STEPS = [
   "Details",
   "Access",

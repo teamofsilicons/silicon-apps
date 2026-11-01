@@ -68,6 +68,9 @@ export type App = {
   updated_at: string;
   authors: Author[];
   targets: string[];
+  /** The authors' public reason for each required target (linux-x86_64, windows-x86_64, macos-aarch64) the current
+   * release leaves out. */
+  unsupported_targets?: Record<string, string>;
   latest_production: Release | null;
   latest_development: Release | null;
   /** Every package of the current release (production, else development) carries the Apps API's signature. */

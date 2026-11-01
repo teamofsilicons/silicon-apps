@@ -17,7 +17,7 @@ import {
 import { api, useMutation, useResource } from "./api";
 import { useSession } from "./context";
 import type { App, Author, Invite, Package, Release } from "./types";
-import { targetLabel } from "./types";
+import { REQUIRED_TARGETS, UNSUPPORTED_REASON, targetLabel } from "./types";
 import {
   Badge,
   Button,
@@ -59,11 +59,23 @@ export function Releases({
   const [version, setVersion] = useState("");
   const [notes, setNotes] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
   const [promote, setPromote] = useState<Release | null>(null);
   const [production, setProduction] = useState("");
   const [message, setMessage] = useState("");
   const validVersion = (value: string) =>
     /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value);
+  const selectedTargets = selected.map(
+    (id) => packages.data?.items.find((p) => p.id === id)?.target,
+  );
+  const leftOut = REQUIRED_TARGETS.filter(
+    (target) => !selectedTargets.includes(target),
+  );
+  const reasonLength = (target: string) =>
+    [...(reasons[target] || "").trim()].length;
+  const reasonsValid = leftOut.every(
+    (target) => reasonLength(target) >= UNSUPPORTED_REASON.min,
+  );
   return (
     <Section
       title={compact ? "Create your first release" : "Releases"}
@@ -125,6 +137,13 @@ export function Releases({
               {release.notes && (
                 <p className="release-notes">{release.notes}</p>
               )}
+              {Object.entries(release.unsupported_targets || {}).map(
+                ([target, reason]) => (
+                  <p className="small muted unsupported-reason" key={target}>
+                    <strong>No {targetLabel(target)} build.</strong> {reason}
+                  </p>
+                ),
+              )}
               {release.promoted_from && (
                 <p className="small muted">
                   Promoted from development release {release.promoted_from}
@@ -143,7 +162,7 @@ export function Releases({
         open={create}
         onClose={() => setCreate(false)}
         title="Create development release"
-        description="Include validated packages for Linux x86_64, Windows x86_64, and macOS Apple Silicon ARM64. You can also include other targets."
+        description="Include validated packages for Linux x86_64, Windows x86_64, and macOS Apple Silicon ARM64, or say why one is left out. You can also include other targets."
       >
         <form
           className="stack"
@@ -152,7 +171,16 @@ export function Releases({
             const result = await mutation.run(() =>
               api<Release>(`/apps/${app.app_id}/releases`, {
                 method: "POST",
-                body: { version, notes, package_ids: selected },
+                body: {
+                  version,
+                  notes,
+                  package_ids: selected,
+                  ...(leftOut.length && {
+                    unsupported_targets: Object.fromEntries(
+                      leftOut.map((target) => [target, reasons[target].trim()]),
+                    ),
+                  }),
+                },
               }),
             );
             if (result) {
@@ -161,6 +189,7 @@ export function Releases({
               setVersion("");
               setNotes("");
               setSelected([]);
+              setReasons({});
             }
           }}
         >
@@ -215,11 +244,43 @@ export function Releases({
               </p>
             )}
           </fieldset>
+          {selected.length > 0 && leftOut.length > 0 && (
+            <fieldset className="stack unsupported-picker">
+              <legend>Required platforms left out</legend>
+              <p className="small muted">
+                Say why there is no build. Each reason is shown publicly on the
+                app page and in the CLI.
+              </p>
+              {leftOut.map((target) => (
+                <Textarea
+                  key={target}
+                  label={`Why there is no ${targetLabel(target)} build`}
+                  value={reasons[target] || ""}
+                  onChange={(e) =>
+                    setReasons((current) => ({
+                      ...current,
+                      [target]: e.target.value,
+                    }))
+                  }
+                  rows={4}
+                  maxLength={UNSUPPORTED_REASON.max}
+                  required
+                  description={
+                    reasonLength(target) < UNSUPPORTED_REASON.min
+                      ? `${reasonLength(target)} of ${UNSUPPORTED_REASON.min} characters minimum`
+                      : `${reasonLength(target)} of ${UNSUPPORTED_REASON.max} characters`
+                  }
+                />
+              ))}
+            </fieldset>
+          )}
           <ErrorNotice error={packages.error} retry={packages.reload} />
           <ErrorNotice error={mutation.error} />
           <Button
             type="submit"
-            disabled={!selected.length || !validVersion(version)}
+            disabled={
+              !selected.length || !validVersion(version) || !reasonsValid
+            }
             loading={mutation.pending}
           >
             Create release

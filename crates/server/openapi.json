@@ -2888,7 +2888,7 @@
       "post": {
         "operationId": "createRelease",
         "summary": "Create a development release",
-        "description": "A new development release from validated packages, at most one per target.",
+        "description": "A new development release from validated packages, at most one per target. Include linux-x86_64, windows-x86_64 and macos-aarch64, or leave one out with a public reason of 200 to 1000 characters in unsupported_targets; other targets are optional. Missing required targets return 400 required_targets_missing with details.required_targets and details.missing_targets; a reason of the wrong length returns 400 unsupported_reason_length.",
         "tags": [
           "Releases"
         ],
@@ -2927,6 +2927,22 @@
                   },
                   "notes": {
                     "type": "string"
+                  },
+                  "unsupported_targets": {
+                    "type": "object",
+                    "propertyNames": {
+                      "enum": [
+                        "linux-x86_64",
+                        "windows-x86_64",
+                        "macos-aarch64"
+                      ]
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 200,
+                      "maxLength": 1000
+                    },
+                    "description": "Why each required target left out of this release is not supported, by target: 200 to 1000 characters each. Public; promotion copies it."
                   }
                 },
                 "required": [
@@ -2993,7 +3009,7 @@
       "post": {
         "operationId": "promoteRelease",
         "summary": "Promote to production",
-        "description": "Creates a production release with the development release's packages and its own production version.",
+        "description": "Creates a production release with the development release's packages, its reasons for any required target left out, and its own production version. A development release missing a required target without a reason returns 400 required_targets_missing.",
         "tags": [
           "Releases"
         ],
@@ -6328,6 +6344,22 @@
             ],
             "description": "The development release this production release was promoted from."
           },
+          "unsupported_targets": {
+            "type": "object",
+            "propertyNames": {
+              "enum": [
+                "linux-x86_64",
+                "windows-x86_64",
+                "macos-aarch64"
+              ]
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 200,
+              "maxLength": 1000
+            },
+            "description": "Why each required target left out of this release is not supported, by target: 200 to 1000 characters each. Public; promotion copies it."
+          },
           "signatures": {
             "type": "object",
             "additionalProperties": {
@@ -6917,6 +6949,22 @@
               ]
             },
             "description": "Targets of the latest production release, or of the latest development release before the first production release."
+          },
+          "unsupported_targets": {
+            "type": "object",
+            "propertyNames": {
+              "enum": [
+                "linux-x86_64",
+                "windows-x86_64",
+                "macos-aarch64"
+              ]
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 200,
+              "maxLength": 1000
+            },
+            "description": "The authors' public reason for each required target the current release leaves out."
           },
           "latest_production": {
             "anyOf": [

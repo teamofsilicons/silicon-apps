@@ -223,3 +223,139 @@ fn publishing_checks_latest_releases_on_both_channels_and_ignores_withdrawn_ones
         "withdrawal exposes the incomplete fallback"
     );
 }
+
+#[tokio::test]
+async fn a_required_target_can_be_left_out_with_a_public_reason() {
+    let (_dir, state, app) = fresh();
+    seed_app(&state, "alice", "ring", &[], "linux-x86_64", false);
+    let packages = json!(["ring-linux-x86_64-pkg", "ring-macos-aarch64-pkg"]);
+    let reason = format!(
+        "{} ",
+        "Ring drives the macOS and Linux audio stacks directly. ".repeat(4)
+    );
+    assert!(reason.trim().chars().count() >= 200);
+    for (index, (unsupported, code)) in [
+        (
+            json!({"windows-x86_64":"x".repeat(199)}),
+            "unsupported_reason_length",
+        ),
+        (
+            json!({"windows-x86_64":format!("  {}  ", "x".repeat(199))}),
+            "unsupported_reason_length",
+        ),
+        (
+            json!({"windows-x86_64":"x".repeat(1001)}),
+            "unsupported_reason_length",
+        ),
+        (json!({"windows-x86_64":7}), "invalid_input"),
+        (json!({"linux-aarch64":reason}), "invalid_input"),
+        (
+            json!({"windows-x86_64":reason,"macos-aarch64":reason}),
+            "invalid_input",
+        ),
+        (json!(["windows-x86_64"]), "invalid_input"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (status, error) = call(
+            &app,
+            "POST",
+            "/v1/apps/ring/releases",
+            Some(ALICE),
+            json!({"version":"0.2.0","package_ids":packages,"unsupported_targets":unsupported}),
+            Some(&format!("invalid-reason-{index}")),
+        )
+        .await;
+        assert_eq!(status, 400, "{unsupported}: {error}");
+        assert_eq!(error["error"]["code"], code, "{unsupported}: {error}");
+    }
+    let (status, error) = call(
+        &app,
+        "POST",
+        "/v1/apps/ring/releases",
+        Some(ALICE),
+        json!({"version":"0.2.0","package_ids":[],"unsupported_targets":{
+            "linux-x86_64":reason,"windows-x86_64":reason,"macos-aarch64":reason}}),
+        Some("no-packages"),
+    )
+    .await;
+    assert_eq!(status, 400);
+    assert!(
+        error["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("at least one package")
+    );
+    let (status, release) = call(
+        &app,
+        "POST",
+        "/v1/apps/ring/releases",
+        Some(ALICE),
+        json!({"version":"0.2.0","package_ids":packages,"unsupported_targets":{"windows-x86_64":reason}}),
+        Some("windows-left-out"),
+    )
+    .await;
+    assert_eq!(status, 200, "{release}");
+    assert_eq!(
+        release["unsupported_targets"],
+        json!({"windows-x86_64":reason.trim()})
+    );
+    let (status, promoted) = call(
+        &app,
+        "POST",
+        &format!(
+            "/v1/apps/ring/releases/{}/promote",
+            release["id"].as_str().unwrap()
+        ),
+        Some(ALICE),
+        json!({"version":"1.0.0"}),
+        Some("promote-windows-left-out"),
+    )
+    .await;
+    assert_eq!(status, 200, "{promoted}");
+    assert_eq!(
+        promoted["unsupported_targets"],
+        release["unsupported_targets"]
+    );
+    let (status, published) = call(
+        &app,
+        "POST",
+        "/v1/apps/ring/publish",
+        Some(ALICE),
+        json!({}),
+        Some("publish-windows-left-out"),
+    )
+    .await;
+    assert_eq!(status, 200, "{published}");
+    // The reason is public: anyone reading the app page or installing sees it.
+    let page = send(&app, "GET", "/v1/apps/ring", None, None, None, &[]).await;
+    assert_eq!(page.status, 200);
+    assert_eq!(
+        page.body["targets"],
+        json!(["linux-x86_64", "macos-aarch64"])
+    );
+    assert_eq!(
+        page.body["unsupported_targets"],
+        release["unsupported_targets"]
+    );
+    let resolved = send(
+        &app,
+        "GET",
+        "/v1/apps/ring/resolve?target=windows-x86_64",
+        None,
+        None,
+        None,
+        &[],
+    )
+    .await;
+    assert_eq!(resolved.status, 404);
+    assert_eq!(resolved.body["error"]["code"], "target_unavailable");
+    assert_eq!(resolved.body["error"]["details"]["reason"], reason.trim());
+    assert!(
+        resolved.body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains(reason.trim())
+    );
+}

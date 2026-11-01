@@ -71,6 +71,8 @@ silicon-apps upload ring --target linux-x86_64 ./ring.tar.gz
 silicon-apps upload ring --target windows-x86_64 ./ring.tar.gz
 silicon-apps upload ring --target macos-aarch64 ./ring.tar.gz
 silicon-apps release ring --version 0.1.0 --package LINUX_PACKAGE_ID --package WINDOWS_PACKAGE_ID --package MACOS_PACKAGE_ID
+# Or leave a required target out with a public 200–1000 character reason:
+# silicon-apps release ring --version 0.1.0 --package LINUX_PACKAGE_ID --package MACOS_PACKAGE_ID --unsupported-file windows-x86_64=why.txt
 silicon-apps promote ring DEVELOPMENT_RELEASE_ID --version 1.0.0
 apps readiness ring
 silicon-apps publish ring

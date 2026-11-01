@@ -258,7 +258,7 @@ function Packages({ app, refresh }: Props) {
     <>
       <Section
         title="Give your app a command line"
-        description="Every release requires Linux x86_64, Windows x86_64, and macOS Apple Silicon ARM64 packages. Other platforms are optional."
+        description="Every release requires Linux x86_64, Windows x86_64, and macOS Apple Silicon ARM64 packages, or a public reason for each one it leaves out. Other platforms are optional."
       >
         <div className="requirements-box">
           <h3>Three commands, on every platform</h3>

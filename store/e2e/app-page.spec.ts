@@ -112,3 +112,38 @@ test("silicon-apps in the install command shows how to install silicon-apps itse
   await card.getByRole("button", { name: "macOS & Linux" }).click();
   await expect(card).toContainText("install.sh");
 });
+
+test("a required platform the authors left out is greyed out and explains why, on hover and without script", async ({ page, request, browser }) => {
+  const reason = "Ring places calls through the PulseAudio and Core Audio servers, and Windows has no audio routing service a command-line tool can use without a signed kernel driver. We will ship a Windows build as soon as that changes.";
+  // Server-rendered: the reason is in the page itself, tied to the greyed mark.
+  const served = await html(request, "/apps/ring");
+  expect(served).toMatch(/aria-label="Windows not supported"[^>]*aria-describedby="platform-windows-x86_64"|aria-describedby="platform-windows-x86_64"[^>]*aria-label="Windows not supported"/);
+  expect(mainText(served)).toContain(`No Windows x64 build. ${reason}`);
+
+  await page.goto("/apps/ring");
+  const logos = page.getByRole("list", { name: "Required platforms" });
+  await expect(logos.getByLabel("macOS supported")).toBeVisible();
+  await expect(logos.getByLabel("Linux supported")).toBeVisible();
+  const windows = logos.getByLabel("Windows not supported");
+  const tip = page.locator("#platform-windows-x86_64");
+  await expect(tip).toBeHidden();
+  await windows.hover();
+  await expect(tip).toBeVisible();
+  await expect(tip).toHaveText(`No Windows x64 build. ${reason}`);
+  await page.mouse.move(0, 0);
+  await expect(tip).toBeHidden();
+  await windows.focus();
+  await expect(tip).toBeVisible();
+  await expect(windows).toHaveAccessibleDescription(`No Windows x64 build. ${reason}`);
+
+  // A visitor on Windows reads the reason under the install command.
+  const context = await browser.newContext({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36" });
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, "userAgentData", { get: () => ({ platform: "Windows", mobile: false }) });
+    Object.defineProperty(navigator, "platform", { get: () => "Win32" });
+  });
+  const visitor = await context.newPage();
+  await visitor.goto("/apps/ring");
+  await expect(visitor.getByRole("note")).toContainText(`Not available for Windows. It runs on macOS, Linux. The authors say: ${reason}`);
+  await context.close();
+});

@@ -13,12 +13,13 @@ import buttonStyles from "@/components/silicon-ui/button/button.module.css";
 import pageStyles from "@/components/store/app-page.module.css";
 import { AppLogo, Avatar, Breadcrumbs, Command, Notice, Stars, StructuredData, TagList, styles } from "@/components/store/parts";
 import { api, apiOrNull, APP_ID_PATTERN } from "@/lib/api";
-import { formatDate, formatNumber, formatRating, plural, safeImage, safeUrl, targetLabel, targetsByOs, truncate } from "@/lib/format";
+import { formatDate, formatNumber, formatRating, osOf, plural, safeImage, safeUrl, targetLabel, targetsByOs, truncate } from "@/lib/format";
 import { appPath, authorPath, breadcrumbLd, pageMetadata, softwareApplicationLd } from "@/lib/seo";
 import { getAccount, signInHref } from "@/lib/session";
 import { LINKS, installCommand, manageAppUrl } from "@/lib/site";
 import type { App, Reviews } from "@/lib/types";
 import { SystemNotice } from "@/components/store/system-notice";
+import { PlatformLogos } from "@/components/store/platform-logos";
 import { removeReview, saveReview } from "./actions";
 
 type Props = { params: Promise<{ appId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -89,6 +90,9 @@ export default async function AppPage({ params, searchParams }: Props) {
   const errorCode = typeof query.code === "string" ? query.code : "";
   const distribution = [5, 4, 3, 2, 1].map(stars => ({ stars, count: reviews.items.filter(review => review.rating === stars).length }));
   const platforms = targetsByOs(app.targets);
+  const unsupported = app.unsupported_targets ?? {};
+  // The authors' reason for a missing system, by its name, for the notice under the install command.
+  const reasons = Object.fromEntries(Object.entries(unsupported).map(([target, reason]) => [osOf(target), reason]));
   const rated = reviews.count > 0 && reviews.rating !== null;
   const released = Boolean(production || development);
   const signedBy = app.signed_by ?? [];
@@ -138,7 +142,7 @@ export default async function AppPage({ params, searchParams }: Props) {
                 : "There is no release to install yet."}{" "}
             New to it? <a href="/#get-the-cli">Get the CLI</a>.
           </p>
-          <SystemNotice systems={platforms.map(group => group.os)} />
+          <SystemNotice systems={platforms.map(group => group.os)} reasons={reasons} />
         </div>
 
         <dl className={pageStyles.facts}>
@@ -286,14 +290,17 @@ export default async function AppPage({ params, searchParams }: Props) {
           {platforms.length ? (
             <section aria-labelledby="platforms-title" className={pageStyles.detail}>
               <h2 id="platforms-title" className={pageStyles.label}>Available on</h2>
-              <ul className={pageStyles.platforms} role="list">
-                {platforms.map(group => (
-                  <li key={group.os}>
-                    <span>{group.os}</span>{" "}
-                    <span className={pageStyles.muted}>{group.targets.map(target => targetLabel(target).replace(`${group.os} `, "")).join(", ")}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className={pageStyles.value}>
+                <PlatformLogos targets={app.targets} unsupported={unsupported} />
+                <ul className={pageStyles.platforms} role="list">
+                  {platforms.map(group => (
+                    <li key={group.os}>
+                      <span>{group.os}</span>{" "}
+                      <span className={pageStyles.muted}>{group.targets.map(target => targetLabel(target).replace(`${group.os} `, "")).join(", ")}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </section>
           ) : null}
 

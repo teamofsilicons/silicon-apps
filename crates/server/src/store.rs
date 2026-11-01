@@ -67,6 +67,45 @@ fn strings(v: &Value, k: &str) -> Result<Vec<String>> {
         })
         .collect()
 }
+/// The reasons a new release gives for leaving required targets out.
+fn unsupported_targets(b: &Value) -> Result<BTreeMap<String, String>> {
+    let Some(value) = b.get("unsupported_targets").filter(|v| !v.is_null()) else {
+        return Ok(BTreeMap::new());
+    };
+    let object = value.as_object().ok_or_else(|| {
+        ApiError::bad("`unsupported_targets` must map each required target left out to its reason.")
+    })?;
+    let mut reasons = BTreeMap::new();
+    for (target, reason) in object {
+        if !REQUIRED_RELEASE_TARGETS.contains(&target.as_str()) {
+            return Err(ApiError::bad(format!(
+                "Only required targets take a reason; {target} is not one of {}.",
+                REQUIRED_RELEASE_TARGETS.join(", ")
+            )));
+        }
+        let reason = reason
+            .as_str()
+            .ok_or_else(|| ApiError::bad(format!("The reason for {target} must be a string.")))?
+            .trim();
+        let length = reason.chars().count();
+        if !UNSUPPORTED_REASON_CHARS.contains(&length) {
+            let mut error = ApiError::new(
+                axum::http::StatusCode::BAD_REQUEST,
+                "unsupported_reason_length",
+                format!(
+                    "The reason for leaving out {target} must contain {} to {} characters; it has {length}.",
+                    UNSUPPORTED_REASON_CHARS.start(),
+                    UNSUPPORTED_REASON_CHARS.end()
+                ),
+                "It is shown publicly on the app page and in the CLI. Explain to people on this platform why there is no build, for example what the app depends on that the platform lacks.",
+            );
+            error.details = json!({"target":target,"length":length,"min":UNSUPPORTED_REASON_CHARS.start(),"max":UNSUPPORTED_REASON_CHARS.end()});
+            return Err(error);
+        }
+        reasons.insert(target.clone(), reason.to_owned());
+    }
+    Ok(reasons)
+}
 fn need(who: Option<&Identity>) -> Result<&Identity> {
     who.ok_or_else(ApiError::auth)
 }
@@ -550,12 +589,21 @@ impl Store {
                     .iter()
                     .find(|p| &p.target == target && release.package_ids.contains(&p.id))
                     .ok_or_else(|| {
-                        ApiError::new(
+                        let reason = release.unsupported_targets.get(target);
+                        let mut error = ApiError::new(
                             axum::http::StatusCode::NOT_FOUND,
                             "target_unavailable",
-                            format!("This release does not support {target}."),
+                            match reason {
+                                Some(reason) => format!(
+                                    "{} {} does not support {target}. The authors say: {reason}",
+                                    app.app_id, release.version
+                                ),
+                                None => format!("This release does not support {target}."),
+                            },
                             "Choose a supported target shown on the app page.",
-                        )
+                        );
+                        error.details = json!({"target":target,"reason":reason});
+                        error
                     })?;
                 // Every package Apps serves is signed.
                 let signature =
@@ -1191,7 +1239,8 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     "version must be x.y.z without prefixes, prerelease identifiers or leading zeros.",
                 ));
             }
-            let (channel, package_ids, notes, promoted_from) = if p.len() == 5 && p[4] == "promote"
+            let (channel, package_ids, notes, unsupported, promoted_from) = if p.len() == 5
+                && p[4] == "promote"
             {
                 let dev = app
                     .releases
@@ -1212,6 +1261,7 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     "production",
                     dev.package_ids.clone(),
                     dev.notes.clone(),
+                    dev.unsupported_targets.clone(),
                     Some(dev.id.clone()),
                 )
             } else if p.len() == 3 {
@@ -1219,6 +1269,7 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     "development",
                     strings(b, "package_ids")?,
                     b["notes"].as_str().unwrap_or_default().into(),
+                    unsupported_targets(b)?,
                     None,
                 )
             } else {
@@ -1246,7 +1297,13 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     ));
                 }
             }
-            let missing = missing_required_targets(targets.iter().map(|target| target.as_str()));
+            if let Some(target) = unsupported.keys().find(|t| targets.contains(t)) {
+                return Err(ApiError::bad(format!(
+                    "The release includes a package for {target}, so it cannot also give a reason for leaving {target} out."
+                )));
+            }
+            let missing =
+                uncovered_targets(targets.iter().map(|target| target.as_str()), &unsupported);
             if !missing.is_empty() {
                 let mut error = ApiError::new(
                     axum::http::StatusCode::BAD_REQUEST,
@@ -1255,11 +1312,17 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                         "Release is missing required targets: {}.",
                         missing.join(", ")
                     ),
-                    "Upload validated packages for linux-x86_64, windows-x86_64 and macos-aarch64, then include all three in a new development release.",
+                    format!(
+                        "Include validated packages for linux-x86_64, windows-x86_64 and macos-aarch64. To leave one out, give unsupported_targets a public reason of {} to {} characters for it.",
+                        UNSUPPORTED_REASON_CHARS.start(),
+                        UNSUPPORTED_REASON_CHARS.end()
+                    ),
                 );
-                error.details =
-                    json!({"required_targets":REQUIRED_RELEASE_TARGETS,"missing_targets":missing});
+                error.details = json!({"required_targets":REQUIRED_RELEASE_TARGETS,"missing_targets":missing,"reason_chars":{"min":UNSUPPORTED_REASON_CHARS.start(),"max":UNSUPPORTED_REASON_CHARS.end()}});
                 return Err(error);
+            }
+            if package_ids.is_empty() {
+                return Err(ApiError::bad("A release needs at least one package."));
             }
             let release = Release {
                 id: new_id(),
@@ -1270,6 +1333,7 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                 notes,
                 created_at: now(),
                 promoted_from,
+                unsupported_targets: unsupported,
                 signatures: BTreeMap::new(),
                 signed_by_author: false,
                 withdrawn: None,

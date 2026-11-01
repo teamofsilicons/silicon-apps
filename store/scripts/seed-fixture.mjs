@@ -75,7 +75,7 @@ function packages(appId, targets, version, { inspected = true, signer = null } =
   }));
 }
 
-function app({ app_id, name, description, tags, authors, targets = TARGETS, production, development, installs, reviews = [], logo = "", banner = "", carousel = [], links = {}, visibility = "public", access = [], created, updated, published = true, inspected = true, signer = null, withdrawn = [] }) {
+function app({ app_id, name, description, tags, authors, targets = TARGETS, production, development, installs, reviews = [], logo = "", banner = "", carousel = [], links = {}, visibility = "public", access = [], created, updated, published = true, inspected = true, signer = null, withdrawn = [], unsupported = {} }) {
   const releases = [];
   const all = [];
   // Withdrawn releases: never served again, listed on the app page with their reasons.
@@ -87,12 +87,12 @@ function app({ app_id, name, description, tags, authors, targets = TARGETS, prod
   if (development) {
     const pk = packages(app_id, targets, development, { inspected });
     all.push(...pk);
-    releases.push({ id: randomUUID(), app_id, channel: "development", version: development, package_ids: pk.map((p) => p.id), notes: `Development build ${development}: the next set of improvements, ready to try.`, created_at: day(2), promoted_from: null });
+    releases.push({ id: randomUUID(), app_id, channel: "development", version: development, package_ids: pk.map((p) => p.id), notes: `Development build ${development}: the next set of improvements, ready to try.`, created_at: day(2), promoted_from: null, unsupported_targets: unsupported });
   }
   if (production) {
     const pk = packages(app_id, targets, production, { inspected, signer });
     all.push(...pk);
-    releases.push({ id: randomUUID(), app_id, channel: "production", version: production, package_ids: pk.map((p) => p.id), notes: `Version ${production} with faster startup and clearer errors.`, created_at: day(6), promoted_from: null });
+    releases.push({ id: randomUUID(), app_id, channel: "production", version: production, package_ids: pk.map((p) => p.id), notes: `Version ${production} with faster startup and clearer errors.`, created_at: day(6), promoted_from: null, unsupported_targets: unsupported });
   }
   return {
     app_id, name, description, logo, logo_alt: logo ? `${name} logo` : "", banner, banner_alt: banner ? `${name} banner` : "", tags, visibility,
@@ -162,6 +162,8 @@ const apps = [
     description: "Ring sends alerts to the right Carbon or Silicon at the right time. Point any script at ring, choose who should hear about it, and it calls, pings or messages them until someone acknowledges. Quiet hours and escalation chains are plain text files you can keep next to your code.",
     production: "1.2.3", development: "1.3.0", installs: 920, logo: logos.ring,
     withdrawn: [["development", "1.3.1", "Escalations fired twice for the same alert.", 2]],
+    // Ring leaves Windows out on purpose and says why, publicly.
+    unsupported: { "windows-x86_64": "Ring places calls through the PulseAudio and Core Audio servers, and Windows has no audio routing service a command-line tool can use without a signed kernel driver. We will ship a Windows build as soon as that changes." },
     reviews: [[people.mira, 5, "Escalations finally make sense.", 4], [people.saket, 3, "Good, but I need Windows support.", 20]],
     created: day(60), updated: day(4),
   }),
