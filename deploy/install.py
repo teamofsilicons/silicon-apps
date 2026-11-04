@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install a verified Apps release, restoring files and services on failed cutover.
+"""Install a verified Apps release with fail-closed post-start recovery.
 
 Runs on Amazon Linux 2023 (Python 3.9): keep the syntax 3.9-compatible.
 """
@@ -229,9 +229,26 @@ def atomic(path, content, mode=0o600):
             os.fsync(output.fileno())
         os.chmod(temporary, mode)
         os.replace(temporary, path)
+        # The cutover recovery receipt must survive a host restart, not only a
+        # process restart. Sync the containing directory after the rename.
+        directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def durable_unlink(path):
+    path = pathlib.Path(path)
+    path.unlink(missing_ok=True)
+    descriptor = os.open(path.parent, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def account(name, home):
@@ -394,7 +411,7 @@ class Cutover:
             active = subprocess.run(['systemctl', 'is-active', '--quiet', service]).returncode == 0
             self.services[service] = (enabled, active)
 
-    def rollback(self):
+    def rollback(self, before_restart=None):
         failures = []
         def attempt(action):
             try:
@@ -419,6 +436,13 @@ class Cutover:
         else:
             attempt(lambda: self.current.unlink(missing_ok=True))
         attempt(lambda: run(['systemctl', 'daemon-reload']))
+        # Never restart services against an incompletely restored configuration.
+        if failures:
+            raise RuntimeError('Rollback encountered a service or filesystem error; inspect local service status.')
+        if before_restart is not None:
+            attempt(before_restart)
+            if failures:
+                raise RuntimeError('Rollback could not clear the public start fence; inspect local service status.')
         for service, (enabled, active) in self.services.items():
             if enabled in ('enabled', 'enabled-runtime'):
                 command = ['systemctl', 'enable'] + (['--runtime'] if enabled == 'enabled-runtime' else []) + [service]
@@ -632,14 +656,27 @@ def main():
     for name in ('archive', 'sha256', 'revision', 'secret', 'bucket'):
         parser.add_argument('--' + name, required=True)
     parser.add_argument('--role', choices=['api', 'worker'], required=True)
+    parser.add_argument('--secret-version-id', help='Pin the reviewed AWSCURRENT Secrets Manager version ID')
     parser.add_argument('--region', default='us-east-2')
     args = parser.parse_args()
     if os.geteuid() != 0:
         raise SystemExit('Run as root on the designated Apps host.')
+    existing_recovery = ROOT / 'cutover-recovery.json'
+    if args.role == 'api' and (existing_recovery.exists() or existing_recovery.is_symlink()):
+        raise ValueError('An earlier Apps cutover needs recovery; inspect its receipt before another install.')
     if not re.fullmatch(r'[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]', args.bucket) or not re.fullmatch(r'[a-z]{2}-[a-z]+-\d+', args.region):
         raise ValueError('Invalid backup bucket or AWS region.')
-    secret = json.loads(json.loads(capture(['aws', '--region', args.region, 'secretsmanager',
-        'get-secret-value', '--secret-id', args.secret, '--output', 'json']))['SecretString'])
+    secret_command = ['aws', '--region', args.region, 'secretsmanager', 'get-secret-value', '--secret-id', args.secret]
+    if args.secret_version_id:
+        if not re.fullmatch(r'[A-Za-z0-9-]{32,64}', args.secret_version_id):
+            raise ValueError('Invalid reviewed secret version ID.')
+        secret_command += ['--version-id', args.secret_version_id]
+    secret_command += ['--output', 'json']
+    secret_response = json.loads(capture(secret_command))
+    if args.secret_version_id and (secret_response.get('VersionId') != args.secret_version_id
+                                   or 'AWSCURRENT' not in secret_response.get('VersionStages', [])):
+        raise ValueError('Reviewed secret version is no longer current; stop and review the change.')
+    secret = json.loads(secret_response['SecretString'])
     environment_file(secret)  # Validate all values before changing a live service.
     token = secret.get('APPS_RUNNER_TOKEN', '')
     if len(token) < 32 or not token.isascii() or any(c.isspace() for c in token):
@@ -716,17 +753,60 @@ def main():
         files[ETC / 'systemd/system/silicon-apps-api.service'] = (unit, 0o644)
         files[ETC / 'systemd/system' / (STORE_SERVICE + '.service')] = ((release / 'deploy' / (STORE_SERVICE + '.service')).read_text(), 0o644)
         files[ETC / 'caddy/Caddyfile'] = ((release / 'deploy/Caddyfile').read_text(), 0o644)
-        caddy = '''[Unit]\nDescription=Silicon Apps HTTPS\nAfter=network-online.target\n[Service]\nUser=caddy\nGroup=caddy\nEnvironment=HOME=/var/lib/caddy\nExecStart=/opt/silicon-apps/current/bin/caddy run --config /etc/caddy/Caddyfile\nExecReload=/opt/silicon-apps/current/bin/caddy reload --config /etc/caddy/Caddyfile\nRestart=on-failure\nAmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nReadWritePaths=/var/lib/caddy\n[Install]\nWantedBy=multi-user.target\n'''
+        caddy = '''[Unit]\nDescription=Silicon Apps HTTPS\nAfter=network-online.target\nConditionPathExists=!/opt/silicon-apps/cutover-recovery.json\n[Service]\nUser=caddy\nGroup=caddy\nEnvironment=HOME=/var/lib/caddy\nExecStart=/opt/silicon-apps/current/bin/caddy run --config /etc/caddy/Caddyfile\nExecReload=/opt/silicon-apps/current/bin/caddy reload --config /etc/caddy/Caddyfile\nRestart=on-failure\nAmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nReadWritePaths=/var/lib/caddy\n[Install]\nWantedBy=multi-user.target\n'''
         files[ETC / 'systemd/system/caddy.service'] = (caddy, 0o644)
         files[ETC / 'systemd/system/silicon-apps-backup.service'] = ('[Unit]\nDescription=Silicon Apps consistent catalog backup\n[Service]\nType=oneshot\nUser=silicon-apps\nUMask=0077\nExecStart=/usr/bin/python3 /opt/silicon-apps/current/deploy/backup.py --bucket ' + args.bucket + ' --region ' + args.region + '\n', 0o644)
         files[ETC / 'systemd/system/silicon-apps-backup.timer'] = ('[Unit]\nDescription=Hourly Silicon Apps backups\n[Timer]\nOnCalendar=hourly\nPersistent=true\nRandomizedDelaySec=120\n[Install]\nWantedBy=timers.target\n', 0o644)
     files[ETC / 'silicon-apps' / (args.role + '.env')] = (environment_file(env), 0o600)
     current = ROOT / 'current'
+    recovery = ROOT / 'cutover-recovery.json'
+    if args.role == 'api' and (recovery.exists() or recovery.is_symlink()):
+        raise ValueError('An earlier Apps cutover needs recovery; inspect its receipt before another install.')
     transaction = Cutover(current, [*files, ROOT / 'previous-release', ROOT / 'deployment.json'], services)
+    candidate_may_have_written = False
+    public_fence_started = False
+    if args.role == 'api' and transaction.previous:
+        # Static/masked/unknown units can be started by dependency paths outside
+        # the enablement fence; refuse rather than assume disabling is enough.
+        for unit_name in ('caddy', STORE_SERVICE, service):
+            if transaction.services[unit_name][0] not in ('enabled', 'enabled-runtime', 'disabled'):
+                raise ValueError('A public Apps service has unexpected enablement; inspect its dependencies before cutover.')
+    def recovery_phase(phase):
+        # Public provenance only. Never put environment or catalog content here.
+        atomic(recovery, json.dumps({'revision': args.revision, 'previous_release': str(transaction.previous) if transaction.previous else None,
+            'phase': phase, 'catalog_backup': 'see installer backup output',
+            'recovery': 'keep API, store and public proxy stopped; inspect catalog and backup before any restart'}, indent=2) + '\n', 0o600)
     try:
-        if args.role == 'api' and transaction.previous and (STATE / 'silicon-apps/apps.sqlite').exists():
-            run(['systemctl', 'stop', service])
-            run(['python3', str(release / 'deploy/backup.py'), '--bucket', args.bucket, '--region', args.region])
+        if args.role == 'api':
+            recovery_phase('fencing-public-writes')
+            # Stop the timer before the backup so it cannot race a second
+            # snapshot/upload at the same timestamp. Never interrupt an
+            # already-running backup; restore the old state and retry later.
+            timer_enabled, timer_active = transaction.services['silicon-apps-backup.timer']
+            if timer_active:
+                run(['systemctl', 'stop', 'silicon-apps-backup.timer'])
+            if timer_enabled in ('enabled', 'enabled-runtime'):
+                run(['systemctl', 'disable', 'silicon-apps-backup.timer'], stdout=subprocess.DEVNULL)
+            if transaction.previous:
+                backup_state = run(['systemctl', 'show', 'silicon-apps-backup.service', '--property=ActiveState', '--value'],
+                                   capture_output=True, text=True).stdout.strip()
+                if backup_state not in ('inactive', 'failed'):
+                    raise ValueError('A catalog backup is still running; retry after it finishes.')
+            # Stop and disable ingress first. Disabled units do not automatically
+            # return on reboot while the candidate/backup outcome is uncertain.
+            public_fence_started = True
+            for unit_name in ('caddy', STORE_SERVICE, service):
+                enabled, active = transaction.services[unit_name]
+                if active:
+                    run(['systemctl', 'stop', unit_name])
+                if enabled in ('enabled', 'enabled-runtime'):
+                    run(['systemctl', 'disable', unit_name], stdout=subprocess.DEVNULL)
+            catalog = STATE / 'silicon-apps/apps.sqlite'
+            if catalog.exists():
+                if not transaction.previous:
+                    raise ValueError('Existing catalog without a previous managed release requires operator recovery.')
+                run(['python3', str(release / 'deploy/backup.py'), '--bucket', args.bucket, '--region', args.region])
+            recovery_phase('backup-complete-before-switch')
         for path, (content, mode) in files.items():
             atomic(path, content, mode)
         if transaction.previous:
@@ -738,8 +818,16 @@ def main():
             # runs a proven unit. The worker requires the unit, so systemd stops it meanwhile.
             run(['systemctl', 'enable', BINFMT_SERVICE], stdout=subprocess.DEVNULL)
             run(['systemctl', 'restart', BINFMT_SERVICE])
-        run(['systemctl', 'enable', service], stdout=subprocess.DEVNULL)
-        run(['systemctl', 'restart', service])
+        if args.role == 'api':
+            # This durable phase is written *before* the candidate can run:
+            # startup itself can rewrite the catalog. From here on no automatic
+            # old-code restart is safe, even if start or health checking fails.
+            recovery_phase('candidate-may-have-written')
+            candidate_may_have_written = True
+            run(['systemctl', 'start', service])
+        else:
+            run(['systemctl', 'enable', service], stdout=subprocess.DEVNULL)
+            run(['systemctl', 'restart', service])
         # The API listens only after reading and signing every stored package, which can take a while once.
         wait_ready(service, args.role, timeout=300 if args.role == 'api' else 60)
         if args.role == 'worker':
@@ -748,17 +836,56 @@ def main():
         if args.role == 'api':
             # The first start with a signing key signs every existing release (backed up above).
             verify_signing(active_key)
-            run(['systemctl', 'enable', STORE_SERVICE], stdout=subprocess.DEVNULL)
-            run(['systemctl', 'restart', STORE_SERVICE])
+            run(['systemctl', 'start', STORE_SERVICE])
             wait_ready(STORE_SERVICE, 'store')
-            # Restart to use the new Caddy binary as well as its configuration.
-            run(['systemctl', 'enable', 'caddy', 'silicon-apps-backup.timer'], stdout=subprocess.DEVNULL)
+            recovery_phase('candidate-ready-public-ingress-still-stopped')
+            # Only after the candidate and store are ready can they start on
+            # reboot and the public proxy be brought back.
+            run(['systemctl', 'enable', service, STORE_SERVICE, 'caddy', 'silicon-apps-backup.timer'], stdout=subprocess.DEVNULL)
+            atomic(ROOT / 'deployment.json', json.dumps({'revision': args.revision, 'sha256': args.sha256,
+                'role': args.role, 'installed_at': time.time()}), 0o644)
+            # The Caddy unit also refuses to start while the durable receipt
+            # exists. Removing it is the commit point after both candidate
+            # services are ready; a reboot before this cannot reopen ingress.
+            durable_unlink(recovery)
             run(['systemctl', 'restart', 'caddy', 'silicon-apps-backup.timer'])
             run(['systemctl', 'is-active', '--quiet', 'caddy', 'silicon-apps-backup.timer'])
-        atomic(ROOT / 'deployment.json', json.dumps({'revision': args.revision, 'sha256': args.sha256,
-            'role': args.role, 'installed_at': time.time()}), 0o644)
+        else:
+            atomic(ROOT / 'deployment.json', json.dumps({'revision': args.revision, 'sha256': args.sha256,
+                'role': args.role, 'installed_at': time.time()}), 0o644)
     except BaseException:
-        transaction.rollback()
+        if args.role == 'api' and candidate_may_have_written:
+            # The old binary can drop fields unknown to it when it rewrites the
+            # catalog. Leave candidate/previous releases and the backup intact;
+            # never restart old code or restore a database automatically.
+            failures = []
+            try:
+                # Re-establish the persistent Caddy start fence before any
+                # cleanup; it may have been removed at the ready commit point.
+                recovery_phase('operator-recovery-required')
+            except Exception:
+                failures.append('recovery-receipt')
+            for unit_name in ('caddy', STORE_SERVICE, service, 'silicon-apps-backup.timer'):
+                for action in ('stop', 'disable'):
+                    try:
+                        run(['systemctl', action, unit_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    except Exception:
+                        failures.append(unit_name)
+            if failures:
+                raise RuntimeError('Apps recovery fence encountered errors; public ingress and service state require immediate inspection.') from None
+        elif args.role == 'api' and not public_fence_started:
+            # Only the timer may have changed; avoid interrupting healthy live
+            # services if a concurrent backup made this attempt ineligible.
+            enabled, active = transaction.services['silicon-apps-backup.timer']
+            if enabled in ('enabled', 'enabled-runtime'):
+                run(['systemctl', 'enable'] + (['--runtime'] if enabled == 'enabled-runtime' else []) + ['silicon-apps-backup.timer'], stdout=subprocess.DEVNULL)
+            if active:
+                run(['systemctl', 'start', 'silicon-apps-backup.timer'])
+            durable_unlink(recovery)
+        else:
+            # On a pre-candidate failure, restore the old pointer and units,
+            # then clear the start fence before restarting their old services.
+            transaction.rollback(before_restart=(lambda: durable_unlink(recovery)) if args.role == 'api' else None)
         raise
     summary = {'role': args.role, 'revision': args.revision, 'service': 'active',
                'previous_release': str(transaction.previous) if transaction.previous else None}

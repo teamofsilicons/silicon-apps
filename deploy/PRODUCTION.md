@@ -64,8 +64,11 @@ publish a catalog app.
    artifact bucket. Retain its receipt, full source revision and checksum.
 4. Through SSM, download the archive on the intended host, verify its checksum
    **before** extracting or running its installer, then invoke `deploy/install.py`
-   with `--archive`, `--sha256`, `--revision`, `--role`, `--secret` and `--bucket`.
-   The secret argument is an ARN; never put secret values in SSM command text.
+   with `--archive`, `--sha256`, `--revision`, `--role`, `--secret`,
+   `--secret-version-id` and `--bucket`. Pin the reviewed `AWSCURRENT` version;
+   the installer refuses a version no longer current when it fetches it. Recheck
+   that version after cutover as well. The secret argument is an ARN; never put
+   secret values in SSM command text.
    `deploy/ssm.py INSTANCE SCRIPT` executes a reviewed, secret-free command file.
 
 The installer reads runtime values with the instance's own role and writes
@@ -85,15 +88,37 @@ On the API host the installer, in order:
    `127.0.0.1:4321` with the store unit's user and sandbox against the running
    API. `GET /` must answer 200 with the server-rendered page, or nothing live
    changes;
-4. stops the API and uploads a backup when a catalog exists, writes the unit
-   files, switches `current`, restarts the API and waits up to five minutes
-   for `/health` (the first signed start reads every package first), checks
-   that `/.well-known/silicon-apps-keys.json` publishes the configured key,
-   restarts the store and waits for `GET /` to render, then restarts Caddy and
-   the backup timer, and records `deployment.json`.
+4. stops and disables the backup timer, refuses if its backup service is still
+   running, then stops and disables public Caddy, the store and API. It uploads
+   a catalog/package backup before writing units or switching `current`;
+5. writes a durable `cutover-recovery.json` phase before starting the candidate,
+   starts the API and waits up to five minutes for `/health`, checks its signing
+   key, starts the store and waits for `GET /`, then records the new deployment;
+6. clears the durable Caddy start fence only after the API and store are ready,
+   and starts Caddy and the backup timer. The generated Caddy unit refuses to
+   start while `/opt/silicon-apps/cutover-recovery.json` exists.
 
-Any failure after step 3 restores the previous unit files, `current` and the
-service states. The store unit is `deploy/silicon-apps-store.service`: no
+An error before the candidate may have started restores the old pointer, units
+and prior service states. Once candidate startup is attempted, its startup may
+already have written the catalog. On any subsequent error, the installer stops
+and disables the API, store, Caddy and backup timer and leaves the recovery
+receipt, previous release and backup in place. It **does not** automatically
+restart the old binary or restore database bytes. The receipt is root-only and
+contains public release metadata, not secret or catalog values. An interrupted
+process or reboot may leave a receipt: the Caddy start condition keeps public
+ingress fenced. Inspect actual unit state, executable and symlink, catalog and
+backup, and resolve recovery under the deployment lock before starting anything.
+The API's loopback listener and other host-local processes require separate
+operator control; Caddy's fence is not a firewall for local clients.
+
+Older Apps binaries do not preserve Interface metadata they do not recognize.
+After a candidate may have written, starting old code against the new catalog
+can erase those fields even on a later unrelated catalog write; do not restart
+it or restore a backup blindly. Keep public writes stopped while deciding how to
+preserve or recover all post-backup data. A stale recovery receipt blocks another
+install and must not be removed merely to retry.
+
+The store unit is `deploy/silicon-apps-store.service`: no
 secrets, no writable paths, `ProtectSystem=strict`, `NoNewPrivileges`, an empty
 capability set, and only `APPS_API_URL=http://127.0.0.1:4310` and
 `STORE_PUBLIC_URL=https://apps.teamofsilicons.com` as settings.
