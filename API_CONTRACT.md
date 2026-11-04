@@ -69,3 +69,38 @@ Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys a
 - Create/rotate/webhook secret responses can be replayed with the same key for 10 minutes. After that, plaintext is removed and retry returns `409 secret_replay_expired` without repeating the operation. Normal idempotency records remain durable. Every mutation history event includes its idempotency key; failed package validation is also durable and replayed without executing twice.
 - Current author, reviewer and known-account invite labels refresh through Accounts using immutable UUIDs; an ID-only lookup cannot erase a saved display name. A renamed account cannot receive a duplicate pending invitation under its new ID.
 - Unknown routes, extra path segments and unsupported mutation methods return 404 before any external webhook, package-runner or media side effect.
+
+## Interface integration metadata
+
+Authors may PATCH `/v1/apps/{app_id}` with any of the following fields. The app
+view returns the same fields to everyone who can see the app. The existing
+catalog entries have null metadata and remain eligible for publication and
+releases. Apps created after this feature require an interface API documentation
+URL before publishing; a published new app must retain it. Drafts can be saved
+without one. This does not affect releases.
+
+- `interface_api_documentation_url`: HTTPS URL up to 2048 bytes, or null.
+- `interface_use_cases`: null or an array of up to 20 `{ "name": "...",
+  "files": [{ "name": "understanding.md", "content": "Markdown..." }] }`
+  groups. Each group has 1–10 `.md` files; each file contains nonempty UTF-8
+  text of at most 100 KiB. File text across all groups is at most 1 MiB.
+- `interface_license`: null, `{ "kind": "preset", "preset": "free" }`,
+  `{ "kind": "link", "url": "https://..." }`, or `{ "kind": "file",
+  "name": "LICENSE.txt", "content": "..." }`. Text files are at most
+  100 KiB. Link URLs follow the same validation as documentation URLs.
+
+Preset text (the selected text is the permission communicated by the author):
+
+- `free`: You may use this app’s interface API to build, distribute and operate interfaces, including commercially, without payment or attribution.
+- `attribution`: You may use this app’s interface API to build, distribute and operate interfaces, including commercially. Credit the app by name and link to its app page wherever you give interface credits.
+- `attribution_unless_paid`: You may use this app’s interface API to build, distribute and operate interfaces, including commercially. Credit the app by name and link to its app page wherever you give interface credits. Attribution is not required if the app publisher has granted you a paid attribution waiver. Arrange its price and terms with the publisher.
+- `permission_required`: Ask the app publisher for permission before using this app’s interface API in an interface.
+
+Every preset also says: These terms do not grant rights to the app’s source code,
+trademarks or user data, or waive other applicable terms.
+
+The CLI provides `silicon-apps setup APP interface --help`. Its `--use-cases`
+manifest accepts file paths relative to the manifest, such as
+`[{"name":"Writing", "files":["writing.md"]}]`; it reads and uploads their
+contents. `--license-file` likewise reads a local file. Fields not supplied are
+left unchanged, and explicit clear flags remove optional values.

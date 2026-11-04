@@ -320,6 +320,26 @@ enum Setup {
     },
     /// Save optional links as JSON: website, developer_docs, android, ios, custom[].
     Links { file: PathBuf },
+    /// Configure interface API docs, use-case Markdown files and interface license.
+    /// --use-cases reads JSON [{"name":"...","files":["path/to/file.md"]}].
+    Interface {
+        #[arg(long, conflicts_with = "clear_api_docs")]
+        api_docs: Option<String>,
+        #[arg(long)]
+        clear_api_docs: bool,
+        #[arg(long, conflicts_with = "clear_use_cases")]
+        use_cases: Option<PathBuf>,
+        #[arg(long)]
+        clear_use_cases: bool,
+        #[arg(long, value_parser=["free","attribution","attribution_unless_paid","permission_required"], conflicts_with_all=["license_url","license_file","clear_license"])]
+        license_preset: Option<String>,
+        #[arg(long, conflicts_with_all=["license_file","clear_license"])]
+        license_url: Option<String>,
+        #[arg(long, conflicts_with = "clear_license")]
+        license_file: Option<PathBuf>,
+        #[arg(long)]
+        clear_license: bool,
+    },
     /// Save optional media JSON: logo, banner, carousel[{url,kind,alt}].
     Media { file: PathBuf },
     /// Save your resume position (1 details through 7 review and publish).
@@ -722,6 +742,80 @@ async fn execute(cli: &Cli) -> Result<Value> {
                 client
                     .edit(app, json!({"links":read_json(file)?,"setup_step":4}), key)
                     .await?
+            }
+            Setup::Interface {
+                api_docs,
+                clear_api_docs,
+                use_cases,
+                clear_use_cases,
+                license_preset,
+                license_url,
+                license_file,
+                clear_license,
+            } => {
+                let mut body = json!({});
+                if let Some(url) = api_docs {
+                    body["interface_api_documentation_url"] = json!(url);
+                }
+                if *clear_api_docs {
+                    body["interface_api_documentation_url"] = Value::Null;
+                }
+                if let Some(manifest) = use_cases {
+                    let mut cases = read_json(manifest)?;
+                    for case in cases
+                        .as_array_mut()
+                        .context("use-cases file must contain an array")?
+                    {
+                        let files = case
+                            .get_mut("files")
+                            .and_then(Value::as_array_mut)
+                            .context("each use case must have a files array")?;
+                        for file in files.iter_mut() {
+                            if let Some(path) = file.as_str() {
+                                let path = PathBuf::from(path);
+                                let path = if path.is_absolute() {
+                                    path
+                                } else {
+                                    manifest
+                                        .parent()
+                                        .unwrap_or(std::path::Path::new("."))
+                                        .join(path)
+                                };
+                                let name = path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .context("Markdown path needs a UTF-8 file name")?;
+                                *file = json!({"name":name,"content":std::fs::read_to_string(&path).with_context(|| format!("Cannot read {}",path.display()))?});
+                            }
+                        }
+                    }
+                    body["interface_use_cases"] = cases;
+                }
+                if *clear_use_cases {
+                    body["interface_use_cases"] = Value::Null;
+                }
+                if let Some(preset) = license_preset {
+                    body["interface_license"] = json!({"kind":"preset","preset":preset});
+                }
+                if let Some(url) = license_url {
+                    body["interface_license"] = json!({"kind":"link","url":url});
+                }
+                if let Some(path) = license_file {
+                    let name = path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .context("License path needs a UTF-8 file name")?;
+                    body["interface_license"] =
+                        json!({"kind":"file","name":name,"content":std::fs::read_to_string(path)?});
+                }
+                if *clear_license {
+                    body["interface_license"] = Value::Null;
+                }
+                ensure!(
+                    !body.as_object().unwrap().is_empty(),
+                    "Choose an interface setting to change. See setup APP interface --help."
+                );
+                client.edit(app, body, key).await?
             }
             Setup::Media { file } => {
                 let mut data = read_json(file)?;

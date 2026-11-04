@@ -185,6 +185,15 @@ pub struct App {
     pub account_ids: Vec<String>,
     pub access_uuids: Vec<String>,
     pub links: Value,
+    /// Existing catalog entries predate interface metadata and remain grandfathered.
+    #[serde(default)]
+    pub interface_documentation_required: bool,
+    #[serde(default)]
+    pub interface_api_documentation_url: Option<String>,
+    #[serde(default)]
+    pub interface_use_cases: Option<Vec<Value>>,
+    #[serde(default)]
+    pub interface_license: Option<Value>,
     pub carousel: Vec<Value>,
     pub published: bool,
     pub setup_step: u8,
@@ -301,7 +310,7 @@ impl App {
             .unwrap_or_default();
         signed_by.sort();
         signed_by.dedup();
-        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"unsupported_targets":latest.map(|r| r.unsupported_targets.clone()).unwrap_or_default(),"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
+        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"interface_api_documentation_url":self.interface_api_documentation_url,"interface_use_cases":self.interface_use_cases,"interface_license":self.interface_license,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"unsupported_targets":latest.map(|r| r.unsupported_targets.clone()).unwrap_or_default(),"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
         if self.is_author(who) {
             v["domains"] = json!(self.domains);
             v["account_ids"] = json!(self.account_ids);
@@ -321,6 +330,9 @@ impl App {
     }
     pub fn readiness(&self) -> Value {
         let mut errors = vec![];
+        if self.interface_documentation_required && self.interface_api_documentation_url.is_none() {
+            errors.push(json!({"field":"interface_api_documentation_url","message":"Add an HTTPS link to your interface API documentation."}));
+        }
         if self.name.trim().is_empty() {
             errors.push(json!({"field":"name","message":"App name is required."}));
         }

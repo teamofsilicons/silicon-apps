@@ -735,6 +735,13 @@ fn seed_private(state: &silicon_apps_server::Shared) {
         Prepared::default(),
     );
     change(
+        "PATCH",
+        "apps/secret-app",
+        "seed-interface-docs",
+        json!({"interface_api_documentation_url":"https://example.com/docs"}),
+        Prepared::default(),
+    );
+    change(
         "POST",
         "apps/secret-app/publish",
         "seed-publish",

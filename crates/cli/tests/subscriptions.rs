@@ -167,6 +167,12 @@ async fn cli_subscribes_follows_events_and_negotiates_capabilities() {
             Prepared::default(),
         ),
         (
+            "PATCH",
+            "apps/demo-app",
+            json!({"interface_api_documentation_url":"https://example.com/interface"}),
+            Prepared::default(),
+        ),
+        (
             "POST",
             "apps/demo-app/publish",
             json!({}),

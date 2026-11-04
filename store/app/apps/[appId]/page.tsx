@@ -42,6 +42,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
+const INTERFACE_LICENSES: Record<string, string> = {
+  free: "You may use this app’s interface API to build, distribute and operate interfaces, including commercially, without payment or attribution.",
+  attribution: "You may use this app’s interface API to build, distribute and operate interfaces, including commercially. Credit the app by name and link to its app page wherever you give interface credits.",
+  attribution_unless_paid: "You may use this app’s interface API to build, distribute and operate interfaces, including commercially. Credit the app by name and link to its app page wherever you give interface credits. Attribution is not required if the app publisher has granted you a paid attribution waiver. Arrange its price and terms with the publisher.",
+  permission_required: "Ask the app publisher for permission before using this app’s interface API in an interface.",
+};
+const LICENSE_SCOPE = "These terms do not grant rights to the app’s source code, trademarks or user data, or waive other applicable terms.";
+
 const REVIEW_ERRORS: Record<string, string> = {
   rating: "Choose a rating from 1 to 5 stars.",
   too_long: "Keep your review to 600 characters or fewer.",
@@ -204,6 +212,35 @@ export default async function AppPage({ params, searchParams }: Props) {
                 </li>
               ))}
             </ul>
+          </section>
+        ) : null}
+
+        {(app.interface_api_documentation_url || app.interface_use_cases?.length || app.interface_license) ? (
+          <section aria-labelledby="interface-title" className={pageStyles.section}>
+            <h2 id="interface-title" className={pageStyles.sectionTitle}>Build an interface</h2>
+            {safeUrl(app.interface_api_documentation_url) ? (
+              <p><a href={safeUrl(app.interface_api_documentation_url)} target="_blank" rel="nofollow ugc noopener noreferrer">Interface API documentation <ArrowUpRight size={13} aria-hidden="true" /></a></p>
+            ) : null}
+            {app.interface_use_cases?.map((useCase, index) => (
+              <div key={`${useCase.name}-${index}`}>
+                <h3>{useCase.name}</h3>
+                {useCase.files.map((file, fileIndex) => (
+                  <details key={`${file.name}-${fileIndex}`}>
+                    <summary>{file.name}</summary>
+                    <p><a href={`data:text/markdown;charset=utf-8,${encodeURIComponent(file.content)}`} download={file.name}>Download Markdown</a></p>
+                    <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{file.content}</pre>
+                  </details>
+                ))}
+              </div>
+            ))}
+            {app.interface_license ? (
+              <div>
+                <h3>Interface license</h3>
+                {app.interface_license.kind === "preset" ? <><p>{INTERFACE_LICENSES[app.interface_license.preset]}</p><p>{LICENSE_SCOPE}</p></> : null}
+                {app.interface_license.kind === "link" && safeUrl(app.interface_license.url) ? <p><a href={safeUrl(app.interface_license.url)} target="_blank" rel="nofollow ugc noopener noreferrer">Read the interface license <ArrowUpRight size={13} aria-hidden="true" /></a></p> : null}
+                {app.interface_license.kind === "file" ? <details><summary>{app.interface_license.name}</summary><p><a href={`data:text/plain;charset=utf-8,${encodeURIComponent(app.interface_license.content)}`} download={app.interface_license.name}>Download license</a></p><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{app.interface_license.content}</pre></details> : null}
+              </div>
+            ) : null}
           </section>
         ) : null}
 

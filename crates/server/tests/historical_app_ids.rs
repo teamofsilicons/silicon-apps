@@ -368,7 +368,7 @@ async fn a_historical_app_is_set_up_published_found_and_installed_like_any_other
     let with_logo = as_alice(
         "PATCH",
         "/v1/apps/dm".into(),
-        json!({"logo":logo,"setup_step":5}),
+        json!({"logo":logo,"setup_step":5,"interface_api_documentation_url":"https://example.com/docs"}),
         "dm-media",
     )
     .await;

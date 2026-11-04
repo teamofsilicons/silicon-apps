@@ -732,6 +732,129 @@ fn strict_page(
             }),
     }
 }
+
+/// Validate uploaded integration material without fetching remote URLs or interpreting Markdown.
+fn validate_interface_url(value: &str) -> Result<()> {
+    if value.len() > 2048 || value.trim() != value {
+        return Err(ApiError::bad(
+            "URL must be at most 2048 bytes with no surrounding whitespace.",
+        ));
+    }
+    let url = url::Url::parse(value).map_err(|_| ApiError::bad("Enter a valid HTTPS URL."))?;
+    if url.scheme() != "https"
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err(ApiError::bad(
+            "URL must use HTTPS and must not contain credentials.",
+        ));
+    }
+    Ok(())
+}
+fn validate_interface_name(value: &Value, field: &str, max: usize) -> Result<()> {
+    let name = value
+        .as_str()
+        .ok_or_else(|| ApiError::bad(format!("{field} must be a string.")))?;
+    if name.trim().is_empty() || name.len() > max || name.chars().any(char::is_control) {
+        return Err(ApiError::bad(format!(
+            "{field} must be nonempty, at most {max} bytes, and have no control characters."
+        )));
+    }
+    Ok(())
+}
+fn validate_interface_file(value: &Value, markdown: bool) -> Result<usize> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| ApiError::bad("A file must have name and content."))?;
+    if obj.len() != 2 || !obj.contains_key("name") || !obj.contains_key("content") {
+        return Err(ApiError::bad("A file must contain only name and content."));
+    }
+    validate_interface_name(&obj["name"], "file name", 255)?;
+    let name = obj["name"].as_str().unwrap();
+    if name.contains(['/', '\\']) || (markdown && !name.to_ascii_lowercase().ends_with(".md")) {
+        return Err(ApiError::bad(
+            "Use a plain file name; use case files must end in .md.",
+        ));
+    }
+    let content = obj["content"]
+        .as_str()
+        .ok_or_else(|| ApiError::bad("File content must be UTF-8 text."))?;
+    if content.trim().is_empty() || content.len() > 100 * 1024 {
+        return Err(ApiError::bad(
+            "File content must be nonempty and at most 100 KiB.",
+        ));
+    }
+    Ok(content.len())
+}
+fn validate_interface_use_cases(value: &Value) -> Result<Vec<Value>> {
+    let cases = value
+        .as_array()
+        .ok_or_else(|| ApiError::bad("interface_use_cases must be an array or null."))?;
+    if cases.len() > 20 {
+        return Err(ApiError::bad("At most 20 interface use cases are allowed."));
+    }
+    let mut total = 0usize;
+    for case in cases {
+        let obj = case
+            .as_object()
+            .ok_or_else(|| ApiError::bad("Each use case must contain name and files."))?;
+        if obj.len() != 2 || !obj.contains_key("name") || !obj.contains_key("files") {
+            return Err(ApiError::bad(
+                "Each use case must contain only name and files.",
+            ));
+        }
+        validate_interface_name(&obj["name"], "use case name", 120)?;
+        let files = obj["files"]
+            .as_array()
+            .ok_or_else(|| ApiError::bad("Use case files must be an array."))?;
+        if !(1..=10).contains(&files.len()) {
+            return Err(ApiError::bad("Each use case needs 1–10 Markdown files."));
+        }
+        for file in files {
+            total += validate_interface_file(file, true)?;
+        }
+    }
+    if total > 1024 * 1024 {
+        return Err(ApiError::bad(
+            "Use case files may contain at most 1 MiB in total.",
+        ));
+    }
+    Ok(cases.clone())
+}
+fn validate_interface_license(value: &Value) -> Result<()> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| ApiError::bad("interface_license must be an object or null."))?;
+    match obj.get("kind").and_then(Value::as_str) {
+        Some("preset")
+            if obj.len() == 2
+                && [
+                    "free",
+                    "attribution",
+                    "attribution_unless_paid",
+                    "permission_required",
+                ]
+                .contains(&obj.get("preset").and_then(Value::as_str).unwrap_or("")) =>
+        {
+            Ok(())
+        }
+        Some("link") if obj.len() == 2 => validate_interface_url(
+            obj.get("url")
+                .and_then(Value::as_str)
+                .ok_or_else(|| ApiError::bad("License link needs an HTTPS URL."))?,
+        ),
+        Some("file") if obj.len() == 3 => {
+            let file = json!({"name":obj.get("name"),"content":obj.get("content")});
+            validate_interface_file(&file, false)?;
+            Ok(())
+        }
+        _ => Err(ApiError::bad(
+            "Choose a supported license preset, HTTPS link, or text file.",
+        )),
+    }
+}
+
 fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -> Result<Value> {
     let p: Vec<_> = m.path.trim_matches('/').split('/').collect();
     if !mutation_route_exists(m.method, &p) {
@@ -807,6 +930,10 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             account_ids: vec![],
             access_uuids: vec![],
             links: json!({}),
+            interface_documentation_required: true,
+            interface_api_documentation_url: None,
+            interface_use_cases: None,
+            interface_license: None,
             carousel: vec![],
             published: false,
             setup_step: 1,
@@ -962,6 +1089,9 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                 "banner_alt",
                 "carousel",
                 "links",
+                "interface_api_documentation_url",
+                "interface_use_cases",
+                "interface_license",
                 "setup_step",
             ]
             .contains(&key.as_str())
@@ -970,6 +1100,40 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     "Field `{key}` cannot be changed here."
                 )));
             }
+        }
+        if let Some(value) = b.get("interface_api_documentation_url") {
+            app.interface_api_documentation_url = if value.is_null() {
+                None
+            } else {
+                let url = value.as_str().ok_or_else(|| {
+                    ApiError::bad("interface_api_documentation_url must be an HTTPS URL or null.")
+                })?;
+                validate_interface_url(url)?;
+                Some(url.to_owned())
+            };
+            if app.published
+                && app.interface_documentation_required
+                && app.interface_api_documentation_url.is_none()
+            {
+                return Err(ApiError::bad(
+                    "Published apps must retain their interface API documentation URL.",
+                ));
+            }
+        }
+        if let Some(value) = b.get("interface_use_cases") {
+            app.interface_use_cases = if value.is_null() {
+                None
+            } else {
+                Some(validate_interface_use_cases(value)?)
+            };
+        }
+        if let Some(value) = b.get("interface_license") {
+            app.interface_license = if value.is_null() {
+                None
+            } else {
+                validate_interface_license(value)?;
+                Some(value.clone())
+            };
         }
         for (key, dest) in [
             ("name", &mut app.name),
@@ -1002,7 +1166,18 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     .ok_or_else(|| ApiError::bad("setup_step must be 1–7."))? as u8;
         }
         validate_details(app)?;
-        app.event(actor, "app.details_changed", b.clone());
+        // Keep an audit of changed fields without copying uploaded documents into
+        // every historical event (the current files live in the catalog).
+        let mut audit = b.clone();
+        if let Some(obj) = audit.as_object_mut() {
+            if obj.contains_key("interface_use_cases") {
+                obj.insert("interface_use_cases".into(), json!("updated"));
+            }
+            if obj.contains_key("interface_license") {
+                obj.insert("interface_license".into(), json!("updated"));
+            }
+        }
+        app.event(actor, "app.details_changed", audit);
         outbox.push(("accounts.sync".into(), json!({"app_id":app.app_id})));
         return Ok(app.view(who));
     }

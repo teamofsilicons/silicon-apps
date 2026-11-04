@@ -78,6 +78,16 @@ fn package(s: &mut Store, w: &Identity, id: &str, target: &str) -> Value {
     .0
 }
 fn publish(s: &mut Store, w: &Identity, id: &str) {
+    change(
+        s,
+        Some(w),
+        "PATCH",
+        &format!("apps/{id}"),
+        &format!("interface-docs-{id}"),
+        json!({"interface_api_documentation_url":"https://example.com/interface-api"}),
+        Prepared::default(),
+    )
+    .unwrap();
     let packages: Vec<_> = REQUIRED_RELEASE_TARGETS
         .into_iter()
         .map(|target| package(s, w, id, target)["id"].clone())

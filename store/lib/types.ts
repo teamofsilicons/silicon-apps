@@ -62,6 +62,9 @@ export type App = {
   tags: string[];
   visibility: "public" | "private";
   links: Links | null;
+  interface_api_documentation_url?: string | null;
+  interface_use_cases?: { name: string; files: { name: string; content: string }[] }[] | null;
+  interface_license?: { kind: "preset"; preset: "free" | "attribution" | "attribution_unless_paid" | "permission_required" } | { kind: "link"; url: string } | { kind: "file"; name: string; content: string } | null;
   carousel: Media[];
   published: boolean;
   created_at: string;

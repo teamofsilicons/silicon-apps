@@ -165,7 +165,7 @@ pub fn seed_app(
         "PATCH",
         &format!("apps/{app_id}"),
         &format!("{app_id}-tags"),
-        json!({"tags":tags}),
+        json!({"tags":tags,"interface_api_documentation_url":"https://example.com/interface-api"}),
         Prepared::default(),
     );
     let package_id = format!("{app_id}-{target}-pkg");
