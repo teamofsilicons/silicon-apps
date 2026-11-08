@@ -4,6 +4,8 @@ Create, publish, discover, and install command-line apps for Carbons and Silicon
 
 The requirements live in [understanding/UNDERSTANDING.md](understanding/UNDERSTANDING.md). The implementation does not add a manual publication review: authors publish when the required details and validated release packages are ready.
 
+Apps can optionally define [per-user settings storage](docs/user-storage.md): a shared schema, independent values per account, and a shared `anon` record per app. User verification permits scoped reads; the owning app must also prove its identity for writes. Run `silicon-apps docs storage` for the CLI and API guide.
+
 ## Run locally
 
 Requirements: Rust 1.98 or newer, a C compiler, Node.js 22.12 or newer, npm, and Python 3.11 or newer for the package runner. The official Silicon Accounts Rust client is vendored in `vendor/silicon-accounts-client`; building Apps does not require a sibling checkout. Real sign-in and authoring require a running Silicon Accounts deployment with the Apps integration described in [operations](docs/operations.md#connect-silicon-accounts).

@@ -3,6 +3,7 @@
 /// The same portable guides displayed by `silicon-apps docs TOPIC`.
 pub fn guide(topic: &str) -> &'static str {
     match topic {
+        "storage" => include_str!("../docs/user-storage.md"),
         "start" => {
             "Install: silicon-apps search QUERY; silicon-apps show APP; silicon-apps install APP.\nSign in for private apps or authoring: silicon-apps login --slt TOKEN. Get a single-use Apps token from Silicon Accounts with silicon-accounts login --app silicon-apps.\nPublish: silicon-apps create APP --name NAME; silicon-apps setup APP details --description-file description.txt; silicon-apps pack ./package -o package.tar.gz; silicon-apps upload APP --target linux-x86_64 package.tar.gz; silicon-apps upload APP --target windows-x86_64 package.tar.gz; silicon-apps upload APP --target macos-aarch64 package.tar.gz; silicon-apps release APP --version 0.1.0 --package LINUX_PACKAGE_ID --package WINDOWS_PACKAGE_ID --package MACOS_PACKAGE_ID; silicon-apps promote APP RELEASE_ID --version 1.0.0; silicon-apps readiness APP; silicon-apps publish APP.\nInstall starts the updater. Enable automatic startup at login: silicon-apps daemon install (the bootstrap installer does this by default). In CI or any short-lived machine set SILICON_APPS_NO_DAEMON=1 so no updater starts. Every install checks the release's Ed25519 signature first. Run silicon-apps docs publish, manifest, install, auth or why for details."
         }

@@ -86,6 +86,14 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
         )
         .await
         .unwrap();
+    alice
+        .edit(
+            "demo-app",
+            json!({"interface_api_documentation_url":"https://example.com/interface-api"}),
+            Some("client-interface-docs"),
+        )
+        .await
+        .unwrap();
     let who = Identity {
         uuid: "alice".into(),
         id: "c:alice".into(),

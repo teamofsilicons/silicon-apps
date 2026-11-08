@@ -7,6 +7,7 @@ pub mod install;
 mod network;
 pub mod signing;
 pub mod state;
+pub mod storage;
 pub mod updater;
 pub use silicon_apps_package as package;
 pub use state::{Config, LocalState};

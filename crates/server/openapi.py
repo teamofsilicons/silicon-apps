@@ -371,6 +371,25 @@ op("POST","/v1/auth/exchange","exchangeToken","Exchange a single-use token","Aut
 op("POST","/v1/auth/refresh","refreshToken","Refresh tokens","Auth","Exchange a rotating refresh token. Do not send a rotated token again.",{"200":ok(ref("TokenResponse"))},security=PUBLIC,body=json_body(obj({"refresh_token":S},["refresh_token"])),errors=("BadRequest","Unauthorized","RateLimited","Unavailable"))
 op("POST","/v1/auth/logout","logout","Sign out","Auth","Revokes the token and clears the browser session.",{"200":ok(obj({"authenticated":{"type":"boolean","const":False}},["authenticated"]))},body=json_body(obj({"token":S}),required=False),errors=("BadRequest","Forbidden","RateLimited","Unavailable"))
 
+# Optional guarded per-user storage.
+schemas["StorageField"] = obj({"type":{"type":"string","enum":["string","number","boolean","object","array"]},"default":{"description":"Initial value matching type, at most 64 KiB of JSON."}},["type","default"],extra=False)
+schemas["StorageSchema"] = {"type":"object","maxProperties":128,"additionalProperties":ref("StorageField"),"description":"Keys are 1-128 ASCII letters, digits, underscores, dots or hyphens. Prototype names are reserved. Defaults total at most 1 MiB. Existing fields are immutable; keys can be added."}
+schemas["StorageDefinition"] = obj({"app_id":S,"schema":nullable(ref("StorageSchema"))},["app_id","schema"])
+schemas["StorageRecord"] = obj({"app_id":S,"user_uuid":S,"values":{"type":"object","additionalProperties":True},"revision":{"type":"integer","minimum":0},"updated_at":{"type":["string","null"],"format":"date-time"}},["app_id","user_uuid","values","revision","updated_at"])
+schemas["App"]["properties"]["user_storage"] = {**nullable(ref("StorageSchema")),"description":"Only returned to authors. Null when storage is not defined."}
+paths["/v1/apps"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]["user_storage"] = nullable(ref("StorageSchema"))
+for method in ("GET","PUT"):
+    op(method,"/v1/apps/{app_id}/storage-schema",f"{method.lower()}StorageSchema", "Read storage definition" if method == "GET" else "Define storage or add keys", "Authoring", "Authors only. Optional during creation or later. Existing keys, types and defaults cannot be changed or removed.", {"200":ok(ref("StorageDefinition"))}, security=AUTH, parameters_=[param("AppId")], body=json_body(ref("StorageSchema")) if method == "PUT" else None, errors=MUT_ERR, mutation=method == "PUT")
+storage_params = [param("AppId"),{"name":"user_uuid","in":"path","required":True,"schema":S,"description":"The permanent UUID in the User verification, or anon for the owning app's shared anonymous record."},{"name":"X-App-Verification","in":"header","required":False,"schema":S,"description":"Owning app's App verification with storage:write, addressed to silicon-apps. Required for signed-in writes and resets."}]
+storage_auth = [{"storageProof":[]}]
+storage_desc = "Always verified live with Silicon Accounts; responses are no-store. For a UUID, Authorization: Proof <user proof> must name that UUID and silicon-apps as recipient with storage:{app_id}:read (read only) or storage:{app_id}:write. Writes additionally require X-App-Verification proving the owning app with storage:write; both proofs must be issued by that app. Other apps can read with the scoped user proof. For anon, Authorization contains the owning app's App verification with storage:read or storage:write; writes require storage:write. App authors' sessions cannot access values."
+for method, suffix, name, body in [
+    ("GET","","readStorage",None),
+    ("PATCH","","writeStorage",obj({"values":{"type":"object","additionalProperties":True},"if_revision":{"type":["integer","null"],"minimum":0}},["values"],extra=False)),
+    ("POST","/reset","resetStorage",obj({"keys":{"type":["array","null"],"items":S},"if_revision":{"type":["integer","null"],"minimum":0}},extra=False)),
+]:
+    op(method,"/v1/apps/{app_id}/storage/users/{user_uuid}"+suffix,name,{"readStorage":"Read user settings","writeStorage":"Write user settings","resetStorage":"Reset user settings"}[name],"User storage",storage_desc+" PATCH merges defined keys; reset restores selected keys or all when omitted. Each user's values total at most 1 MiB. if_revision detects stale writes (409). Idempotency replays still require valid proofs.",{"200":ok(ref("StorageRecord"))},security=storage_auth,parameters_=storage_params,body=json_body(body) if body else None,errors=MUT_ERR,mutation=method != "GET")
+
 doc = {
  "openapi": "3.1.0",
  "info": {
@@ -379,7 +398,7 @@ doc = {
    "summary": "Create, publish, find, install and follow command-line apps for Carbons and Silicons.",
    "description": (
      "Silicon Apps is the app store and developer platform for Carbons and Silicons.\n\n"
-     "Public reads need no token. Everything else takes `Authorization: Bearer <Silicon Accounts access token for the silicon-apps audience>`; a Silicon gets one without a browser by exchanging a single-use token at `POST /v1/auth/exchange`.\n\n"
+     "Public catalog reads need no token. Runtime user storage uses scoped Accounts proofs as documented on its operations. Authoring and other account operations take `Authorization: Bearer <Silicon Accounts access token for the silicon-apps audience>`; a Silicon gets one without a browser by exchanging a single-use token at `POST /v1/auth/exchange`.\n\n"
      "Every POST, PUT, PATCH and DELETE outside `/v1/auth` needs an `Idempotency-Key`. Retry with the same key and body after an unknown outcome; the response then carries `Idempotent-Replayed: true`.\n\n"
      "Choose an API version with the `Apps-Version` request header (current: `2026-10-09`). Each response names the version it used. Unknown versions return 400 `unsupported_api_version`.\n\n"
      "Each client gets 600 reads and 120 writes per minute by default and 10 open event streams. Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; a 429 carries `Retry-After`.\n\n"
@@ -426,6 +445,7 @@ doc = {
  },
  "components": {
    "securitySchemes": {
+     "storageProof": {"type":"apiKey","in":"header","name":"Authorization","description":"Proof sap_…; scoped User verification for signed-in users, owning App verification for anon. Never an author bearer token."},
      "bearerAuth": {"type":"http","scheme":"bearer","bearerFormat":"JWT","description":"A Silicon Accounts access token for the silicon-apps audience."},
      "sessionCookie": {"type":"apiKey","in":"cookie","name":"apps_session","description":"The store's HttpOnly browser session. Browser mutations also need an allowed Origin."}
    },

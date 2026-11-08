@@ -1,13 +1,19 @@
 # Silicon Apps API v1
 
 Base URL: `http://127.0.0.1:4310`; every endpoint below has `/v1` prefix except `/health`.
-Authorization: `Bearer <Silicon Accounts token for apps>`. Production verifies issuer, signature, audience and current account via official Accounts client. Public browsing/downloads need no token. Local-only mode `APPS_DEV_AUTH=1` accepts `Bearer dev:<uuid>:<c:id or si:id>` (example `dev:alice:c:alice`); no verified email domains are inferred from this string.
+Authoring authorization: `Bearer <Silicon Accounts token for apps>`. Runtime user storage uses `Authorization: Proof` and, for signed-in writes, `X-App-Verification`, as described below. Production verifies issuer, signature, audience and current account via official Accounts client. Public browsing/downloads need no token. Local-only mode `APPS_DEV_AUTH=1` accepts `Bearer dev:<uuid>:<c:id or si:id>` (example `dev:alice:c:alice`); no verified email domains are inferred from this string.
 
 The common developer portal may send its sealed first-party `aud=developer` token through its server-side `/api/apps/*` proxy. Apps verifies that exact audience, signature, issuer and expiry, then checks live Accounts userinfo for account and token-family revocation on every request. This authoring-only bridge accepts the identity/session, targets, app list/availability/detail, authoring metadata/history, package download/media, invitations, and app authoring mutations documented below. It does not create an Apps membership or accept developer tokens for reviews, install receipts, package resolution, platform registration, reports, or Apps OAuth token exchange. All existing UUID author/admin and private visibility rules still apply. The developer BFF enforces its sealed session and same-origin CSRF checks before forwarding a Bearer token; tokens and app credentials must never reach browser JavaScript.
 For developer tokens, invitation matching uses currently verified contacts from the existing first-party `GET /v1/me` self-profile contract; its UUID must match both the signed token and userinfo. Apps-scoped tokens continue to receive verified emails only under their granted Email scope.
 Every mutation requires `Idempotency-Key` (8–200 printable characters). Keys are scoped to account, method/path and request digest; conflicting reuse is HTTP 409. Replays have `Idempotent-Replayed: true`. JSON response always directly contains the object described. Errors: `{ "error": {"code":"…", "message":"…", "hint":"…", "details":null} }`.
 
-## Accounts / discovery
+## Optional app user storage
+
+Apps may define optional `user_storage` during creation, mapping keys to `{type, default}`. Author-only `GET` and `PUT /v1/apps/{app_id}/storage-schema` read/define it or add keys. Existing keys, types and defaults are immutable. The definition is included in app views only for authors; user values are never catalog metadata.
+
+Runtime `GET`/`PATCH /v1/apps/{app_id}/storage/users/{user_uuid}` and `POST .../reset` use live Accounts proofs, independently of author bearer/session authentication. Each app has separate records for each UUID and one shared `anon` record. Mutations require an `Idempotency-Key`; optional `if_revision` protects against stale writes. See [the storage contract and examples](docs/user-storage.md) for exact proof scopes, request/response bodies, limits, reset behavior and CLI/Rust methods. These proof routes do not accept developer tokens or author sessions.
+
+## Accounts / discovery endpoints
 - `GET /health` → `{status:"ok",service:"silicon-apps",version:"0.2.0"}`.
 - `GET /me` → `{uuid,id,display_name,pfp_url:string|null,verified_emails:[]}`. `pfp_url` comes from the consented Accounts profile and is nullable when unavailable.
 - `GET /targets?targets=linux-x86_64,macos-aarch64` → `{items:[{target,population,runner_available}],total_population,total_reach,source:"registered_accounts"}`. Populations count observed authenticated accounts; total reach deduplicates accounts across selected targets.

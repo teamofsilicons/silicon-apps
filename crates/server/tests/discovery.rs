@@ -145,7 +145,7 @@ async fn seeded() -> (tempfile::TempDir, axum::Router, Value) {
     let ids = json!({
         "app_id":"demo-app","target":"linux-x86_64","package_id":package_id,"release_id":release_id,
         "invite_id":pending["id"],"media_id":media["id"],"subscription_id":sub["subscription"]["id"],"uuid":"bob",
-        "key_id":author_key["key"]["key_id"]
+        "key_id":author_key["key"]["key_id"],"user_uuid":"alice"
     });
     (dir, app, ids)
 }

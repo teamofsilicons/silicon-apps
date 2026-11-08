@@ -170,6 +170,9 @@ pub struct History {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct App {
+    /// Author-defined defaults; never include them in public catalog views.
+    #[serde(default)]
+    pub user_storage: Option<crate::user_storage::Schema>,
     pub app_id: String,
     pub name: String,
     pub description: String,
@@ -313,6 +316,7 @@ impl App {
         let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"interface_api_documentation_url":self.interface_api_documentation_url,"interface_use_cases":self.interface_use_cases,"interface_license":self.interface_license,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"unsupported_targets":latest.map(|r| r.unsupported_targets.clone()).unwrap_or_default(),"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
         if self.is_author(who) {
             v["domains"] = json!(self.domains);
+            v["user_storage"] = json!(self.user_storage);
             v["account_ids"] = json!(self.account_ids);
         }
         v

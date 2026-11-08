@@ -3,7 +3,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use serde_json::{Value, json};
 use silicon_apps_client::{self as apps, Client, LocalState, auth, install, package, updater};
 use std::{
-    io::{self, IsTerminal, Write},
+    io::{self, IsTerminal, Read, Write},
     path::PathBuf,
 };
 
@@ -82,6 +82,15 @@ enum Command {
         description: String,
         #[arg(long)]
         logo: Option<String>,
+        /// Optional JSON map of keys to {"type": "string", "default": "value"}.
+        #[arg(long)]
+        storage_schema: Option<PathBuf>,
+    },
+    /// Define optional settings, or read/write one user's guarded values with proofs.
+    Storage {
+        app: String,
+        #[command(subcommand)]
+        action: Storage,
     },
     /// Save publishing setup one step at a time. Resume any step at any time.
     Setup {
@@ -292,7 +301,7 @@ enum Command {
     },
     /// Read bundled instructive/informative docs or the complete command tree.
     Docs {
-        #[arg(default_value="start",value_parser=["start","publish","manifest","install","auth","why","tree","links"])]
+        #[arg(default_value="start",value_parser=["start","publish","manifest","install","auth","storage","why","tree","links"])]
         topic: String,
     },
 }
@@ -349,6 +358,70 @@ enum Setup {
     },
     /// Show the entire saved draft and its Continue setup position.
     Show,
+}
+#[derive(clap::Args)]
+struct StorageProofs {
+    /// Permanent user UUID, or anon for the app's shared anonymous record.
+    user: String,
+    /// File containing a User verification (App verification for anon). Use - for stdin.
+    #[arg(long)]
+    proof_file: PathBuf,
+    /// File containing the owning app's App verification; required for signed-in writes.
+    #[arg(long)]
+    app_proof_file: Option<PathBuf>,
+}
+#[derive(Subcommand)]
+enum Storage {
+    /// Read the schema as an app author.
+    Schema,
+    /// Define storage or add keys from a JSON schema file. Existing definitions are immutable.
+    Define { file: PathBuf },
+    /// Read every key and value for one user. Does not require a saved CLI sign-in.
+    Read {
+        #[command(flatten)]
+        proofs: StorageProofs,
+    },
+    /// Patch values from a JSON object file. Other keys remain unchanged.
+    Write {
+        #[command(flatten)]
+        proofs: StorageProofs,
+        #[arg(long)]
+        values_file: PathBuf,
+        #[arg(long)]
+        if_revision: Option<u64>,
+    },
+    /// Reset selected keys (or all keys when omitted) to their initial values.
+    Reset {
+        #[command(flatten)]
+        proofs: StorageProofs,
+        #[arg(long = "key")]
+        keys: Vec<String>,
+        #[arg(long)]
+        if_revision: Option<u64>,
+    },
+}
+impl StorageProofs {
+    fn read(&self) -> Result<(String, Option<String>)> {
+        ensure!(
+            self.app_proof_file
+                .as_ref()
+                .is_none_or(|p| p != &self.proof_file),
+            "User and App verification need separate proof files"
+        );
+        let read = |p: &PathBuf| -> Result<String> {
+            let bytes = read_input(p)?;
+            ensure!(
+                bytes.len() <= 512,
+                "Proof files must contain only a proof token"
+            );
+            let text = String::from_utf8(bytes).context("Proof file must contain UTF-8 text")?;
+            Ok(text.trim().to_owned())
+        };
+        Ok((
+            read(&self.proof_file)?,
+            self.app_proof_file.as_ref().map(read).transpose()?,
+        ))
+    }
 }
 #[derive(Subcommand)]
 enum Authors {
@@ -648,6 +721,10 @@ async fn execute(cli: &Cli) -> Result<Value> {
             }
             | Command::Logout
             | Command::Login { action: None, .. }
+            | Command::Storage {
+                action: Storage::Read { .. } | Storage::Write { .. } | Storage::Reset { .. },
+                ..
+            }
     );
     let token = std::env::var("APPS_TOKEN").ok();
     let client = if local {
@@ -698,11 +775,93 @@ async fn execute(cli: &Cli) -> Result<Value> {
             name,
             description,
             logo,
+            storage_schema,
         } => {
+            let schema: Option<apps::storage::StorageSchema> = storage_schema
+                .as_ref()
+                .map(read_json)
+                .transpose()?
+                .map(serde_json::from_value)
+                .transpose()?;
             client
-                .create(app, name, description, logo.as_deref(), key)
+                .create_with_storage(
+                    app,
+                    name,
+                    description,
+                    logo.as_deref(),
+                    schema.as_ref(),
+                    key,
+                )
                 .await?
         }
+        Command::Storage { app, action } => match action {
+            Storage::Schema => client.storage_schema(app).await?,
+            Storage::Define { file } => {
+                client
+                    .define_storage(app, &serde_json::from_value(read_json(file)?)?, key)
+                    .await?
+            }
+            Storage::Read { proofs }
+            | Storage::Write { proofs, .. }
+            | Storage::Reset { proofs, .. } => {
+                let (proof, app_proof) = proofs.read()?;
+                let authorization = apps::storage::StorageAuthorization {
+                    proof: &proof,
+                    app_verification: app_proof.as_deref(),
+                };
+                let result = match action {
+                    Storage::Read { .. } => {
+                        client
+                            .read_storage(app, &proofs.user, &authorization)
+                            .await?
+                    }
+                    Storage::Write {
+                        values_file,
+                        if_revision,
+                        ..
+                    } => {
+                        ensure!(
+                            values_file.to_str() != Some("-")
+                                || (proofs.proof_file.to_str() != Some("-")
+                                    && proofs
+                                        .app_proof_file
+                                        .as_ref()
+                                        .is_none_or(|p| p.to_str() != Some("-"))),
+                            "Only one input can use stdin"
+                        );
+                        let values = read_json(values_file)?;
+                        client
+                            .write_storage(
+                                app,
+                                &proofs.user,
+                                &authorization,
+                                values
+                                    .as_object()
+                                    .context("Values file must contain a JSON object")?,
+                                *if_revision,
+                                key,
+                            )
+                            .await?
+                    }
+                    Storage::Reset {
+                        keys, if_revision, ..
+                    } => {
+                        client
+                            .reset_storage(
+                                app,
+                                &proofs.user,
+                                &authorization,
+                                (!keys.is_empty()).then_some(keys.as_slice()),
+                                *if_revision,
+                                key,
+                            )
+                            .await?
+                    }
+                    _ => unreachable!(),
+                };
+                serde_json::to_value(result)?
+            }
+        },
         Command::Setup { app, step } => match step {
             Setup::Details {
                 name,
@@ -1464,8 +1623,22 @@ async fn execute(cli: &Cli) -> Result<Value> {
     Ok(result)
 }
 fn read_json(path: &PathBuf) -> Result<Value> {
-    serde_json::from_slice(&std::fs::read(path)?)
+    serde_json::from_slice(&read_input(path)?)
         .with_context(|| format!("{} must contain valid JSON", path.display()))
+}
+fn read_input(path: &PathBuf) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let reader: Box<dyn Read> = if path.to_str() == Some("-") {
+        Box::new(io::stdin())
+    } else {
+        Box::new(std::fs::File::open(path)?)
+    };
+    reader.take(2 * 1024 * 1024 + 1).read_to_end(&mut bytes)?;
+    ensure!(
+        bytes.len() <= 2 * 1024 * 1024,
+        "Input must fit within 2 MiB"
+    );
+    Ok(bytes)
 }
 fn confirm(message: &str) -> Result<bool> {
     ensure!(

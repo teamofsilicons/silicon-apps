@@ -33,6 +33,7 @@ const AUTH_METHODS: &[&str] = &[
     "refresh_token",
     "browser_session",
     "developer_token",
+    "storage_proof",
 ];
 
 /// Choose the API version for a request. The header may list several
@@ -337,6 +338,7 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
             "note":"Send Authorization: Bearer <Silicon Accounts access token for silicon-apps>. Silicons get one without a browser: silicon-accounts login --app silicon-apps gives a single-use token for POST /v1/auth/exchange. Public reads need no token."
         },
         "targets":targets,
+        "user_storage":{"optional":true,"max_keys":128,"max_value_bytes":65536,"max_record_bytes":1048576,"proof_verification_configured":s.config.accounts_app_secret.is_some(),"shared_anonymous_user":"anon","docs":"https://developers.teamofsilicons.com/docs/apps/start/user-storage"},
         "upload_confirmation":{"targets":"windows-* and macos-*","header":"X-Apps-Platform-Confirmed","value":"true","cli_flag":"--confirm-platform-checks","commands":COMMANDS,"meaning":"The uploading Carbon or Silicon confirms these commands work on the selected platform. Silicon Apps inspects the archive but does not execute non-Linux binaries."},
         "required_release_targets":REQUIRED_RELEASE_TARGETS,
         "unsupported_target_reason":{"field":"unsupported_targets","min_chars":crate::model::UNSUPPORTED_REASON_CHARS.start(),"max_chars":crate::model::UNSUPPORTED_REASON_CHARS.end(),"public":true},
@@ -447,6 +449,7 @@ fn requirement(document: &Value, name: &str) -> (bool, String) {
         ("subscriptions", "") => yes("POST /v1/subscriptions.".into()),
         ("webhooks", "") => yes("Signed webhook deliveries for subscriptions.".into()),
         ("idempotency", "") => yes("Idempotency-Key on every mutation.".into()),
+        ("user_storage", "") => (document["user_storage"]["proof_verification_configured"].as_bool().unwrap_or(false), "Optional schema and guarded user values; runtime access requires Accounts proof verification credentials.".into()),
         ("search", "") => yes("GET /v1/apps with q (which also matches tags), target, visibility, sort and pagination.".into()),
         ("rate_limits", "") => yes("429 with Retry-After and RateLimit headers.".into()),
         ("openapi", "") => yes("/openapi.json".into()),

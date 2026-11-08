@@ -11,6 +11,7 @@ pub mod routes;
 pub mod signing;
 pub mod store;
 pub mod subscriptions;
+pub mod user_storage;
 
 use axum::{
     Extension, Json, Router,
@@ -254,6 +255,27 @@ async fn dispatch(
     }
     if raw.len() > 2 * 1024 * 1024 && !path.contains("/packages/") && !path.ends_with("/media") {
         return Err(ApiError::bad("JSON requests are limited to 2 MiB."));
+    }
+    let storage_path: Vec<_> = path.split('/').collect();
+    if let ["apps", app, "storage", "users", user, ..] = storage_path.as_slice() {
+        let result = user_storage::handle(
+            &s,
+            &method,
+            app,
+            user,
+            storage_path.last() == Some(&"reset"),
+            &headers,
+            &raw,
+        )
+        .await;
+        let mut response = match result {
+            Ok(response) => response,
+            Err(error) => error.into_response(),
+        };
+        response
+            .headers_mut()
+            .insert("Cache-Control", "no-store".parse().unwrap());
+        return Ok(response);
     }
     let token = auth::bearer(&s, &headers).await?;
     let who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;

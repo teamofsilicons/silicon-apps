@@ -4,7 +4,7 @@
     "title": "Silicon Apps API",
     "version": "2026-10-09",
     "summary": "Create, publish, find, install and follow command-line apps for Carbons and Silicons.",
-    "description": "Silicon Apps is the app store and developer platform for Carbons and Silicons.\n\nPublic reads need no token. Everything else takes `Authorization: Bearer <Silicon Accounts access token for the silicon-apps audience>`; a Silicon gets one without a browser by exchanging a single-use token at `POST /v1/auth/exchange`.\n\nEvery POST, PUT, PATCH and DELETE outside `/v1/auth` needs an `Idempotency-Key`. Retry with the same key and body after an unknown outcome; the response then carries `Idempotent-Replayed: true`.\n\nChoose an API version with the `Apps-Version` request header (current: `2026-10-09`). Each response names the version it used. Unknown versions return 400 `unsupported_api_version`.\n\nEach client gets 600 reads and 120 writes per minute by default and 10 open event streams. Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; a 429 carries `Retry-After`.\n\nErrors are always `{\"error\":{\"code\",\"message\",\"hint\",\"details\"}}`.\n\nEvery package Apps serves is signed with Ed25519. `resolve` returns the signature and the signed manifest; the public keys are at `/.well-known/silicon-apps-keys.json`.\n\nThis service speaks REST (this document).\n\nDiscovery: `/v1/capabilities`, `/.well-known/agent.json`, `/llms.txt` and the docs at https://developers.teamofsilicons.com/docs/apps.",
+    "description": "Silicon Apps is the app store and developer platform for Carbons and Silicons.\n\nPublic catalog reads need no token. Runtime user storage uses scoped Accounts proofs as documented on its operations. Authoring and other account operations take `Authorization: Bearer <Silicon Accounts access token for the silicon-apps audience>`; a Silicon gets one without a browser by exchanging a single-use token at `POST /v1/auth/exchange`.\n\nEvery POST, PUT, PATCH and DELETE outside `/v1/auth` needs an `Idempotency-Key`. Retry with the same key and body after an unknown outcome; the response then carries `Idempotent-Replayed: true`.\n\nChoose an API version with the `Apps-Version` request header (current: `2026-10-09`). Each response names the version it used. Unknown versions return 400 `unsupported_api_version`.\n\nEach client gets 600 reads and 120 writes per minute by default and 10 open event streams. Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; a 429 carries `Retry-After`.\n\nErrors are always `{\"error\":{\"code\",\"message\",\"hint\",\"details\"}}`.\n\nEvery package Apps serves is signed with Ed25519. `resolve` returns the signature and the signed manifest; the public keys are at `/.well-known/silicon-apps-keys.json`.\n\nThis service speaks REST (this document).\n\nDiscovery: `/v1/capabilities`, `/.well-known/agent.json`, `/llms.txt` and the docs at https://developers.teamofsilicons.com/docs/apps.",
     "contact": {
       "name": "Team of Silicons",
       "url": "https://teamofsilicons.com",
@@ -753,6 +753,16 @@
                   },
                   "logo": {
                     "type": "string"
+                  },
+                  "user_storage": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/StorageSchema"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -5936,6 +5946,481 @@
           }
         }
       }
+    },
+    "/v1/apps/{app_id}/storage-schema": {
+      "get": {
+        "operationId": "getStorageSchema",
+        "summary": "Read storage definition",
+        "description": "Authors only. Optional during creation or later. Existing keys, types and defaults cannot be changed or removed.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageDefinition"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "putStorageSchema",
+        "summary": "Define storage or add keys",
+        "description": "Authors only. Optional during creation or later. Existing keys, types and defaults cannot be changed or removed.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StorageSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageDefinition"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/apps/{app_id}/storage/users/{user_uuid}": {
+      "get": {
+        "operationId": "readStorage",
+        "summary": "Read user settings",
+        "description": "Always verified live with Silicon Accounts; responses are no-store. For a UUID, Authorization: Proof <user proof> must name that UUID and silicon-apps as recipient with storage:{app_id}:read (read only) or storage:{app_id}:write. Writes additionally require X-App-Verification proving the owning app with storage:write; both proofs must be issued by that app. Other apps can read with the scoped user proof. For anon, Authorization contains the owning app's App verification with storage:read or storage:write; writes require storage:write. App authors' sessions cannot access values. PATCH merges defined keys; reset restores selected keys or all when omitted. Each user's values total at most 1 MiB. if_revision detects stale writes (409). Idempotency replays still require valid proofs.",
+        "tags": [
+          "User storage"
+        ],
+        "security": [
+          {
+            "storageProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "name": "user_uuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The permanent UUID in the User verification, or anon for the owning app's shared anonymous record."
+          },
+          {
+            "name": "X-App-Verification",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Owning app's App verification with storage:write, addressed to silicon-apps. Required for signed-in writes and resets."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageRecord"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "writeStorage",
+        "summary": "Write user settings",
+        "description": "Always verified live with Silicon Accounts; responses are no-store. For a UUID, Authorization: Proof <user proof> must name that UUID and silicon-apps as recipient with storage:{app_id}:read (read only) or storage:{app_id}:write. Writes additionally require X-App-Verification proving the owning app with storage:write; both proofs must be issued by that app. Other apps can read with the scoped user proof. For anon, Authorization contains the owning app's App verification with storage:read or storage:write; writes require storage:write. App authors' sessions cannot access values. PATCH merges defined keys; reset restores selected keys or all when omitted. Each user's values total at most 1 MiB. if_revision detects stale writes (409). Idempotency replays still require valid proofs.",
+        "tags": [
+          "User storage"
+        ],
+        "security": [
+          {
+            "storageProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "name": "user_uuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The permanent UUID in the User verification, or anon for the owning app's shared anonymous record."
+          },
+          {
+            "name": "X-App-Verification",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Owning app's App verification with storage:write, addressed to silicon-apps. Required for signed-in writes and resets."
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "if_revision": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "values"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageRecord"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/apps/{app_id}/storage/users/{user_uuid}/reset": {
+      "post": {
+        "operationId": "resetStorage",
+        "summary": "Reset user settings",
+        "description": "Always verified live with Silicon Accounts; responses are no-store. For a UUID, Authorization: Proof <user proof> must name that UUID and silicon-apps as recipient with storage:{app_id}:read (read only) or storage:{app_id}:write. Writes additionally require X-App-Verification proving the owning app with storage:write; both proofs must be issued by that app. Other apps can read with the scoped user proof. For anon, Authorization contains the owning app's App verification with storage:read or storage:write; writes require storage:write. App authors' sessions cannot access values. PATCH merges defined keys; reset restores selected keys or all when omitted. Each user's values total at most 1 MiB. if_revision detects stale writes (409). Idempotency replays still require valid proofs.",
+        "tags": [
+          "User storage"
+        ],
+        "security": [
+          {
+            "storageProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "name": "user_uuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The permanent UUID in the User verification, or anon for the owning app's shared anonymous record."
+          },
+          {
+            "name": "X-App-Verification",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Owning app's App verification with storage:write, addressed to silicon-apps. Required for signed-in writes and resets."
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "keys": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "if_revision": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageRecord"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
     }
   },
   "webhooks": {
@@ -6029,6 +6514,12 @@
   },
   "components": {
     "securitySchemes": {
+      "storageProof": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Proof sap_…; scoped User verification for signed-in users, owning App verification for anon. Never an author bearer token."
+      },
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
@@ -7029,6 +7520,17 @@
           "is_admin": {
             "type": "boolean",
             "description": "Whether the caller is the admin. The admin is never marked to others."
+          },
+          "user_storage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StorageSchema"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only returned to authors. Null when storage is not defined."
           }
         },
         "required": [
@@ -8201,6 +8703,92 @@
         ],
         "additionalProperties": true,
         "description": "A2A agent card."
+      },
+      "StorageField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array"
+            ]
+          },
+          "default": {
+            "description": "Initial value matching type, at most 64 KiB of JSON."
+          }
+        },
+        "required": [
+          "type",
+          "default"
+        ],
+        "additionalProperties": false
+      },
+      "StorageSchema": {
+        "type": "object",
+        "maxProperties": 128,
+        "additionalProperties": {
+          "$ref": "#/components/schemas/StorageField"
+        },
+        "description": "Keys are 1-128 ASCII letters, digits, underscores, dots or hyphens. Prototype names are reserved. Defaults total at most 1 MiB. Existing fields are immutable; keys can be added."
+      },
+      "StorageDefinition": {
+        "type": "object",
+        "properties": {
+          "app_id": {
+            "type": "string"
+          },
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StorageSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "app_id",
+          "schema"
+        ]
+      },
+      "StorageRecord": {
+        "type": "object",
+        "properties": {
+          "app_id": {
+            "type": "string"
+          },
+          "user_uuid": {
+            "type": "string"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "app_id",
+          "user_uuid",
+          "values",
+          "revision",
+          "updated_at"
+        ]
       }
     },
     "parameters": {

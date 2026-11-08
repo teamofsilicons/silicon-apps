@@ -24,12 +24,13 @@ pub const SORTS: [&str; 6] = [
     "updated",
     "newest",
 ];
-const MIGRATIONS: [&str; 5] = [
+const MIGRATIONS: [&str; 6] = [
     include_str!("../../../migrations/001_catalog.sql"),
     include_str!("../../../migrations/002_events.sql"),
     include_str!("../../../migrations/003_signing.sql"),
     include_str!("../../../migrations/004_account_uuid_backfill.sql"),
     include_str!("../../../migrations/005_retired_identity_events.sql"),
+    include_str!("../../../migrations/006_user_storage.sql"),
 ];
 #[derive(Default)]
 pub struct Prepared {
@@ -508,6 +509,10 @@ impl Store {
             return Err(ApiError::missing());
         }
         match p[2] {
+            "storage-schema" => {
+                author(app, who)?;
+                Ok(json!({"app_id":app.app_id,"schema":app.user_storage}))
+            }
             "authors" => Ok(json!({"items":app.authors})),
             "readiness" => {
                 author(app, who)?;
@@ -646,6 +651,14 @@ impl Store {
         let before = crate::events::marks(&c);
         let mut outbox = vec![];
         let mut response = apply(&mut c, &m, &mut outbox)?;
+        let path: Vec<_> = m.path.split('/').collect();
+        if let ["apps", app, "storage-schema"] = path.as_slice() {
+            crate::user_storage::check_existing_records(
+                &tx,
+                app,
+                c.apps[*app].user_storage.as_ref().unwrap(),
+            )?;
+        }
         if let Some(signer) = &self.signer
             && crate::signing::sign_catalog(&mut c, signer) > 0
         {
@@ -917,6 +930,11 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                 ApiError::unavailable("Accounts app registration did not complete.")
             })?;
         let mut app = App {
+            user_storage: b
+                .get("user_storage")
+                .filter(|v| !v.is_null())
+                .map(crate::user_storage::schema)
+                .transpose()?,
             app_id: id.into(),
             name: name.into(),
             description: b["description"].as_str().unwrap_or_default().into(),
@@ -1074,6 +1092,17 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         return Ok(json!(review));
     }
     author(app, who)?;
+    if p.len() == 3 && p[2] == "storage-schema" && m.method == "PUT" {
+        let next = crate::user_storage::schema(b)?;
+        crate::user_storage::extend_schema(app.user_storage.as_ref(), &next)?;
+        app.event(
+            actor,
+            "app.details_changed",
+            json!({"storage_keys":next.keys().collect::<Vec<_>>()}),
+        );
+        app.user_storage = Some(next);
+        return Ok(json!({"app_id":app.app_id,"schema":app.user_storage}));
+    }
     if p.len() == 2 && m.method == "PATCH" {
         let obj = b
             .as_object()
@@ -1563,7 +1592,14 @@ pub(crate) fn mutation_route_exists(method: &str, p: &[&str]) -> bool {
         ("POST", ["apps" | "platforms" | "reports"])
             | ("PATCH", ["apps", _])
             | ("POST", ["invites", _, "accept" | "decline"])
-            | ("PUT", ["apps", _, "access" | "webhook" | "review"])
+            | (
+                "PUT",
+                [
+                    "apps",
+                    _,
+                    "access" | "webhook" | "review" | "storage-schema"
+                ]
+            )
             | ("DELETE", ["apps", _, "review"])
             | (
                 "POST",

@@ -62,8 +62,9 @@ Creating an app is quick. The author only gives:
 - `App ID`
 - `App Logo` - optional
 - `App Description` - optional
+- `User storage` - optional; define the app's keys, value types and initial values as key-value pairs, as described below.
 
-This creates an empty app and gives them its `app_id` and `app_secret`. The app_secret is shown only this once; if it's lost, an author rotates it, which kills the old one. From this moment the app exists everywhere on the developer platform, so they can set up its sign-in in Silicon Accounts or anything else whenever they want.
+This creates an app with any optional user storage definition and gives them its `app_id` and `app_secret`. The app_secret is shown only this once; if it's lost, an author rotates it, which kills the old one. From this moment the app exists everywhere on the developer platform, so they can set up its sign-in in Silicon Accounts or anything else whenever they want.
 
 Until the app is published it always carries a `Continue setup` badge wherever it appears on the developer platform, which takes them straight back to the step they stopped at.
 
@@ -72,6 +73,28 @@ Until the app is published it always carries a `Continue setup` badge wherever i
 The app_id is unique across the whole system and can never be changed once the app is created. It uses `a-z`, `0-9`, `-` and `_` and is 3 to 30 characters long. There should be an endpoint to check if an app_id is available, which just returns `available: True/False`.
 
 The apps Silicon Accounts faked until Silicon Apps existed become real apps here, keeping their app_id and their users.
+
+
+# App user storage
+
+An app can optionally define a schema for simple key-value storage in Silicon Apps, mainly for user settings and preferences. Defining it during app creation is optional, just like adding optional app details; neither creating nor publishing an app requires it. It offers a local-storage-like interface, with the data held by Silicon Apps for each app and user.
+
+The author defines the keys, their value types and their initial values. For example, an app could define `theme: "system"`, `language: "en"` and `notifications: true`. Every user of that app has the same defined keys and starts with the same initial values, but each user's values are independent. Writes must use the defined keys and match their types. Changing one user's values never changes another user's values or the schema's initial values. Storage is separate for each app, and signed-in users are identified by their permanent Silicon Accounts uuid.
+
+## Guarded reads and app-only writes
+
+Storage is guarded, not public app metadata. Knowing an app ID and a user's ID does not grant access to their values.
+
+- A valid `User verification` proof permits reading all keys and values for the specific user in the requested app's storage. Another app can use this permission to read that user's settings; it does not gain write access or access to another user's values. Read permission covers the whole set of keys, not individual keys.
+- The proof must be valid for Silicon Apps as the receiving service and authorize reading the requested app's storage. A proof meant for a different recipient or unrelated purpose does not grant access. Expired or revoked proofs are refused.
+- Writing a signed-in user's values requires both the user authorization for that user and `App verification` proving the caller is the app whose storage is being changed. The verified app ID must match the storage's app ID. A user proof alone cannot write, and another app's App verification cannot write to this app's storage.
+- App verification alone does not authorize selecting an arbitrary signed-in user's storage. Likewise, being an app author is not a substitute for the app proving its identity when writing user values.
+
+## Anonymous user
+
+Each app has a reserved `anon` user by default, representing anonymous use. When the app defines storage, `anon` has the same keys and initial values as its signed-in users. It is one shared anonymous record for that app, not a separate record for each visitor, device or browser, and not a shared record across different apps.
+
+An authorized change to `anon` changes the values seen by anonymous users of that app. It does not change signed-in users' values or the initial values in the schema. `anon` remains guarded storage, not public app metadata. Because it is not a Silicon Accounts account, writing its values requires the owning app's App verification without a signed-in user's proof. Anonymous use never grants unrestricted write access.
 
 
 # Publishing an app
@@ -250,6 +273,8 @@ The Rust package is the primary interface and is stateless. The CLI, `silicon-ap
 If you need a local store for auth or anything else, use `{home_dir}/.apps/`. The default home dir is `~`; if `SILICON_HOME` is set, use that instead. It can be configured via `silicon-apps config home {location}`, and if it's not a directory give an error, not a directory.
 
 Everything an author does on the developer platform can be done with the CLI: create an app, go through each publishing step, invite and leave, validate, pack, upload, release and promote. Everything someone does on the store can be done too: search, view an app, install, uninstall, update and review.
+
+The Rust package and CLI also support defining optional app user storage and reading and writing its values, with the same schema and User verification / App verification rules as the service. The developer platform exposes the optional storage definition during app creation.
 
 The CLI must have:
 - `silicon-apps --help` - the entire help docs.

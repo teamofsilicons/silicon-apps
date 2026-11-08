@@ -65,6 +65,14 @@ async fn signed_installs_show_scripts_and_leave_withdrawn_releases() {
         .create("fixture", "Fixture", &"d".repeat(200), None, None)
         .await
         .unwrap();
+    alice
+        .edit(
+            "fixture",
+            json!({"interface_api_documentation_url":"https://example.com/interface-api"}),
+            Some("fixture-interface-docs"),
+        )
+        .await
+        .unwrap();
     let who = Identity {
         uuid: "alice".into(),
         id: "c:alice".into(),

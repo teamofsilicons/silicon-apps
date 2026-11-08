@@ -188,6 +188,7 @@ fn developer_route(method: &Method, path: &str) -> bool {
         ("GET", ["me" | "session" | "targets" | "invites" | "apps"])
             | ("GET", ["apps", "availability", _])
             | ("GET", ["apps", _])
+            | ("GET" | "PUT", ["apps", _, "storage-schema"])
             | (
                 "GET",
                 [

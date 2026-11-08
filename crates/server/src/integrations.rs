@@ -472,6 +472,7 @@ pub async fn import_accounts(s: &Shared) -> Result<usize> {
             authors[0].uuid.clone()
         };
         let mut app = App {
+            user_storage: None,
             app_id: id.into(),
             name: v["name"].as_str().unwrap_or(id).into(),
             description: v["description"].as_str().unwrap_or_default().into(),
