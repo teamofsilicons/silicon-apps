@@ -1,0 +1,34 @@
+name: Check published CLI installation
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published version to install
+        required: true
+        default: '0.3.3'
+        type: string
+  push:
+    branches: ['release/**']
+    paths:
+      - .github/workflows/published-release-smoke.yml
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      RELEASE_VERSION: ${{ inputs.version || '0.3.3' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/check-published-install.py
