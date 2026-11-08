@@ -1,6 +1,6 @@
 # User storage verification — 8 November 2026
 
-Implemented and verified locally across Silicon Apps and the Silicon Accounts developer portal. No production deployment or public release was performed.
+This records the local implementation verification before deployment. Production rollout and public release evidence is recorded separately in [the deployment report](../deploy/verification-user-storage-2026-11-08.md).
 
 ## Environment
 
