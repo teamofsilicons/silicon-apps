@@ -110,3 +110,14 @@ empty hint payloads, disconnect cleanup, replay across new session IDs, failure
 fallback, required-Ting failure, and pausing access while a hint is in flight.
 Rust-client and CLI tests cover losing the connection before the first event and
 resuming from the ready cursor. Store checks include TypeScript and lint.
+
+The fresh-process `ting_tls` regression test checks that the HTTPS and WebSocket
+clients have an explicit Rustls crypto provider. To opt into a real secure Ting
+session check (one anonymous Apps-only receiver, closed on completion), run:
+
+```sh
+cargo test -p silicon-apps-server --test ting_tls -- --ignored
+```
+
+Production deployment evidence is recorded in
+[the 10 November release report](../deploy/verification-ting-sessions-2026-11-10.md).
