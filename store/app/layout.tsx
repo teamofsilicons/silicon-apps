@@ -12,6 +12,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { Enhancer } from "@/components/site/enhancer";
+import { LiveEvents } from "@/components/store/live-events";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { JsonLd, organizationLd, websiteLd } from "@/lib/seo";
@@ -69,6 +70,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         </main>
         <SiteFooter />
         <Enhancer />
+        {account && <LiveEvents accountId={account.uuid} />}
         <JsonLd nonce={nonce} graph={[organizationLd(), websiteLd()]} />
       </body>
     </html>

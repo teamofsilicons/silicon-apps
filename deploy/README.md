@@ -1,5 +1,7 @@
 # Deployment examples
 
+For optional Ting 0.4 live event delivery, follow [Ting session setup](../docs/ting-sessions.md#enable-on-a-deployment). Register the event type with the protected Apps service environment before enabling `APPS_TING_URL`; the default without it remains direct event delivery.
+
 These files are installation templates. No infrastructure, domains, credentials, mail transport, or native workers are provisioned by adding them to the repository.
 
 - `local.env.example`: configuration consumed by `bash scripts/dev.sh` after copying to `.env`.

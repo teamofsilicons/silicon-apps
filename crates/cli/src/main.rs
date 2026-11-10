@@ -280,6 +280,9 @@ enum Command {
         /// Keep the stream open and print each event as one JSON line as it happens.
         #[arg(long)]
         follow: bool,
+        /// Live delivery: auto prefers Ting sessions and falls back to direct Apps events.
+        #[arg(long, requires = "follow", value_parser = ["auto", "ting", "direct"])]
+        transport: Option<String>,
         /// Start after this event seq (sent as Last-Event-ID with --follow).
         #[arg(long)]
         after: Option<i64>,
@@ -1521,6 +1524,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
             subscription,
             types,
             follow,
+            transport,
             after,
             limit,
         } => {
@@ -1531,20 +1535,77 @@ async fn execute(cli: &Cli) -> Result<Value> {
             };
             let types: Vec<&str> = types.iter().map(String::as_str).collect();
             if *follow {
-                let after = after.map(|seq| seq.to_string());
-                let mut stream = client
-                    .stream_events(&feed, after.as_deref(), &types)
-                    .await?;
+                let mut after = after.map(|seq| seq.to_string());
+                let transport = match transport.as_deref() {
+                    Some("ting") => apps::events::EventTransport::Ting,
+                    Some("direct") => apps::events::EventTransport::Direct,
+                    _ => apps::events::EventTransport::Auto,
+                };
                 let mut printed = 0;
-                while let Some(event) = stream.next().await? {
-                    println!("{}", event.data);
-                    io::stdout().flush()?;
-                    printed += 1;
-                    if limit.is_some_and(|limit| printed >= limit) {
-                        break;
+                let mut failures = 0u32;
+                loop {
+                    let opened = client
+                        .stream_events_with_transport(&feed, after.as_deref(), &types, transport)
+                        .await;
+                    match opened {
+                        Ok(mut stream) => {
+                            let connected = std::time::Instant::now();
+                            loop {
+                                let event = tokio::select! {
+                                    event = stream.next() => event,
+                                    _ = tokio::signal::ctrl_c() => return Ok(Value::Null),
+                                };
+                                match event {
+                                    Ok(Some(event)) => {
+                                        println!("{}", event.data);
+                                        io::stdout().flush()?;
+                                        after = stream.last_event_id().map(str::to_owned).or(after);
+                                        printed += 1;
+                                        if limit.is_some_and(|limit| printed >= limit) {
+                                            return Ok(Value::Null);
+                                        }
+                                    }
+                                    Ok(None) | Err(_) => {
+                                        after = stream.last_event_id().map(str::to_owned).or(after);
+                                        break;
+                                    }
+                                }
+                            }
+                            if connected.elapsed().as_secs() >= 60 {
+                                failures = 0;
+                            }
+                        }
+                        Err(error) => {
+                            if let Some(api) = error.downcast_ref::<apps::ApiError>()
+                                && api.status != 429
+                                && api.status < 500
+                            {
+                                return Err(error);
+                            }
+                            if after.is_none() {
+                                return Err(error);
+                            }
+                        }
+                    }
+                    // A cursor exists even before the first event (the ready
+                    // comment). Every new connection gets a new Ting session.
+                    if after.is_none() {
+                        anyhow::bail!(
+                            "The stream closed before providing a resume cursor; reconnect with --after."
+                        );
+                    }
+                    let delay = (1u64 << failures.min(5)).min(30);
+                    failures = failures.saturating_add(1);
+                    let jitter = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .subsec_millis() as u64
+                        % 250;
+                    tokio::select! {
+                        _ = tokio::time::sleep(std::time::Duration::from_millis((delay * 1000 + jitter).min(30_000))) => {},
+                        _ = tokio::signal::ctrl_c() => return Ok(Value::Null),
                     }
                 }
-                return Ok(Value::Null);
             }
             client.events(&feed, *after, &types, *limit).await?
         }

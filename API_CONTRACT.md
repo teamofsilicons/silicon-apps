@@ -110,3 +110,9 @@ manifest accepts file paths relative to the manifest, such as
 `[{"name":"Writing", "files":["writing.md"]}]`; it reads and uploads their
 contents. `--license-file` likewise reads a local file. Fields not supplied are
 left unchanged, and explicit clear flags remove optional values.
+
+## Live event transport
+
+`GET /v1/events/stream` and `GET /v1/apps/{app_id}/events/stream` accept `transport=auto|ting|direct` (default `auto`). When configured, auto uses a separate Ting 0.4 receiver for each authenticated watcher and falls back to direct Apps delivery on failure. Explicit `ting` returns `503 ting_unavailable` if opening fails and closes on later failure; reconnect using the Apps event sequence. `direct` never allocates a Ting receiver.
+
+Only empty `silicon-apps.eventsAvailable` hints cross Ting. Apps sends the existing authorized event payloads over SSE, with unchanged filtering and `Last-Event-ID` replay. `X-Apps-Event-Transport` and optional `X-Apps-Ting-Session` describe the initial connection. The ready comment includes the initial resume cursor; an automatic downgrade is signalled by a `transport=direct reason=ting_unavailable` comment. Sessions disappear on disconnect and are never reused or broadcast to an account. See [session lifecycle and deployment](docs/ting-sessions.md).

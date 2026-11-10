@@ -557,11 +557,24 @@ impl Client {
         last_event_id: Option<&str>,
         types: &[&str],
     ) -> Result<events::EventStream> {
+        self.stream_events_with_transport(feed, last_event_id, types, events::EventTransport::Auto)
+            .await
+    }
+    /// Open an Apps stream with an explicit live transport. Reconnect with the
+    /// returned stream's last_event_id; Ting session IDs are never reusable cursors.
+    pub async fn stream_events_with_transport(
+        &self,
+        feed: &events::Feed,
+        last_event_id: Option<&str>,
+        types: &[&str],
+        transport: events::EventTransport,
+    ) -> Result<events::EventStream> {
         let path = feed.path(true);
         let path: Vec<&str> = path.iter().map(String::as_str).collect();
         let mut url = self.url(&path)?;
         {
             let mut pairs = url.query_pairs_mut();
+            pairs.append_pair("transport", transport.as_str());
             for (k, v) in feed.query() {
                 pairs.append_pair(k, &v);
             }

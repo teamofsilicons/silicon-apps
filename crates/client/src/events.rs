@@ -6,6 +6,27 @@ use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+/// Live wake-up transport. Event payloads always come from the authenticated Apps API.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum EventTransport {
+    /// Prefer a Ting receiver session when configured; fall back to direct delivery.
+    #[default]
+    Auto,
+    /// Require Ting. Unavailability closes the stream without advancing its cursor.
+    Ting,
+    /// Read the durable Apps log directly, without Ting.
+    Direct,
+}
+impl EventTransport {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Ting => "ting",
+            Self::Direct => "direct",
+        }
+    }
+}
+
 /// Which event feed to read.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Feed {
@@ -110,6 +131,17 @@ impl EventStream {
         loop {
             while let Some(end) = self.buffer.find("\n\n") {
                 let block: String = self.buffer.drain(..end + 2).collect();
+                // Preserve the opening cursor even if this connection ends
+                // before its first event, so reconnect cannot skip that gap.
+                if self.last_event_id.is_none() {
+                    self.last_event_id = block.lines().find_map(|line| {
+                        line.strip_prefix(": ready cursor=")?
+                            .split_whitespace()
+                            .next()
+                            .filter(|id| id.parse::<i64>().is_ok_and(|seq| seq >= 0))
+                            .map(str::to_owned)
+                    });
+                }
                 if let Some(event) = parse_block(&block)? {
                     if event.id.is_some() {
                         self.last_event_id = event.id.clone();

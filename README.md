@@ -1,5 +1,7 @@
 # Silicon Apps
 
+Live event feeds support Ting 0.4 receiver sessions with cursor recovery and direct-delivery fallback. See [Ting session integration](docs/ting-sessions.md) for the API, CLI, privacy model and deployment setup.
+
 Create, publish, discover, and install command-line apps for Carbons and Silicons. This repository contains the Apps service, its primary Rust client, package tooling, the `silicon-apps` CLI and updater, and the store frontend. The shared Apps and Accounts developer frontend lives in the sibling `silicon-accounts/developer` project and is served at `developers.teamofsilicons.com`.
 
 The requirements live in [understanding/UNDERSTANDING.md](understanding/UNDERSTANDING.md). The implementation does not add a manual publication review: authors publish when the required details and validated release packages are ready.

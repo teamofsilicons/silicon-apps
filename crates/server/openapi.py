@@ -139,6 +139,7 @@ schemas = {
 }
 
 parameters = {
+ "EventTransport": {"name":"transport","in":"query","required":False,"description":"auto uses a Ting 0.4 receiver session when configured and falls back to direct Apps delivery; ting requires Ting; direct bypasses Ting. Resume with an Apps event seq, never a Ting session ID.","schema":{"type":"string","enum":["auto","ting","direct"],"default":"auto"}},
  "AppId": {"name":"app_id","in":"path","required":True,"description":"The app's permanent ID.","schema":{"type":"string","minLength":1,"maxLength":64}},
  "IdempotencyKey": {"name":"Idempotency-Key","in":"header","required":True,"description":"8 to 200 printable characters without spaces. Reuse it, with the same body, to retry a request whose result you did not receive.","schema":{"type":"string","minLength":8,"maxLength":200}},
  "SubscriptionId": {"name":"subscription_id","in":"path","required":True,"description":"The subscription's ID.","schema":{"type":"string"}},
@@ -317,17 +318,17 @@ op("GET","/v1/apps/{app_id}/media/{media_id}","getMedia","Get media","Catalog","
 
 # Events
 SSE_DESC = ("Server-sent events. Each event has `id` (its seq), `event` (its type) and `data` (the Event as JSON). "
-            "The stream starts with a `: ready cursor=N` comment and sends a `: heartbeat` comment every 15 seconds. "
-            "Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue.")
+            "The stream starts with a `: ready cursor=N transport=MODE` comment and sends a `: heartbeat` comment every 15 seconds. "
+            "Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue. A Ting receiver is owned by this connection and carries only an empty reconciliation hint; event contents and permission checks remain in Apps. X-Apps-Event-Transport identifies the initial mode, with X-Apps-Ting-Session when applicable. Auto mode reports an in-stream downgrade with a transport=direct comment. Explicit ting returns 503 when unavailable at open and closes on later failure without losing saved events.")
 sse_ok = {"200":{"description":"An event stream.","content":{"text/event-stream":{"schema":{"type":"string"},"example":"id: 42\nevent: release.promoted\ndata: {\"seq\":42,\"type\":\"release.promoted\",\"app_id\":\"briefcase\",\"data\":{\"channel\":\"production\",\"version\":\"1.4.0\"}}\n\n"}}}}
 op("GET","/v1/apps/{app_id}/events","listAppEvents","List an app's events","Events","The app's event log as JSON pages: releases, package validation steps with the three commands' results, author invitations, joins and leaves, access changes and more. Authors only.",
    {"200":ok(ref("EventPage"))},security=AUTH,parameters_=[param("AppId"),param("After"),param("Types"),param("EventLimit")],errors=AUTHED_ERR)
 op("GET","/v1/apps/{app_id}/events/stream","streamAppEvents","Stream an app's events","Events","Live events for an app's authors. "+SSE_DESC,
-   sse_ok,security=AUTH,parameters_=[param("AppId"),param("Types"),param("LastEventIdHeader"),param("LastEventIdQuery")],errors=AUTHED_ERR)
+   sse_ok,security=AUTH,parameters_=[param("AppId"),param("Types"),param("LastEventIdHeader"),param("LastEventIdQuery"),param("EventTransport")],errors=AUTHED_ERR+("Unavailable",))
 op("GET","/v1/events","listMyEvents","List your account's events","Events","Your account feed as JSON pages: invitations to you, everything about apps you author, and public events (releases, publishing) of apps you installed. With `subscription`, that subscription's events.",
    {"200":ok(ref("EventPage"))},security=AUTH,parameters_=[param("After"),param("Types"),param("EventLimit"),{"name":"subscription","in":"query","required":False,"description":"Read through one of your subscriptions' filters.","schema":{"type":"string"}}],errors=("BadRequest","Unauthorized","NotFound","Conflict","RateLimited"))
 op("GET","/v1/events/stream","streamMyEvents","Stream your account's events","Events","Live events for the signed-in account. With `subscription`, the subscription's events; without Last-Event-ID it resumes where that subscription's stream last stopped. "+SSE_DESC,
-   sse_ok,security=AUTH,parameters_=[param("Types"),param("LastEventIdHeader"),param("LastEventIdQuery"),{"name":"subscription","in":"query","required":False,"description":"Stream one of your subscriptions.","schema":{"type":"string"}}],errors=("BadRequest","Unauthorized","NotFound","Conflict","RateLimited"))
+   sse_ok,security=AUTH,parameters_=[param("Types"),param("LastEventIdHeader"),param("LastEventIdQuery"),param("EventTransport"),{"name":"subscription","in":"query","required":False,"description":"Stream one of your subscriptions.","schema":{"type":"string"}}],errors=("BadRequest","Unauthorized","NotFound","Conflict","RateLimited","Unavailable"))
 
 # Subscriptions
 op("GET","/v1/subscriptions","listSubscriptions","List your subscriptions","Subscriptions","Active and paused subscriptions by default.",{"200":ok(obj({"items":arr(ref("Subscription"))},["items"]))},security=AUTH,

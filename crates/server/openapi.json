@@ -4287,7 +4287,7 @@
       "get": {
         "operationId": "streamAppEvents",
         "summary": "Stream an app's events",
-        "description": "Live events for an app's authors. Server-sent events. Each event has `id` (its seq), `event` (its type) and `data` (the Event as JSON). The stream starts with a `: ready cursor=N` comment and sends a `: heartbeat` comment every 15 seconds. Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue.",
+        "description": "Live events for an app's authors. Server-sent events. Each event has `id` (its seq), `event` (its type) and `data` (the Event as JSON). The stream starts with a `: ready cursor=N transport=MODE` comment and sends a `: heartbeat` comment every 15 seconds. Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue. A Ting receiver is owned by this connection and carries only an empty reconciliation hint; event contents and permission checks remain in Apps. X-Apps-Event-Transport identifies the initial mode, with X-Apps-Ting-Session when applicable. Auto mode reports an in-stream downgrade with a transport=direct comment. Explicit ting returns 503 when unavailable at open and closes on later failure without losing saved events.",
         "tags": [
           "Events"
         ],
@@ -4311,6 +4311,9 @@
           },
           {
             "$ref": "#/components/parameters/LastEventIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/EventTransport"
           }
         ],
         "responses": {
@@ -4353,6 +4356,9 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         }
       }
@@ -4440,7 +4446,7 @@
       "get": {
         "operationId": "streamMyEvents",
         "summary": "Stream your account's events",
-        "description": "Live events for the signed-in account. With `subscription`, the subscription's events; without Last-Event-ID it resumes where that subscription's stream last stopped. Server-sent events. Each event has `id` (its seq), `event` (its type) and `data` (the Event as JSON). The stream starts with a `: ready cursor=N` comment and sends a `: heartbeat` comment every 15 seconds. Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue.",
+        "description": "Live events for the signed-in account. With `subscription`, the subscription's events; without Last-Event-ID it resumes where that subscription's stream last stopped. Server-sent events. Each event has `id` (its seq), `event` (its type) and `data` (the Event as JSON). The stream starts with a `: ready cursor=N transport=MODE` comment and sends a `: heartbeat` comment every 15 seconds. Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue. A Ting receiver is owned by this connection and carries only an empty reconciliation hint; event contents and permission checks remain in Apps. X-Apps-Event-Transport identifies the initial mode, with X-Apps-Ting-Session when applicable. Auto mode reports an in-stream downgrade with a transport=direct comment. Explicit ting returns 503 when unavailable at open and closes on later failure without losing saved events.",
         "tags": [
           "Events"
         ],
@@ -4461,6 +4467,9 @@
           },
           {
             "$ref": "#/components/parameters/LastEventIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/EventTransport"
           },
           {
             "name": "subscription",
@@ -4512,6 +4521,9 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         }
       }
@@ -8792,6 +8804,21 @@
       }
     },
     "parameters": {
+      "EventTransport": {
+        "name": "transport",
+        "in": "query",
+        "required": false,
+        "description": "auto uses a Ting 0.4 receiver session when configured and falls back to direct Apps delivery; ting requires Ting; direct bypasses Ting. Resume with an Apps event seq, never a Ting session ID.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ting",
+            "direct"
+          ],
+          "default": "auto"
+        }
+      },
       "AppId": {
         "name": "app_id",
         "in": "path",

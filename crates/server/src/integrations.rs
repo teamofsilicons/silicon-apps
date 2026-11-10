@@ -616,6 +616,9 @@ pub async fn start_background(s: Shared) -> Result<()> {
         );
     }
     tokio::spawn(outbox_worker(s.clone()));
+    if s.ting.is_some() {
+        tokio::spawn(crate::ting::delivery_worker(s.clone()));
+    }
     tokio::spawn(crate::subscriptions::delivery_worker(s));
     Ok(())
 }

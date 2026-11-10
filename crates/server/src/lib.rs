@@ -11,6 +11,7 @@ pub mod routes;
 pub mod signing;
 pub mod store;
 pub mod subscriptions;
+pub mod ting;
 pub mod user_storage;
 
 use axum::{
@@ -44,11 +45,13 @@ pub struct AppState {
     pub signer: Arc<signing::Keyring>,
     /// Last isolated-runner reachability check: when, result, RFC 3339 time.
     pub runner_probe: Mutex<Option<(std::time::Instant, bool, String)>>,
+    pub ting: Option<ting::Publisher>,
 }
 pub type Shared = Arc<AppState>;
 impl AppState {
     pub fn new(config: Config) -> Result<Shared> {
         config.validate_dev_boundary()?;
+        let ting = ting::Publisher::configured(&config)?;
         std::fs::create_dir_all(config.data_dir.join("packages"))
             .map_err(|_| ApiError::unavailable("Cannot create Apps data directory."))?;
         let mut store = Store::open(&config.data_dir.join("apps.sqlite"))?;
@@ -122,6 +125,7 @@ impl AppState {
             limiter,
             signer,
             runner_probe: Mutex::new(None),
+            ting,
             config,
             identity_cache: Mutex::new(BTreeMap::new()),
             store: Mutex::new(store),
@@ -306,7 +310,7 @@ async fn dispatch(
         let reader = events::authorize(&s, who.as_ref(), &feed)?;
         if p.last() == Some(&"stream") {
             let guard = s.limiter.open_stream(&client)?;
-            return events::stream(&s, reader, feed, &q, &headers, guard);
+            return events::stream(&s, reader, feed, &q, &headers, guard).await;
         }
         return Ok(Json(events::list(&s, &reader, feed, &q)?).into_response());
     }

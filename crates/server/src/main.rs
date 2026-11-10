@@ -12,6 +12,11 @@ async fn main() {
 }
 async fn run() -> silicon_apps_server::error::Result<()> {
     let config = Config::from_env()?;
+    if std::env::args().nth(1).as_deref() == Some("ting-register") {
+        silicon_apps_server::ting::register_type(&config).await?;
+        println!("Registered {}.", silicon_apps_server::ting::EVENT_TYPE);
+        return Ok(());
+    }
     let retired =
         silicon_apps_server::config::retired_variables(|name| std::env::var_os(name).is_some());
     if !retired.is_empty() {

@@ -398,6 +398,7 @@ fn known_pattern(pattern: &str) -> bool {
         .any(|kind| pattern_matches(pattern, kind))
 }
 
+#[derive(Clone)]
 pub enum Feed {
     App(String),
     Account,
@@ -487,6 +488,23 @@ fn collect(
         scanned_to: cursor,
         open: true,
     })
+}
+
+pub(crate) fn pending_hint(
+    s: &Shared,
+    who: &Identity,
+    feed: &Feed,
+    types: &TypeFilter,
+    after: i64,
+) -> Result<(bool, i64)> {
+    if s.store.lock().unwrap().account_uuid_retired(&who.uuid)? {
+        return Err(ApiError::auth());
+    }
+    let batch = collect(s, who, feed, types, after, 100)?;
+    if !batch.open {
+        return Err(ApiError::forbidden());
+    }
+    Ok((!batch.events.is_empty(), batch.scanned_to))
 }
 
 /// Check the caller may open a feed before any event is read.
@@ -587,10 +605,50 @@ struct StreamState {
     notify_open: bool,
     deadline: tokio::time::Instant,
     _guard: crate::ratelimit::StreamGuard,
+    ting: Option<crate::ting::Receiver>,
+    require_ting: bool,
+    headers: HeaderMap,
+    recheck_at: tokio::time::Instant,
+}
+
+// Recheck queued events too: access or subscription filters can change while a
+// slow client drains a batch, or while a Ting notification is in flight.
+fn still_visible(st: &StreamState, event: &Event) -> Result<bool> {
+    let store = st.s.store.lock().unwrap();
+    if store.account_uuid_retired(&st.who.uuid)? {
+        return Ok(false);
+    }
+    if store.connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM event_identity_retirements WHERE event_seq=?1)",
+        [event.seq],
+        |row| row.get::<_, bool>(0),
+    )? {
+        return Ok(false);
+    }
+    let catalog = store.catalog()?;
+    Ok(st.types.allows(&event.kind)
+        && match &st.feed {
+            Feed::Account => account_can_see(event, &st.who, &catalog),
+            Feed::App(id) => {
+                catalog
+                    .apps
+                    .get(id)
+                    .is_some_and(|app| app.is_author(Some(&st.who)))
+                    && event.app_id.as_deref() == Some(id)
+                    && event.visibility != "direct"
+            }
+            Feed::Subscription(id) => {
+                subscriptions::get(&store.connection, id)?.is_some_and(|sub| {
+                    sub.status == "active"
+                        && sub.owner_uuid == st.who.uuid
+                        && sub.matches(event, &catalog)
+                })
+            }
+        })
 }
 
 /// `GET /v1/events/stream` and `/v1/apps/{app_id}/events/stream`.
-pub fn stream(
+pub async fn stream(
     s: &Shared,
     who: Identity,
     feed: Feed,
@@ -598,6 +656,10 @@ pub fn stream(
     headers: &HeaderMap,
     guard: crate::ratelimit::StreamGuard,
 ) -> Result<Response> {
+    let transport = q.get("transport").map(String::as_str).unwrap_or("auto");
+    if !["auto", "direct", "ting"].contains(&transport) {
+        return Err(ApiError::bad("transport must be auto, direct or ting."));
+    }
     let types = TypeFilter::parse(q.get("types").map(String::as_str))?;
     let requested = cursor_param(q, Some(headers))?;
     // A subscription remembers the last event its reader acknowledged by
@@ -616,6 +678,25 @@ pub fn stream(
         };
         (start, store.events.subscribe())
     };
+    // Capture the cursor and notification listener before opening Ting. Events
+    // committed during its handshake are included in the first reconciliation.
+    let ting = match (transport, &s.ting) {
+        ("direct", _) => None,
+        (_, Some(publisher)) => match publisher
+            .receiver(who.clone(), feed.clone(), types.clone(), start)
+            .await
+        {
+            Ok(receiver) => Some(receiver),
+            Err(error) if transport == "ting" => return Err(error),
+            Err(_) => None,
+        },
+        ("ting", None) => return Err(crate::ting::unavailable()),
+        _ => None,
+    };
+    let selected = if ting.is_some() { "ting" } else { "direct" };
+    let session_id = ting
+        .as_ref()
+        .map(|receiver| receiver.session_id().to_owned());
     let state = StreamState {
         s: s.clone(),
         who,
@@ -623,11 +704,15 @@ pub fn stream(
         types,
         cursor: start,
         queue: VecDeque::new(),
-        ready: Some(format!("ready cursor={start}")),
+        ready: Some(format!("ready cursor={start} transport={selected}")),
         notify,
         notify_open: true,
         deadline: tokio::time::Instant::now() + Duration::from_secs(STREAM_MAX_SECONDS),
         _guard: guard,
+        ting,
+        require_ting: transport == "ting",
+        headers: headers.clone(),
+        recheck_at: tokio::time::Instant::now(),
     };
     let events = futures_util::stream::unfold(state, |mut st| async move {
         if let Some(comment) = st.ready.take() {
@@ -637,7 +722,44 @@ pub fn stream(
             return Some((Ok::<_, std::convert::Infallible>(first), st));
         }
         loop {
+            if tokio::time::Instant::now() >= st.deadline {
+                return None;
+            }
+            if st
+                .ting
+                .as_ref()
+                .is_some_and(|receiver| !receiver.is_connected())
+            {
+                if st.require_ting {
+                    return None;
+                }
+                st.ting = None;
+                return Some((
+                    Ok(SseEvent::default().comment("transport=direct reason=ting_unavailable")),
+                    st,
+                ));
+            }
+            if tokio::time::Instant::now() >= st.recheck_at {
+                let identity = tokio::time::timeout(
+                    crate::ting::TIMEOUT,
+                    crate::auth::stream_identity(&st.s, &st.headers),
+                )
+                .await;
+                match identity {
+                    Ok(Ok(Some(who))) if who.uuid == st.who.uuid => {
+                        if let Some(receiver) = &st.ting {
+                            receiver.identity(&who);
+                        }
+                        st.who = who;
+                    }
+                    _ => return None,
+                }
+                st.recheck_at = tokio::time::Instant::now() + Duration::from_secs(15);
+            }
             if let Some(event) = st.queue.pop_front() {
+                if !still_visible(&st, &event).unwrap_or(false) {
+                    continue;
+                }
                 let sse = SseEvent::default()
                     .id(event.seq.to_string())
                     .event(event.kind.as_str())
@@ -654,11 +776,23 @@ pub fn stream(
             if !batch.open {
                 return None;
             }
-            st.cursor = batch.scanned_to;
             if batch.events.is_empty() {
+                st.cursor = batch.scanned_to;
                 let wait = tokio::time::sleep(Duration::from_secs(5));
                 let end = tokio::time::sleep_until(st.deadline);
-                if st.notify_open {
+                if let Some(receiver) = &mut st.ting {
+                    tokio::select! {
+                        result = receiver.changed() => {
+                            if result.is_err() {
+                                if st.require_ting { return None; }
+                                st.ting = None;
+                                return Some((Ok(SseEvent::default().comment("transport=direct reason=ting_unavailable")), st));
+                            }
+                        },
+                        _ = wait => {},
+                        _ = end => {},
+                    }
+                } else if st.notify_open {
                     tokio::select! {
                         changed = st.notify.changed() => st.notify_open = changed.is_ok(),
                         _ = wait => {},
@@ -668,6 +802,12 @@ pub fn stream(
                     tokio::select! { _ = wait => {}, _ = end => {} }
                 }
             } else {
+                // Initial/reconnect catch-up and every live hint reconcile the
+                // same authorized log. A lost hint is repaired by the periodic scan.
+                st.cursor = batch.scanned_to;
+                if let Some(receiver) = &st.ting {
+                    receiver.advance(st.cursor);
+                }
                 st.queue.extend(batch.events);
             }
         }
@@ -682,5 +822,13 @@ pub fn stream(
     response
         .headers_mut()
         .insert("X-Accel-Buffering", "no".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("X-Apps-Event-Transport", selected.parse().unwrap());
+    if let Some(session) = session_id.and_then(|id| id.parse().ok()) {
+        response
+            .headers_mut()
+            .insert("X-Apps-Ting-Session", session);
+    }
     Ok(response)
 }

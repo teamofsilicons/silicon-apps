@@ -19,6 +19,7 @@ fn config(dir: &std::path::Path) -> Config {
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
+        ting_url: None,
         public_url: "http://127.0.0.1:4311".into(),
         allowed_origins: vec!["http://127.0.0.1:4311".into()],
         runner_url: None,
@@ -358,4 +359,47 @@ async fn reqwest_free_post(base: &str, token: &str, path: &str, body: &str) -> S
     let mut response = String::new();
     socket.read_to_string(&mut response).await.unwrap();
     response
+}
+
+#[tokio::test]
+async fn follow_reconnects_from_ready_cursor_before_first_event() {
+    use axum::{Router, extract::Query, http::HeaderMap, routing::get};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let calls = Arc::new(AtomicUsize::new(0));
+    let observed = calls.clone();
+    let app = Router::new().route("/v1/events/stream", get(move |headers: HeaderMap, Query(query): Query<std::collections::BTreeMap<String, String>>| {
+        let observed = observed.clone();
+        async move {
+            assert_eq!(query["transport"], "ting");
+            let body = if observed.fetch_add(1, Ordering::SeqCst) == 0 {
+                assert!(headers.get("Last-Event-ID").is_none());
+                ": ready cursor=42 transport=ting\n\n"
+            } else {
+                assert_eq!(headers["Last-Event-ID"], "42");
+                ": ready cursor=42 transport=ting\n\nid: 43\nevent: release.created\ndata: {\"seq\":43,\"type\":\"release.created\"}\n\n"
+            };
+            ([("content-type", "text/event-stream")], body)
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let home = tempfile::tempdir().unwrap();
+    let result = tokio::time::timeout(
+        Duration::from_secs(6),
+        run(
+            home.path(),
+            &base,
+            "dev:alice:c:alice",
+            &["events", "--follow", "--transport", "ting", "--limit", "1"],
+        ),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result["seq"], 43);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    server.abort();
 }

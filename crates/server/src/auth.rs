@@ -169,6 +169,29 @@ pub async fn identity(s: &Shared, token: Option<&str>) -> Result<Option<Identity
     verified_identity(s, token, false).await
 }
 
+/// Revalidate a long-lived stream without starting a rotating token refresh
+/// inside a cancellable response body. Expiry closes the stream; its next HTTP
+/// request performs the normal serialized refresh before opening a new receiver.
+pub(crate) async fn stream_identity(s: &Shared, headers: &HeaderMap) -> Result<Option<Identity>> {
+    let token = if headers.contains_key("Authorization") {
+        bearer(s, headers).await?
+    } else if let Some(id) = cookie(headers, "apps_session") {
+        s.store
+            .lock()
+            .unwrap()
+            .connection
+            .query_row(
+                "SELECT access_token FROM sessions WHERE id=?1 AND expires_at>?2",
+                params![id, chrono::Utc::now().timestamp()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+    } else {
+        None
+    };
+    identity(s, token.as_deref()).await
+}
+
 /// The first-party developer portal acts through its own sealed Accounts session.
 /// Its token is accepted only for the authoring API; it is never exchanged for an
 /// Apps membership or used to authorize store activity.

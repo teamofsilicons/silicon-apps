@@ -351,6 +351,9 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
         "search":{"route":"/v1/apps","parameters":["q","target","visibility","mine","sort","limit","offset"],"sort":crate::store::SORTS,"max_limit":100},
         "streaming":{
             "sse":true,
+            "transports":["auto","direct","ting"],
+            "default_transport":"auto",
+            "ting":{"configured":s.ting.is_some(),"type":crate::ting::EVENT_TYPE,"session_scope":"one receiver per active stream","payload":"content-free reconciliation hint"},
             "routes":["/v1/events/stream","/v1/apps/{app_id}/events/stream"],
             "resume":"Last-Event-ID header or ?last_event_id=",
             "filter":"?types=release.promoted,package.* (exact types, group.* or *)",
