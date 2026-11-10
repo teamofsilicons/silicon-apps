@@ -104,6 +104,10 @@ impl Publisher {
         let Some(url) = &config.ting_url else {
             return Ok(None);
         };
+        // Reqwest and the Ting WebSocket client enable different Rustls crypto
+        // backends. Select one before the first TLS WebSocket handshake; with
+        // both features enabled Rustls cannot infer a process-wide default.
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
         if config
             .accounts_app_secret
             .as_deref()
