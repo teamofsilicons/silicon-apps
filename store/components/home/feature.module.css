@@ -1,0 +1,15 @@
+/* The home page's feature (feature.tsx), on the account site's tokens: the picture (60%) and the words (40%) side by
+   side, the words centred on the picture's height; stacked under 768px. */
+.feature { display: grid; min-width: 0; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: center; gap: var(--space-page); }
+@media (max-width: 767px) { .feature { grid-template-columns: minmax(0, 1fr); gap: var(--space-block); } }
+
+/* The picture: 16:9, cropped from the middle of the image. */
+.picture { --sq-r: var(--radius-container); display: block; width: 100%; max-width: 100%; height: auto; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid var(--page-line, var(--border-subtle)); background: var(--surface-muted); object-fit: cover; }
+
+/* The words (the hierarchy pass, 2026-11-14): the name at 36px (--text-3xl, the display
+   step above the compact display role) and the description close under it as one group; View App a block's room
+   below. */
+.text { display: grid; min-width: 0; justify-items: start; gap: var(--space-block); }
+.title { display: grid; min-width: 0; justify-items: start; gap: var(--space-tight); }
+.heading { margin: 0; color: var(--foreground); font: var(--weight-title) var(--text-3xl)/var(--leading-display) var(--font-display); letter-spacing: var(--display-tracking); text-wrap: balance; }
+.body { display: -webkit-box; max-width: 60ch; margin: 0; overflow: hidden; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); -webkit-box-orient: vertical; -webkit-line-clamp: 3; }

@@ -1,4 +1,5 @@
-/* Global base for the web app. Component styles live in CSS modules next to each component. */
+/* Global base for the store, the account site's styles/base.css as Silicon Starter trims it. Component styles live in
+   CSS modules next to each component. */
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
@@ -24,7 +25,8 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-size: var(--text-base);
+  font: var(--body);
+  letter-spacing: var(--body-tracking);
 }
 
 h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd { margin: 0; }
@@ -36,7 +38,8 @@ img { height: auto; }
 input, button, textarea, select { font: inherit; letter-spacing: inherit; color: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
 a { color: var(--accent-ink); text-decoration-thickness: from-font; text-underline-offset: .2em; }
-a:not([data-variant]):hover { color: var(--accent-strong); }
+/* :where, as for focus below: a component's own hover for its links (NavList's rows) wins over the blue. */
+:where(a:not([data-variant])):hover { color: var(--accent-strong); }
 /* Keyboard focus on a plain link: the hover ink, a full underline and a soft fill (focus never shows as a ring). :where
    keeps it at one pseudo-class of specificity, so a component's own focus rule for its links still wins. */
 :where(a:not([data-variant], [data-sq])):focus-visible {
@@ -57,7 +60,7 @@ hr { height: 1px; margin: 0; border: 0; background: var(--border); }
 /* Thin scrollbars that disappear into the surface. */
 * { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent; }
 
-/* Shared utilities. Kept to a handful; layout belongs to the layout primitives (components/foundation/layout). */
+/* Shared utilities. Kept to a handful; layout belongs to the page parts (components/parts). */
 .sr-only {
   position: absolute !important;
   width: 1px;
@@ -69,16 +72,15 @@ hr { height: 1px; margin: 0; border: 0; background: var(--border); }
   white-space: nowrap;
   border: 0;
 }
-.mono { font-family: var(--font-mono); letter-spacing: 0; font-variant-ligatures: none; }
-.serif { font-family: var(--font-serif); font-weight: 400; letter-spacing: -.005em; }
+/* Mono letters are wider and taller than the text face at the same size, so inline mono steps down a little to sit in
+   the line (Anil, 2026-11-11: c:anil and the uuid jumped out of their sentence). */
+.mono { font-family: var(--font-mono); font-size: var(--mono-inline-scale); letter-spacing: 0; font-variant-ligatures: none; }
 .display { font-family: var(--font-display); font-weight: 500; letter-spacing: var(--tracking-display); }
-/* Small labels, dates and ids in the pixel face, as on Silicon Writings. */
-.pixel { font-family: var(--font-pixel); letter-spacing: 0; }
 .tabular { font-variant-numeric: tabular-nums; }
 .muted { color: var(--text-muted); }
 .secondary { color: var(--text-secondary); }
 
-/* Controls that only work with script (copy buttons) stay out of sight in a browser without it: the boot script (lib/boot.ts)
+/* Controls that only work with script stay out of sight in a browser without it: the boot script (lib/boot.ts)
    marks <html data-js> before the first paint. */
 :root:not([data-js]) [data-js-only] { display: none !important; }
 /* And the plain fallbacks for those controls step aside once script runs. */
@@ -87,16 +89,17 @@ hr { height: 1px; margin: 0; border: 0; background: var(--border); }
 [data-results] { transition: opacity var(--duration-fast) var(--ease-standard); }
 :root[data-busy] [data-results] { opacity: .45; pointer-events: none; }
 
-/* Skip link: invisible until keyboard focus reaches it. A squircle like every rounded surface: the element carries
-   data-sq="surface", so its corners come from --sq-r and its paint from --sq-fill. */
+/* Skip link (the shell's first Tab stop): invisible until keyboard focus reaches it. A squircle
+   ([data-sq]): its corners come from --sq-r and its fill from --sq-fill, never border-radius. A skip link without
+   data-sq (write <SkipLink>) has square corners. */
 .skip-link {
-  --sq-r: var(--radius-control);
-  --sq-fill: var(--foreground);
   position: fixed;
   top: 12px;
   left: 12px;
   z-index: 200;
   padding: var(--space-2) var(--space-4);
+  --sq-r: var(--radius-control);
+  --sq-fill: var(--foreground);
   background: var(--sq-fill);
   color: var(--background);
   font-size: var(--text-sm);
@@ -106,38 +109,14 @@ hr { height: 1px; margin: 0; border: 0; background: var(--border); }
 }
 .skip-link:focus-visible { transform: none; color: var(--background); }
 
-/* The embed surface (/embed/v1/buttons) is a transparent document inside an app's page: no page background, and no
-   color-scheme of its own unless its `theme` parameter sets one (or the iframe canvas turns opaque). */
-html[data-surface="embed"] { color-scheme: normal; background: transparent; scrollbar-gutter: auto; }
-html[data-surface="embed"] body { min-height: 0; background: transparent; transition: none; }
-
-/* ------------------------------------------------------------------------------------------------------------------
- * View transitions.
- *
- * Page changes between sections (components/foundation/shell): React's <ViewTransition> tags the leaving page and the
- * arriving one with a class per direction along the dock (page-forward / page-back) or page-fade. The dock is its own
- * layer that never moves, so only the page slides.
- * ------------------------------------------------------------------------------------------------------------------ */
-::view-transition { pointer-events: none; }
-
-[data-vt="dock"] { view-transition-name: sa-dock; }
-::view-transition-group(sa-dock) { z-index: 100; animation: none; }
-::view-transition-old(sa-dock) { display: none; }
-::view-transition-new(sa-dock) { animation: none; }
-
-::view-transition-old(.page-forward) { animation: page-out var(--duration-fast) var(--ease-standard) both; --page-dir: 1; }
-::view-transition-new(.page-forward) { animation: page-in var(--duration-considered) var(--ease-enter) both; --page-dir: 1; }
-::view-transition-old(.page-back) { animation: page-out var(--duration-fast) var(--ease-standard) both; --page-dir: -1; }
-::view-transition-new(.page-back) { animation: page-in var(--duration-considered) var(--ease-enter) both; --page-dir: -1; }
-::view-transition-old(.page-fade) { animation: page-out var(--duration-fast) var(--ease-standard) both; --page-dir: 0; }
-::view-transition-new(.page-fade) { animation: page-in var(--duration-considered) var(--ease-enter) both; --page-dir: 0; }
-@keyframes page-out { to { opacity: 0; transform: translateX(calc(var(--page-dir, 0) * -12px)); filter: blur(2px); } }
-@keyframes page-in { from { opacity: 0; transform: translateX(calc(var(--page-dir, 0) * 18px)); filter: blur(3px); } }
-
-::view-transition-old(root), ::view-transition-new(root) { mix-blend-mode: normal; }
-
 @media (prefers-reduced-motion: reduce) {
   body { transition: none; }
   .skip-link { transition: none; }
-  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
+
+/* A value named in a dialog's copy (an id, an email, a date) is bold: the label weight in --foreground, so it stands
+   out in a 14/400 line without going heavier than the title (dialog rules, redesign/decisions.md). */
+[role="dialog"] strong { color: var(--foreground); font-weight: var(--weight-medium); }
+
+/* A dev inspector (components/dev/type-inspector.tsx or spacing-inspector.tsx, development only) is on. */
+html[data-type-inspect] *, html[data-spacing-inspect] * { cursor: crosshair !important; }

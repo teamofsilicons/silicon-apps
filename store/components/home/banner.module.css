@@ -1,0 +1,22 @@
+/* The home page's banner (banner.tsx): the picture across the column at 3:1 (4:3 on a phone, so the words fit), an
+   overlay darkening the lower left from the page's ink, and the words in white over it. */
+.banner { --sq-r: var(--radius-container); position: relative; display: grid; width: 100%; max-width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: 1px solid var(--page-line, var(--border-subtle)); background: var(--surface-muted); }
+@media (max-width: 639px) { .banner { aspect-ratio: 4 / 3; } }
+.picture { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+/* For the words' sake: the ink at 72% in the lower left, easing out past the middle, so white words read on the
+   lightest picture too. */
+.overlay { position: absolute; inset: 0; background: linear-gradient(to top right, color-mix(in srgb, var(--foreground) 72%, transparent) 0%, color-mix(in srgb, var(--foreground) 40%, transparent) 40%, transparent 75%); }
+.words { position: relative; display: grid; align-self: end; max-width: 32rem; gap: var(--space-tight); padding: var(--space-block); color: var(--surface); }
+/* On a phone the words keep clear of the carousel's dots in the lower right. */
+@media (max-width: 639px) { .words { padding: var(--space-group) calc(var(--space-page) + var(--space-block)) var(--space-group) var(--space-group); } }
+.title { margin: 0; color: inherit; font: var(--display); letter-spacing: var(--display-tracking); text-wrap: balance; }
+.line { margin: 0; color: inherit; font: var(--body); letter-spacing: var(--body-tracking); opacity: .9; }
+
+/* "below" (2026-11-14): the picture on its own at 3:1 (2:1 on a phone), then the title (h1, 22) and its line (body,
+   16, --text-soft) under it, outside the picture, close together. No overlay. */
+.below { display: grid; min-width: 0; gap: var(--space-group); }
+.frame { --sq-r: var(--radius-container); position: relative; width: 100%; max-width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: 1px solid var(--page-line, var(--border-subtle)); background: var(--surface-muted); }
+@media (max-width: 639px) { .frame { aspect-ratio: 2 / 1; } }
+.belowWords { display: grid; min-width: 0; max-width: 60ch; gap: var(--space-tight); }
+.belowTitle { margin: 0; color: var(--foreground); font: var(--h1); letter-spacing: var(--h1-tracking); text-wrap: balance; }
+.belowLine { margin: 0; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); }

@@ -1,0 +1,16 @@
+/* A dropdown of links (choice-menu.tsx), in Silicon UI's DropdownMenu look on a native popover: the trigger shows the
+   choice's label, quiet, then the current option. */
+.choice { display: flex; }
+/* Silicon UI's secondary Button, given the anchor name its menu is placed by. */
+.trigger { anchor-name: var(--anchor); }
+.label { color: var(--text-secondary); }
+.chevron { color: var(--text-muted); }
+/* The menu, under its trigger and aligned to its start (CSS anchor positioning); where a browser lacks it, the menu
+   shows centred, as a popover does by default. */
+.menu { min-width: 10rem; padding: var(--space-tight); border: 1px solid var(--border); border-radius: var(--radius-container); background: var(--surface-raised); box-shadow: var(--shadow-floating); color: var(--foreground); }
+@supports (anchor-name: --a) {
+  .menu { position-anchor: var(--anchor); inset: auto; margin: var(--space-tight) 0 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-inline, flip-block; }
+}
+.item { display: flex; min-height: var(--control-height-sm); align-items: center; justify-content: space-between; gap: var(--space-group); padding: 0 var(--space-related); border-radius: var(--radius-control); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.item:hover, .item:focus-visible { background: var(--surface-muted); outline: none; }
+.item[aria-current="page"] { font-weight: 600; }

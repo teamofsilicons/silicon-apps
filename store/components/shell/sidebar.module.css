@@ -1,0 +1,31 @@
+/* The sidebar, the account site's (components/foundation/shell/sidebar.module.css) in its inset form (2026-11-14):
+   search at the head, the section list, then at the foot the profile, full width, over a hairline and the other
+   sites as chips.
+   Placement only: rows are NavList's. */
+.sidebar { display: flex; min-height: 100%; flex-direction: column; gap: var(--space-block); }
+/* The wordmark's row at the head, as tall as a field, so the page's first element can line up with the first section
+   row from tokens alone. */
+.brandRow { display: flex; height: var(--control-height-md); flex: none; align-items: center; padding-inline: var(--space-related); }
+.head { display: grid; gap: var(--space-inset); }
+/* Search's field takes the page box's hairline (--page-line, from the shell) at rest; hover and focus still darken it
+   (SearchField's own rules, which are more specific). A tolerated reach into SearchField, which has no border option. */
+.head label + div { border-color: var(--page-line); }
+/* Search's label is read, not shown (a tolerated reach into SearchField, which has no option for it yet). */
+.head label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.foot { display: flex; flex-wrap: wrap; gap: var(--space-tight); padding-block: var(--space-group); border-top: 1px solid var(--border-subtle); }
+/* The profile sits a group's room over the hairline (the sidebar's own gap is a block). */
+.account { display: flex; min-width: 0; margin-top: auto; margin-bottom: calc(var(--space-group) - var(--space-block)); }
+/* Sign In, or the signed-in account (its picture and id, one quiet button to Settings), across the sidebar's width. */
+.wide { width: 100%; min-width: 0; }
+.profile { justify-content: flex-start; }
+.profileId { overflow: hidden; font-family: var(--font-mono); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+/* As the account site: the section icons at 18px and labels at --text-base (16px), not NavList's 16px and 14px (a
+   tolerated reach into its rows until Silicon UI has a size option). */
+.sidebar nav[aria-label="Store sections"] svg { width: 18px; height: 18px; }
+.sidebar nav[aria-label="Store sections"] a { font-size: var(--text-base); }
+/* The categories under a small label, the sections' size (the account site's sidebar has no second group, so this
+   follows its section titles' caption role). */
+.group { display: grid; gap: var(--space-tight); }
+.groupLabel { padding-inline: var(--space-related); color: var(--text-secondary); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
+.sidebar nav[aria-label="Categories"] svg { width: 18px; height: 18px; }
+.sidebar nav[aria-label="Categories"] a { font-size: var(--text-base); }

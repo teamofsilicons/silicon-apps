@@ -70,7 +70,7 @@ test.describe("with JavaScript off", () => {
     await expect(form.locator("textarea")).toHaveAttribute("maxlength", "600");
     await form.getByRole("radio", { name: "4 stars" }).check();
     await form.locator("textarea").fill("Scripted bookkeeping that balances every time.");
-    await form.getByRole("button", { name: /Post review|Save changes/ }).click();
+    await form.getByRole("button", { name: /Post Review|Save Changes/ }).click();
     await expect(page).toHaveURL(/\/apps\/ledgerly\?review=saved#reviews$/);
     await expect(page.getByText("Your review is saved.")).toBeVisible();
     const mine = page.getByRole("article", { name: "Your review" });
@@ -105,7 +105,7 @@ test("a review longer than 600 characters is refused and nothing is saved", asyn
   await form.locator("textarea").evaluate(field => field.removeAttribute("maxlength"));
   await form.locator("textarea").fill("x".repeat(601));
   await form.getByRole("radio", { name: "3 stars" }).check();
-  await form.getByRole("button", { name: /Post review|Save changes/ }).click();
+  await form.getByRole("button", { name: /Post Review|Save Changes/ }).click();
   await expect(page).toHaveURL(/review=error&code=too_long/);
   await expect(page.getByText("Keep your review to 600 characters or fewer.")).toBeVisible();
   await expect(page.getByRole("article", { name: "Your review" })).toHaveCount(0);

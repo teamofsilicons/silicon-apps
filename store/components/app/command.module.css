@@ -1,0 +1,5 @@
+/* The install command (command.tsx): mono text on the quiet ground, the copy button at its end. */
+.command { --sq-r: var(--radius-control); --sq-fill: var(--surface-muted); --sq-stroke: var(--border-subtle); display: flex; min-width: 0; align-items: center; gap: var(--space-related); padding: var(--space-tight) var(--space-tight) var(--space-tight) var(--space-group); border: 1px solid var(--sq-stroke); background: var(--sq-fill); }
+.text { flex: 1; min-width: 0; padding-block: var(--space-tight); color: var(--foreground); font-family: var(--font-mono); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.prompt { color: var(--text-muted); }
+.copy { display: flex; flex: none; }

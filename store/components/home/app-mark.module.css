@@ -1,0 +1,2 @@
+/* An app's mark in a row (app-mark.tsx): 32px, the account site's app-mark corner, a hairline inside on a logo. */
+.mark { --sq-r: 28%; display: grid; width: 32px; height: 32px; flex: none; place-items: center; overflow: hidden; background: var(--surface-muted); box-shadow: inset 0 0 0 1px var(--border-subtle); color: var(--text-secondary); font: var(--label); object-fit: cover; }

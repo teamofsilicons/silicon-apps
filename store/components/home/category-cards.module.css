@@ -1,0 +1,13 @@
+/* The home page's categories (category-cards.tsx): the h3 a step over three columns of cards (one on a phone); each
+   card is its picture (16:9, the container corner and a hairline) with the name and an "Explore apps" button on one
+   line under it, no box and no side padding. */
+.section { display: grid; min-width: 0; gap: var(--space-inset); }
+.title { margin: 0; color: var(--foreground); font: var(--h3); letter-spacing: var(--h3-tracking); }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-block) var(--space-group); margin: 0; padding: 0; list-style: none; }
+.card { display: grid; min-width: 0; gap: var(--space-related); }
+.pictureLink { display: block; }
+.picture { --sq-r: var(--radius-container); display: block; aspect-ratio: 16 / 9; border: 1px solid var(--page-line, var(--border-subtle)); background-color: var(--surface-muted); background-position: center; background-repeat: no-repeat; background-size: cover; transition: filter var(--duration-fast) var(--ease-standard); }
+@media (hover: hover) and (pointer: fine) { .pictureLink:hover .picture { filter: brightness(.96); } }
+.foot { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--space-related); }
+.name { min-width: 0; color: var(--foreground); font: var(--body); letter-spacing: var(--body-tracking); }
+@media (max-width: 639px) { .cards { grid-template-columns: minmax(0, 1fr); } }

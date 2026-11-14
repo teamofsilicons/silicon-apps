@@ -1,12 +1,8 @@
 /**
- * An app the visitor cannot see. proxy.ts normally answers these with the root not-found page (rendered in full on the
- * server); this boundary covers the rare case where the app disappears between that check and the render.
+ * An app the visitor cannot see answers this 404, inside the account site's layout. Empty for now (Anil, 2026-11-14).
  */
-import type { Metadata } from "next";
-import { NotFoundView } from "@/components/store/not-found-view";
-
-export const metadata: Metadata = { title: { absolute: "Not found · Silicon Apps" }, robots: { index: false, follow: true } };
+import { Page } from "@/components/parts/page";
 
 export default function AppNotFound() {
-  return <NotFoundView />;
+  return <Page />;
 }

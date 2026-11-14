@@ -1,0 +1,23 @@
+/* The spacing inspector's drawing (spacing-inspector.tsx): fixed to the viewport at the top layer, never in the pointer's
+   way, in the product's blue. Shapes are clipped to the marquee; labels sit over it. Every piece is placed from the script
+   with transforms; each label's own `translate` sets which of its points sits on that spot. */
+.root { position: fixed; z-index: var(--layer-tooltip); inset: 0; pointer-events: none; }
+.marquee, .clip, .box, .content, .pad, .gap, .text, .label { position: absolute; top: 0; left: 0; }
+
+.marquee { border: 1.5px solid var(--accent); background: color-mix(in oklab, var(--accent) 6%, transparent); }
+.clip { overflow: hidden; }
+.shift { position: absolute; top: 0; left: 0; }
+
+.box { outline: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); outline-offset: -1px; }
+.pad { background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.content { outline: 1px dashed var(--accent); outline-offset: -1px; background: color-mix(in oklab, var(--background) 55%, transparent); }
+.gap { background: color-mix(in oklab, var(--accent) 22%, transparent); }
+.text { outline: 1px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: -1px; }
+
+.label { padding: 1px var(--space-tight); border-radius: var(--radius-control); background: var(--accent-strong); color: var(--accent-foreground); font: var(--caption); font-variant-numeric: tabular-nums; letter-spacing: var(--caption-tracking); white-space: nowrap; }
+.label[data-kind="radius"] { translate: 0 0; }
+.label[data-kind="pad"] { translate: -100% -50%; }
+.label[data-kind="gap"] { translate: -100% -50%; }
+.label[data-kind="size"] { translate: 0 -50%; }
+.label[data-kind="area"] { translate: -100% var(--space-tight); }
+.label[data-kind="hgap"] { translate: -50% -50%; }

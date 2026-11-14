@@ -32,9 +32,6 @@ const nextConfig: NextConfig = {
   // App logos and media are shown as they are, never fetched or resized by this server.
   images: { unoptimized: true },
   allowedDevOrigins: ["127.0.0.1"],
-  async headers() {
-    return [{ source: "/fonts/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }];
-  },
 };
 
 export default nextConfig;

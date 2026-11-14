@@ -1,0 +1,13 @@
+/* The home page's banner (hero.tsx): the pictures stacked across the column at 3:1 (2:1 on a phone), the cards' corner
+   and the page box's hairline. The second fades in over the first and out again: each shows for about 7 seconds, with
+   a 1-second cross-fade, a 16-second cycle. */
+.hero { --sq-r: var(--radius-container); position: relative; width: 100%; max-width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: 1px solid var(--page-line, var(--border-subtle)); background: var(--surface-muted); }
+@media (max-width: 639px) { .hero { aspect-ratio: 2 / 1; } }
+.picture { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+.picture + .picture { opacity: 0; animation: hero-turn 16s ease-in-out infinite; }
+@keyframes hero-turn {
+  0%, 44% { opacity: 0; }
+  50%, 94% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .picture + .picture { display: none; animation: none; } }

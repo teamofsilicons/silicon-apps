@@ -65,7 +65,8 @@ test("the copy button copies the install command", async ({ page, context }) => 
   const copy = page.getByRole("button", { name: "Copy the install command" });
   await expect(copy).toBeVisible();
   await copy.click();
-  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+  // Silicon UI's CopyButton keeps its name and says so in its own status line.
+  await expect(page.getByRole("status").filter({ hasText: "Copy the install command: Copied" })).toBeAttached();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("silicon-apps install briefcase");
 });
 

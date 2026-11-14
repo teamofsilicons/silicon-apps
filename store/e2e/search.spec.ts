@@ -4,10 +4,10 @@ import { expectPageBasics, html, jsonLd, mainText, signIn, typesOf } from "./hel
 
 const ORIGIN = "https://apps.teamofsilicons.com";
 
-/** The app ids of the result cards, in order. */
+/** The app ids of the result rows, in order. */
 function resultIds(page: string): string[] {
   const results = /<section aria-labelledby="results-title"[\s\S]*?<\/section>/.exec(page)?.[0] ?? "";
-  return [...results.matchAll(/<a href="\/apps\/([^"]+)">/g)].map(match => decodeURIComponent(match[1]));
+  return [...results.matchAll(/<a href="\/apps\/([^"]+)"/g)].map(match => decodeURIComponent(match[1]));
 }
 
 test("search ranks exact matches first and forgives a typo", async ({ request }) => {
@@ -64,7 +64,7 @@ test("a search with no results says what to try", async ({ request }) => {
   const page = await html(request, "/?q=zzzzqqqq");
   expect(resultIds(page)).toEqual([]);
   expect(mainText(page)).toContain("No apps match that");
-  expect(mainText(page)).toContain("Clear search and filters");
+  expect(mainText(page)).toContain("Clear Search and Filters");
 });
 
 test.describe("with JavaScript off", () => {

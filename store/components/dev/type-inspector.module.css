@@ -1,0 +1,26 @@
+/* The type inspector's outline and readout: fixed to the viewport at the top layer, never in the pointer's way. They're
+   positioned from the script with transforms. The readout and the editor are dev tools ([data-type-inspect-exempt]),
+   so they keep Silicon UI's shipped type while the page's changes. */
+.outline, .card { position: fixed; z-index: var(--layer-tooltip); top: 0; left: 0; pointer-events: none; }
+.outline { outline: 1px solid var(--accent); outline-offset: 1px; }
+.card { display: grid; width: 232px; gap: var(--space-tight); padding: var(--space-related) var(--space-group); border-radius: var(--radius-control); background: var(--foreground); box-shadow: var(--shadow-floating); color: var(--background); font-size: var(--text-xs); line-height: var(--leading-body); }
+.card[hidden], .outline[hidden] { display: none; }
+.role { margin: 0; font-size: var(--text-sm); font-weight: 500; }
+.card[data-off] .role { color: var(--neutral-4); }
+.near { margin: 0; color: var(--neutral-5); }
+.facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-hair) var(--space-group); margin: 0; }
+.facts dt { color: var(--neutral-6); font-weight: 400; }
+.facts dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+
+/* Edit text: a panel fixed at the lower left, clear of the dev button, so the edited text stays in view. A header with
+   Reset this text and close, then the rule it edits and its controls, scrolling inside. */
+.editor { position: fixed; z-index: var(--layer-popover); pointer-events: auto; bottom: var(--space-inset); left: var(--space-inset); display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(calc(100vw - var(--space-block)), 20rem); max-height: calc(100dvh - var(--space-screen) * 2); overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-container); background: var(--surface); box-shadow: var(--shadow-floating); color: var(--foreground); font-size: var(--text-sm); line-height: var(--leading-body); }
+.head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); padding: var(--space-related) var(--space-related) var(--space-related) var(--space-group); border-bottom: 1px solid var(--border-subtle); }
+.actions { display: flex; align-items: center; gap: var(--space-hair); }
+.title { margin: 0; font-size: var(--text-sm); font-weight: 500; }
+.body { display: grid; gap: var(--space-group); padding: var(--space-group); overflow-y: auto; overscroll-behavior: contain; }
+.source { display: grid; gap: var(--space-tight); }
+.code { overflow-wrap: anywhere; font-family: var(--font-mono); font-size: var(--text-xs); }
+.badges { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-tight); }
+.hint { margin: 0; color: var(--text-muted); font-size: var(--text-xs); line-height: var(--leading-body); }
+.swatch { display: block; width: var(--space-group); height: var(--space-group); border-radius: var(--radius-full); box-shadow: inset 0 0 0 1px var(--border); }

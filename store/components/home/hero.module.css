@@ -1,0 +1,17 @@
+/* The home page's banner (hero.tsx): the account site's pink and blue gradient at 3:1 (2:1 on a phone), the cards'
+   corner and the page box's hairline, with one white terminal window centred on it: three grey dots, then the lines in
+   mono, the commands in ink and the output in the soft grey, and a blinking cursor (still with reduced motion). */
+.hero { --sq-r: var(--radius-container); position: relative; display: grid; width: 100%; max-width: 100%; aspect-ratio: 3 / 1; place-items: center; overflow: hidden; border: 1px solid var(--page-line, var(--border-subtle)); background: var(--surface-muted) url("/banner/bg-102.webp") center / cover no-repeat; }
+@media (max-width: 639px) { .hero { aspect-ratio: 2 / 1; } }
+.window { --sq-r: var(--radius-container); width: min(62%, 30rem); overflow: hidden; border: 1px solid var(--border-subtle); background: var(--surface); box-shadow: var(--shadow-floating); }
+@media (max-width: 639px) { .window { width: 84%; } }
+.bar { display: flex; gap: var(--space-tight); padding: var(--space-related) var(--space-group); border-bottom: 1px solid var(--border-subtle); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.screen { display: grid; gap: var(--space-hair); padding: var(--space-group); font-family: var(--font-mono); font-size: var(--text-sm); }
+@media (max-width: 639px) { .screen { padding: var(--space-related) var(--space-group); font-size: var(--text-xs); } }
+.line { margin: 0; overflow: hidden; color: var(--foreground); text-overflow: ellipsis; white-space: nowrap; }
+.line[data-kind="output"] { color: var(--text-secondary); }
+.prompt { color: var(--text-muted); }
+.cursor { display: inline-block; width: .55em; height: 1.1em; vertical-align: text-bottom; background: var(--foreground); animation: cursor-blink 1.1s steps(1) infinite; }
+@keyframes cursor-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }

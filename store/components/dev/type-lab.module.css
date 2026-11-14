@@ -1,0 +1,14 @@
+/* The type lab: a compact panel fixed above the dev button, so the page stays in view while it changes. A header, groups
+   (start from, faces, sizes, tracking and line height, weights) parted by hairlines, and a foot that says whether
+   anything is on, with Copy CSS. Its own text keeps Silicon UI's shipped type ([data-type-inspect-exempt] in
+   styles/tokens.css), so the lab doesn't restyle itself. */
+.panel { position: fixed; z-index: var(--layer-popover); pointer-events: auto; right: var(--space-inset); bottom: calc(var(--control-height-sm) + var(--space-block)); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(calc(100vw - var(--space-block)), 20rem); max-height: calc(100dvh - var(--space-screen) * 2); overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-container); background: var(--surface); box-shadow: var(--shadow-floating); }
+.head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); padding: var(--space-related) var(--space-related) var(--space-related) var(--space-group); border-bottom: 1px solid var(--border-subtle); }
+.actions { display: flex; align-items: center; gap: var(--space-hair); }
+.title { margin: 0; color: var(--foreground); font-size: var(--text-sm); font-weight: 500; line-height: var(--leading-body); }
+.body { display: grid; overflow-y: auto; overscroll-behavior: contain; }
+.group { display: grid; gap: var(--space-group); padding: var(--space-group); }
+.group + .group { border-top: 1px solid var(--border-subtle); }
+.groupTitle { margin: 0; color: var(--text-muted); font-size: var(--text-xs); font-weight: 500; line-height: var(--leading-body); }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); padding: var(--space-related) var(--space-group); border-top: 1px solid var(--border-subtle); }
+.hint { color: var(--text-muted); font-size: var(--text-xs); line-height: var(--leading-body); }

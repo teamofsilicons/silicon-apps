@@ -1,0 +1,77 @@
+/* The store's frame, Silicon Starter's copy of the account site's (components/foundation/shell/shell.module.css, branch
+   compact): from 900px no top bar (the wordmark is at the sidebar's head), the sidebar and the page the window's
+   full height; under 900px a top bar with the wordmark and the menu button. From 900px the pair sits in 8px of padding with 8px between them, the page is a white box with an
+   8px corner and a 1px hairline, and only the page box scrolls. Under 900px the sidebar opens from the menu button (a
+   native popover sheet) and the page is full bleed. --top-height is what sticky things stay clear of. */
+.shell { --shell-top: 56px; --page-line: #e5e7eb; --top-height: var(--shell-top); position: relative; display: flex; min-height: 100vh; min-height: 100dvh; flex-direction: column; background: var(--canvas); }
+@media (max-width: 899px) { .shell { background: var(--surface); } }
+@media (max-width: 899px) { :global(html):has(.shell) { scroll-padding-block: calc(var(--top-height) + var(--space-section)) var(--space-section); } }
+
+.top { position: sticky; top: 0; z-index: var(--layer-sticky); display: flex; height: var(--top-height); flex: none; align-items: center; justify-content: space-between; gap: var(--space-related); padding: var(--space-related) var(--space-group) 0; background: var(--canvas); }
+@media (max-width: 899px) { .top { padding-top: 0; border-bottom: 1px solid var(--border); background: var(--surface); } }
+
+
+
+/* The wordmark as the account site draws it (2026-11-14): the mark, then "Team of Silicons Apps" in the body face at
+   16px, medium, with "Apps" muted; only the mark under 900px, as the account site. */
+.brand { --sq-r: var(--radius-container); --sq-fill: transparent; display: inline-flex; min-width: 0; align-items: center; gap: var(--space-group); margin: calc(var(--space-related) * -1); padding: var(--space-related); background: var(--sq-fill); color: var(--foreground); font-family: var(--font-body); font-size: var(--text-base); font-weight: var(--weight-medium); letter-spacing: var(--tracking-body); text-decoration: none; transition: background-color var(--duration-fast) var(--ease-standard); }
+.brand:hover { color: var(--foreground); }
+.brand:focus-visible { outline: none; --sq-fill: var(--surface-muted); color: var(--foreground); }
+.brandMark { display: grid; width: 18px; height: 18px; flex: none; color: var(--foreground); }
+.brandMark svg { width: 100%; height: 100%; }
+.brandProduct { color: var(--text-muted); font-weight: var(--weight-medium); }
+.brandText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 899px) { .brandText { display: none; } }
+
+/* Below the top bar: the section list and the page, inset 8px, with 8px between them. */
+.body { --sidebar-width: 248px; position: relative; display: grid; min-width: 0; flex: 1; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); gap: var(--space-related); padding: var(--space-related); }
+.aside { position: sticky; top: calc(var(--top-height) + var(--space-related)); height: calc(100dvh - var(--top-height) - (var(--space-related) * 2)); overflow-y: auto; }
+@media (max-width: 899px) {
+  .body { display: flex; flex-direction: column; gap: 0; padding: 0; }
+  .aside { display: none; }
+}
+
+/* The page: a white box with an 8px corner and a 1px hairline (--page-line, #E5E7EB, the account site's, set on
+   .shell so the sidebar's search field shares it). --page-top puts a page's first element level with the sidebar's
+   search field (Anil, 2026-11-14: level with Home left too much room once the top bar went): the wordmark's row and
+   the sidebar's gap under it, less the box's 1px border. Full bleed
+   under 900px. */
+.main { --sq-r: 8px; --sq-k: 1; --page-top: calc(var(--control-height-md) + var(--space-block) - 1px); position: relative; display: flex; min-width: 0; min-height: calc(100dvh - var(--top-height) - (var(--space-related) * 2)); flex: 1; flex-direction: column; margin: 0; border: 1px solid var(--page-line); background: var(--surface); outline: none; }
+:global(:root) .shell .main[data-sq-native] { corner-shape: round; border-radius: var(--sq-r); }
+@media (max-width: 899px) {
+  /* No sidebar to line up with on a phone: a page starts a block's room under the top bar. */
+  .main { --sq-r: 0; --page-top: var(--space-block); min-height: 0; border-width: 0; }
+  :global(:root) .shell .main[data-sq-native] { border-radius: 0; }
+}
+.main > * { min-width: 0; }
+
+@media (min-width: 900px) {
+  .shell { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+  .body { min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  .aside { position: static; height: auto; min-height: 0; }
+  .main { --top-height: 0px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: var(--space-section); }
+  /* No top bar beside the page (2026-11-14): the sidebar and the page fill the window. */
+  .shell { --top-height: 0px; }
+  .top { display: none; }
+}
+
+/* The menu button only below 900px, where the sidebar leaves the side of the page. */
+.menuButton { display: none; }
+@media (max-width: 899px) { .menuButton { display: contents; } }
+
+/* The menu below 900px: the sidebar in a sheet rising from the bottom, Silicon UI's BottomSheet's place and corners,
+   drawn as a native popover so it needs no script. */
+.menu { --sq-r: var(--radius-overlay); position: fixed; inset: auto 0 0; width: 100%; max-width: none; max-height: min(85dvh, 40rem); margin: 0; padding: var(--space-related) var(--space-group) calc(var(--space-group) + env(safe-area-inset-bottom, 0px)); overflow-y: auto; border: 1px solid var(--border); border-bottom: 0; background: var(--surface); box-shadow: var(--shadow-floating); color: var(--foreground); }
+:global(:root) .menu[data-sq] { border-bottom-right-radius: 0; border-bottom-left-radius: 0; }
+.menu::backdrop { background: var(--overlay); }
+.menu:popover-open { animation: menu-in var(--duration-standard) var(--ease-enter); }
+.menuHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); padding-bottom: var(--space-related); }
+.menuTitle { color: var(--foreground); font: var(--h3); letter-spacing: var(--h3-tracking); }
+@keyframes menu-in { from { opacity: 0; transform: translateY(var(--space-block)); } }
+@media (min-width: 900px) { .menu { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .brand { transition: none; }
+  .menu:popover-open { animation: none; }
+}

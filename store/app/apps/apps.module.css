@@ -1,0 +1,18 @@
+/* /apps (page.tsx): the title with the count, a row of links to each category (small chips with their counts), then
+   each category as a chapter: its title (h2) and line over its cards, a page's room apart. */
+.head { display: grid; gap: var(--space-group); }
+.titleRow { display: flex; align-items: baseline; gap: var(--space-related); }
+.title { margin: 0; color: var(--foreground); font: var(--h1); letter-spacing: var(--h1-tracking); }
+.count { margin: 0; color: var(--text-secondary); font: var(--body); letter-spacing: var(--body-tracking); }
+.jump { display: flex; flex-wrap: wrap; gap: var(--space-tight); }
+.chip { --sq-r: var(--radius-control); --sq-fill: var(--surface-muted); display: inline-flex; align-items: center; gap: var(--space-tight); padding: var(--space-tight) var(--space-related); background: var(--sq-fill); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.chip:hover { --sq-fill: var(--surface-pressed); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chipCount { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.chapter { display: grid; min-width: 0; gap: var(--space-group); margin-top: var(--space-page); scroll-margin-top: var(--space-group); }
+.chapterHead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-group); }
+.chapterWords { display: grid; min-width: 0; gap: var(--space-hair); }
+.seeAll { flex: none; color: var(--accent); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.seeAll:hover { text-decoration: underline; }
+.chapterTitle { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.chapterLine { margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }

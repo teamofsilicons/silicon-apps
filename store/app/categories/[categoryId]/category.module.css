@@ -1,0 +1,19 @@
+/* A category's page (page.tsx): a picture-only banner (5:1, 5:2 on a phone, the app page cover's corner and hairline), its line, the results toolbar (the system on the left; the order and the view icons on the right), then the apps, and Show More centred under them. */
+.banner { --sq-r: var(--radius-container); display: block; width: 100%; height: auto; aspect-ratio: 5 / 1; border: 1px solid var(--page-line, var(--border-subtle)); background: var(--surface-muted); object-fit: cover; }
+@media (max-width: 639px) { .banner { aspect-ratio: 5 / 2; } }
+/* AI and Agents: Silicon UI's own gradient (lilac to peach) in place of a picture, with a soft glow of each end. */
+.gradient { background: radial-gradient(55% 120% at 20% 10%, var(--silicon-gradient-from), transparent 70%), radial-gradient(55% 120% at 85% 90%, var(--silicon-gradient-to), transparent 70%), var(--silicon-gradient); }
+/* The banner and its line, one group: the line a tight step under the picture. */
+.intro { display: grid; gap: var(--space-related); }
+.line { margin: 0; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); }
+.choices { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-related); margin-block: var(--space-group) var(--space-related); }
+.end { display: flex; align-items: center; gap: var(--space-related); }
+/* The view: two icon links in one bordered group, a secondary button's height, the current one filled. */
+.views { display: flex; gap: var(--space-hair); padding: var(--space-hair); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); }
+.viewOption { --sq-r: var(--radius-control); display: grid; place-items: center; width: calc(var(--control-height-sm) - var(--space-tight)); aspect-ratio: 1; border-radius: calc(var(--radius-control) - var(--space-hair)); color: var(--text-secondary); }
+.viewOption:hover { color: var(--foreground); background: var(--surface-muted); }
+.viewOption[aria-current="page"] { background: var(--surface-muted); color: var(--foreground); }
+.viewOption:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.empty { margin: 0; color: var(--text-secondary); font: var(--body); letter-spacing: var(--body-tracking); }
+.empty a { color: var(--accent); }
+.more { display: flex; justify-content: center; margin-top: var(--space-block); }
