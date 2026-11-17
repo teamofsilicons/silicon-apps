@@ -751,6 +751,11 @@
                     "type": "string",
                     "maxLength": 600
                   },
+                  "tagline": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "description": "One line of plain text for store cards, at most 60 characters after surrounding whitespace is trimmed. Line breaks, tabs and other control characters are refused. Required to publish an app that is not yet published; apps published before taglines existed stay published without one. Send an empty string to clear it."
+                  },
                   "logo": {
                     "type": "string"
                   }
@@ -986,6 +991,11 @@
                   "description": {
                     "type": "string",
                     "maxLength": 600
+                  },
+                  "tagline": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "description": "One line of plain text for store cards, at most 60 characters after surrounding whitespace is trimmed. Line breaks, tabs and other control characters are refused. Required to publish an app that is not yet published; apps published before taglines existed stay published without one. Send an empty string to clear it."
                   },
                   "tags": {
                     "type": "array",
@@ -1259,7 +1269,7 @@
       "post": {
         "operationId": "publishApp",
         "summary": "Publish an app",
-        "description": "Publishes immediately when ready. There is no review.",
+        "description": "Publishes immediately when ready: a name, a 200 to 600 character description, a tagline (unless the app is already published) and a release covering the required targets. There is no review.",
         "tags": [
           "Authoring"
         ],
@@ -6862,6 +6872,11 @@
           "description": {
             "type": "string"
           },
+          "tagline": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "The authors' one-line summary for store cards, or an empty string when they have not written one."
+          },
           "logo": {
             "type": "string"
           },
@@ -7035,6 +7050,7 @@
           "app_id",
           "name",
           "description",
+          "tagline",
           "tags",
           "visibility",
           "published",

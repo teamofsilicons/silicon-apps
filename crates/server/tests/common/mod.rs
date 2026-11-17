@@ -153,7 +153,7 @@ pub fn seed_app(
         "POST",
         "apps",
         &format!("{app_id}-create"),
-        json!({"app_id":app_id,"name":format!("{app_id} app"),"description":"d".repeat(200)}),
+        json!({"app_id":app_id,"name":format!("{app_id} app"),"description":"d".repeat(200),"tagline":format!("The {app_id} app")}),
         Prepared {
             secret: Some("secret".into()),
             ..Default::default()

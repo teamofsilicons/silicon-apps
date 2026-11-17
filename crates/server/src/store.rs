@@ -797,6 +797,10 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             app_id: id.into(),
             name: name.into(),
             description: b["description"].as_str().unwrap_or_default().into(),
+            tagline: match b.get("tagline") {
+                Some(_) => str_field(b, "tagline")?.trim().into(),
+                None => String::new(),
+            },
             logo: b["logo"].as_str().unwrap_or_default().into(),
             logo_alt: String::new(),
             banner: String::new(),
@@ -955,6 +959,7 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             if ![
                 "name",
                 "description",
+                "tagline",
                 "tags",
                 "logo",
                 "logo_alt",
@@ -982,6 +987,9 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             if b.get(key).is_some() {
                 *dest = str_field(b, key)?.to_owned();
             }
+        }
+        if b.get("tagline").is_some() {
+            app.tagline = str_field(b, "tagline")?.trim().to_owned();
         }
         if b.get("tags").is_some() {
             app.tags = strings(b, "tags")?;
@@ -1462,6 +1470,16 @@ fn validate_details(a: &App) -> Result<()> {
             "Published apps need at least 200 description characters.",
         ));
     }
+    if a.tagline.chars().count() > TAGLINE_MAX_CHARS {
+        return Err(ApiError::bad(format!(
+            "tagline is limited to {TAGLINE_MAX_CHARS} characters."
+        )));
+    }
+    if a.tagline.chars().any(char::is_control) {
+        return Err(ApiError::bad(
+            "tagline must be one line of plain text without line breaks or tabs.",
+        ));
+    }
     if a.logo_alt.chars().count() > 10000 || a.banner_alt.chars().count() > 10000 {
         return Err(ApiError::bad(
             "Logo and banner alt text are limited to 10,000 characters.",
@@ -1545,7 +1563,8 @@ fn search_score(a: &App, q: &str) -> Option<u32> {
     if a.tags.iter().any(|t| t.eq_ignore_ascii_case(q)) {
         return Some(600);
     }
-    if a.description.to_lowercase().contains(q)
+    if a.tagline.to_lowercase().contains(q)
+        || a.description.to_lowercase().contains(q)
         || a.tags.iter().any(|t| t.to_lowercase().contains(q))
     {
         return Some(400);

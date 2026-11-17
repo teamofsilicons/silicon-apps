@@ -62,7 +62,7 @@ silicon-apps daemon status --json
 silicon-apps login --slt TOKEN
 silicon-apps create ring --name Ring
 # Save the app_secret immediately; it is shown once.
-silicon-apps setup ring details --description-file description.txt --tags tools,productivity
+silicon-apps setup ring details --tagline "Voice calls for Carbons and Silicons" --description-file description.txt --tags tools,productivity
 silicon-apps setup ring access --visibility public
 # Prepare ./package with apps.yaml and binaries for all three required targets.
 silicon-apps validate ./package

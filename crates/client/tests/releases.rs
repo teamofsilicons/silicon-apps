@@ -62,7 +62,14 @@ async fn signed_installs_show_scripts_and_leave_withdrawn_releases() {
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let alice = Client::new(&base, Some("dev:alice:c:alice".into())).unwrap();
     alice
-        .create("fixture", "Fixture", &"d".repeat(200), None, None)
+        .create_with_tagline(
+            "fixture",
+            "Fixture",
+            &"d".repeat(200),
+            Some("A fixture"),
+            None,
+            None,
+        )
         .await
         .unwrap();
     let who = Identity {

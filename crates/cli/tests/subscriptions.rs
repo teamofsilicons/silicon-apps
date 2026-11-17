@@ -94,7 +94,7 @@ async fn cli_subscribes_follows_events_and_negotiates_capabilities() {
         (
             "POST",
             "apps",
-            json!({"app_id":"demo-app","name":"Demo","description":"d".repeat(200)}),
+            json!({"app_id":"demo-app","name":"Demo","description":"d".repeat(200),"tagline":"A demo app"}),
             Prepared {
                 secret: Some("s".into()),
                 ..Default::default()

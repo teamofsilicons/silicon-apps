@@ -76,16 +76,18 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     );
 
     // A published app with one development release.
-    alice
-        .create(
+    let created = alice
+        .create_with_tagline(
             "demo-app",
             "Demo",
             &"d".repeat(200),
+            Some("A demo app"),
             None,
             Some("client-create"),
         )
         .await
         .unwrap();
+    assert_eq!(created["app"]["tagline"], "A demo app");
     let who = Identity {
         uuid: "alice".into(),
         id: "c:alice".into(),
