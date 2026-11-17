@@ -12,6 +12,7 @@ name = "apps-server"
 path = "src/main.rs"
 
 [dependencies]
+silicon-publishing-policy = { path = "../../vendor/silicon-publishing-policy" }
 axum = "0.8"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }

@@ -15,6 +15,7 @@ fn config(dir: &Path) -> Config {
         bind: "127.0.0.1:0".parse().unwrap(),
         data_dir: dir.to_owned(),
         dev_auth: true,
+        organizations_url: None,
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
@@ -89,11 +90,12 @@ async fn availability_and_create_leave_historical_ids_to_the_server() {
         home.path(),
         &server,
         alice,
-        &["create", "dm", "--name", "DM"],
+        &["create", "dm", "--name", "DM", "--tagline", "Messages"],
     )
     .await;
     assert_eq!(code, 0, "{err}");
     assert_eq!(created["app"]["app_id"], "dm");
+    assert_eq!(created["app"]["tagline"], "Messages");
     assert!(
         created["app_secret"]
             .as_str()
@@ -105,11 +107,32 @@ async fn availability_and_create_leave_historical_ids_to_the_server() {
         home.path(),
         &server,
         alice,
-        &["setup", "dm", "details", "--description", &description],
+        &[
+            "setup",
+            "dm",
+            "details",
+            "--tagline",
+            " Direct messages for Carbons and Silicons ",
+            "--description",
+            &description,
+        ],
     )
     .await;
     assert_eq!(code, 0, "{err}");
     assert_eq!(details["description"], description);
+    assert_eq!(
+        details["tagline"],
+        "Direct messages for Carbons and Silicons"
+    );
+    let (code, _, err) = run(
+        home.path(),
+        &server,
+        alice,
+        &["setup", "dm", "details", "--tagline", &"x".repeat(61)],
+    )
+    .await;
+    assert_ne!(code, 0, "a 61-character tagline is refused");
+    assert!(err.to_string().contains("60 characters"), "{err}");
     let (code, mine, err) = run(home.path(), &server, alice, &["list", "--mine"]).await;
     assert_eq!(code, 0, "{err}");
     assert!(

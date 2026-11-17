@@ -2304,7 +2304,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-apps-cli"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "anyhow",
  "axum",
@@ -2318,7 +2318,7 @@ dependencies = [
 
 [[package]]
 name = "silicon-apps-client"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "anyhow",
  "axum",
@@ -2382,6 +2382,7 @@ dependencies = [
  "sha2",
  "silicon-accounts-client",
  "silicon-apps-package",
+ "silicon-publishing-policy",
  "silicon-ting-client",
  "tempfile",
  "tokio",
@@ -2390,6 +2391,15 @@ dependencies = [
  "tower-http",
  "url",
  "uuid",
+]
+
+[[package]]
+name = "silicon-publishing-policy"
+version = "0.1.0"
+dependencies = [
+ "reqwest 0.13.5",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

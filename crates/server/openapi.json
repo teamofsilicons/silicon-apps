@@ -672,6 +672,42 @@
               "minimum": 0,
               "default": 0
             }
+          },
+          {
+            "name": "deleted",
+            "in": "query",
+            "required": false,
+            "description": "Use with mine=true to list deleted apps.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "description": "Filter by organization publisher.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "shared_with_me",
+            "in": "query",
+            "required": false,
+            "description": "Only managed resources created by somebody else.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "shared_by",
+            "in": "query",
+            "required": false,
+            "description": "Filter by an accepted author UUID.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -713,7 +749,7 @@
       "post": {
         "operationId": "createApp",
         "summary": "Create an app",
-        "description": "Creates an unpublished app with you as its first author and returns its `app_secret` once. Registers the app with Silicon Accounts.",
+        "description": "Creates an unpublished app. Personal creation returns app_secret once. Organization creation requires Create, grants the creator Read/Edit and omits server secrets; a manager rotates the secret explicitly. Registers the app with Silicon Accounts.",
         "tags": [
           "Authoring"
         ],
@@ -751,6 +787,11 @@
                     "type": "string",
                     "maxLength": 600
                   },
+                  "tagline": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "description": "One line of plain text for store cards, at most 60 characters after surrounding whitespace is trimmed. Line breaks, tabs and other control characters are refused. Required to publish an app that is not yet published; apps published before taglines existed stay published without one. Send an empty string to clear it."
+                  },
                   "logo": {
                     "type": "string"
                   },
@@ -763,6 +804,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "organization_id": {
+                    "type": "string",
+                    "description": "An organization in GET /v1/organizations where you can create apps. Immutable. Defaults to personal ownership. Organization drafts start private and creator receives read/edit only."
                   }
                 },
                 "required": [
@@ -790,8 +835,7 @@
                     }
                   },
                   "required": [
-                    "app",
-                    "app_secret"
+                    "app"
                   ]
                 }
               }
@@ -997,6 +1041,11 @@
                     "type": "string",
                     "maxLength": 600
                   },
+                  "tagline": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "description": "One line of plain text for store cards, at most 60 characters after surrounding whitespace is trimmed. Line breaks, tabs and other control characters are refused. Required to publish an app that is not yet published; apps published before taglines existed stay published without one. Send an empty string to clear it."
+                  },
                   "tags": {
                     "type": "array",
                     "maxItems": 20,
@@ -1038,6 +1087,80 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/App"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteApp",
+        "summary": "Delete an app",
+        "description": "Requires personal admin or organization manage. Hides discovery, packages, media and user storage, cancels pending invites and disables Accounts sign-in. Retains the record and reserves the ID. Core platform apps cannot be deleted.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -1269,7 +1392,7 @@
       "post": {
         "operationId": "publishApp",
         "summary": "Publish an app",
-        "description": "Publishes immediately when ready. There is no review.",
+        "description": "Publishes immediately when ready: a name, a 200 to 600 character description, a tagline (unless the app is already published) and a release covering the required targets. There is no review.",
         "tags": [
           "Authoring"
         ],
@@ -6433,6 +6556,373 @@
           }
         }
       }
+    },
+    "/v1/organizations": {
+      "get": {
+        "operationId": "listOrganizationPublishers",
+        "summary": "List organization publishers",
+        "description": "Live organization memberships, teams and publishing permissions. An outage never grants access.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingContext"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/people": {
+      "get": {
+        "operationId": "listPeopleSignals",
+        "summary": "List invitation suggestions",
+        "description": "Only your interaction history, aggregated across committed invitations. Rank by 2*sent+received, then latest invitation; overlay your connected Contacts names/photos and use trust to rank contact-only suggestions. Retries do not increase counts.",
+        "tags": [
+          "Authors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PersonSignal"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/apps/{app_id}/organization-access": {
+      "get": {
+        "operationId": "getOrganizationAccess",
+        "summary": "Read organization access",
+        "description": "Current organization resource grants and private audience. Requires manage.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceAccess"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setOrganizationAccess",
+        "summary": "Update organization access",
+        "description": "Replace per-app team/member grants and private audience. Requires manage; every target is checked against current organization membership. Ownership remains with the organization after members leave.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceAccess"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/App"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/apps/{app_id}/restore": {
+      "post": {
+        "operationId": "restoreApp",
+        "summary": "Restore a deleted app",
+        "description": "Requires current management permission and a deletion less than 30 days ago. Restores previous publication/access and Accounts status. Cancelled invitations stay cancelled. IDs remain reserved after recovery expires.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/App"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
     }
   },
   "webhooks": {
@@ -7365,6 +7855,11 @@
           "description": {
             "type": "string"
           },
+          "tagline": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "The authors' one-line summary for store cards, or an empty string when they have not written one."
+          },
           "logo": {
             "type": "string"
           },
@@ -7543,12 +8038,99 @@
               }
             ],
             "description": "Only returned to authors. Null when storage is not defined."
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shared_with_me": {
+            "type": "boolean"
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "organization_access": {
+            "$ref": "#/components/schemas/ResourceAccess"
+          },
+          "publisher": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "personal",
+                  "organization"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "logo_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "permissions": {
+            "type": "object",
+            "properties": {
+              "read": {
+                "type": "boolean"
+              },
+              "edit": {
+                "type": "boolean"
+              },
+              "publish": {
+                "type": "boolean"
+              },
+              "manage": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "read",
+              "edit",
+              "publish",
+              "manage"
+            ]
+          },
+          "deleted_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "restore_until": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "app_id",
           "name",
           "description",
+          "tagline",
           "tags",
           "visibility",
           "published",
@@ -7987,6 +8569,8 @@
           "type": {
             "type": "string",
             "enum": [
+              "app.deleted",
+              "app.restored",
               "app.created",
               "app.imported_from_accounts",
               "app.id_migrated",
@@ -8800,6 +9384,200 @@
           "values",
           "revision",
           "updated_at"
+        ]
+      },
+      "PublishingSubject": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "account",
+              "team"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "PublishingGrant": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "$ref": "#/components/schemas/PublishingSubject"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "apps",
+                "interfaces",
+                "cells"
+              ]
+            }
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "create",
+                "read",
+                "edit",
+                "publish",
+                "manage"
+              ]
+            }
+          }
+        },
+        "required": [
+          "subject",
+          "permissions"
+        ],
+        "additionalProperties": false
+      },
+      "ResourceAccess": {
+        "type": "object",
+        "properties": {
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublishingGrant"
+            }
+          },
+          "audience": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "restricted"
+                ],
+                "default": "organization"
+              },
+              "include": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PublishingSubject"
+                }
+              },
+              "exclude": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PublishingSubject"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "description": "Resource grants cannot contain create or nonempty resources. Current membership and product access are always required. Exclusions win for ordinary private audience access; draft read/edit/publish/manage grants still allow management access."
+      },
+      "PublishingContext": {
+        "type": "object",
+        "properties": {
+          "account_uuid": {
+            "type": "string"
+          },
+          "organizations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "org_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "logo_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "admin": {
+                  "type": "boolean"
+                },
+                "teams": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "permissions": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "org_id",
+                "name",
+                "admin",
+                "teams",
+                "permissions"
+              ]
+            }
+          }
+        },
+        "required": [
+          "account_uuid",
+          "organizations"
+        ]
+      },
+      "PersonSignal": {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pfp_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sent": {
+            "type": "integer"
+          },
+          "received": {
+            "type": "integer"
+          },
+          "last_invited_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "sent",
+          "received",
+          "last_invited_at"
         ]
       }
     },

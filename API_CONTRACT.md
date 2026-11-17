@@ -20,11 +20,11 @@ Runtime `GET`/`PATCH /v1/apps/{app_id}/storage/users/{user_uuid}` and `POST .../
 - `GET /apps/availability/{app_id}` → `{available:boolean}` (invalid IDs false). A historical 1–2 character Accounts ID reserved by `APPS_HISTORICAL_APP_IDS` is true only for its signed-in owner, while free; for anyone else it is an invalid ID.
 - `GET /apps?q=&visibility=public|private&mine=true&limit=50&offset=0` → `{items:[App],total:n}`. `mine` requires auth and includes drafts. Otherwise published accessible apps only. Search exact ID/name ranks ahead of prefixes, substrings, then typo matches across IDs, names, tags and description words; rating breaks equal scores.
 - `GET /apps/{app_id}` → App (drafts only visible to authors).
-- `POST /apps` body `{app_id,name,description?:"",logo?:""}` → `{app:App,app_secret:"…"}`. `app_id` is a new 3–30 character ID, or a historical 1–2 character Accounts ID that `APPS_HISTORICAL_APP_IDS` reserves for the caller; anyone else gets 400 `invalid_input`, as for any invalid ID. Its `app.created` history then includes `historical_app_id:true`.
-- `PATCH /apps/{app_id}` body any `{name,description,tags:[],logo,banner,carousel:[{url,kind:"image"|"video",alt}],links:{website,developer_docs,android,ios,custom:[{label,url,logo}]},setup_step:1..7}` → App.
+- `POST /apps` body `{app_id,name,description?:"",tagline?:"",logo?:""}` → `{app:App,app_secret:"…"}`. `app_id` is a new 3–30 character ID, or a historical 1–2 character Accounts ID that `APPS_HISTORICAL_APP_IDS` reserves for the caller; anyone else gets 400 `invalid_input`, as for any invalid ID. Its `app.created` history then includes `historical_app_id:true`.
+- `PATCH /apps/{app_id}` body any `{name,description,tagline,tags:[],logo,banner,carousel:[{url,kind:"image"|"video",alt}],links:{website,developer_docs,android,ios,custom:[{label,url,logo}]},setup_step:1..7}` → App.
 - `PUT /apps/{app_id}/access` body `{visibility:"public"|"private",domains:["example.com"],account_ids:["c:alice","si:bot"]}` → App. Admin only; identities are resolved to immutable UUIDs.
 - `GET /apps/{app_id}/readiness` → `{ready:boolean,errors:[{field,message}],required_commands:["--help","accounts --json","login status --json"]}`.
-- `POST /apps/{app_id}/publish` body `{}` → App. Requires 200–600 character description, ≥1 accepted package in a release; immediately publishes without manual review. App can publish with development releases only; default install then says no production release.
+- `POST /apps/{app_id}/publish` body `{}` → App. Requires 200–600 character description, a tagline unless the app is already published, ≥1 accepted package in a release; immediately publishes without manual review. App can publish with development releases only; default install then says no production release.
 - `POST /apps/{app_id}/secret/rotate` body `{}` → `{app_secret:"…"}`. All authors.
 
 ## Ownership and history
@@ -59,7 +59,7 @@ Runtime `GET`/`PATCH /v1/apps/{app_id}/storage/users/{user_uuid}` and `POST .../
 - `POST /apps/{app_id}/webhook/rotate` body `{}` → `{webhook_secret:"whsec_…"}`.
 - `POST /reports` body `{message,pr?:""}` → `{id,status:"queued"}`; durable mail outbox for the three specified recipients. Requires configured delivery transport; unavailable transport returns 503.
 
-`App`: `{app_id,name,description,logo,banner,tags,visibility,domains,account_ids,links,carousel,published,setup_step,created_at,updated_at,authors:[...],targets:[],latest_production:Release|null,latest_development:Release|null,rating:number|null,review_count,installs,is_author,is_admin}`. `domains` and `account_ids` only returned to authors. `is_admin` only indicates the caller's own capability, never marks an author. `Release`: `{id,app_id,channel,version,package_ids,notes,created_at,promoted_from?:id}`. `Invite`: `{id,app_id,to,account_uuid?:uuid,status,created_at}`; only authors/invitees may inspect pending invites.
+`App`: `{app_id,name,description,tagline,logo,banner,tags,visibility,domains,account_ids,links,carousel,published,setup_step,created_at,updated_at,authors:[...],targets:[],latest_production:Release|null,latest_development:Release|null,rating:number|null,review_count,installs,is_author,is_admin}`. `tagline` is one line of plain text for store cards: trimmed on save, at most 60 characters, no line breaks, tabs or other control characters, and `""` when unset. Apps published before taglines existed keep publishing and editing without one; a new app needs one to publish. `domains` and `account_ids` only returned to authors. `is_admin` only indicates the caller's own capability, never marks an author. `Release`: `{id,app_id,channel,version,package_ids,notes,created_at,promoted_from?:id}`. `Invite`: `{id,app_id,to,account_uuid?:uuid,status,created_at}`; only authors/invitees may inspect pending invites.
 
 ## Browser authentication and media
 
@@ -116,3 +116,7 @@ left unchanged, and explicit clear flags remove optional values.
 `GET /v1/events/stream` and `GET /v1/apps/{app_id}/events/stream` accept `transport=auto|ting|direct` (default `auto`). When configured, auto uses a separate Ting 0.4 receiver for each authenticated watcher and falls back to direct Apps delivery on failure. Explicit `ting` returns `503 ting_unavailable` if opening fails and closes on later failure; reconnect using the Apps event sequence. `direct` never allocates a Ting receiver.
 
 Only empty `silicon-apps.eventsAvailable` hints cross Ting. Apps sends the existing authorized event payloads over SSE, with unchanged filtering and `Last-Event-ID` replay. `X-Apps-Event-Transport` and optional `X-Apps-Ting-Session` describe the initial connection. The ready comment includes the initial resume cursor; an automatic downgrade is signalled by a `transport=direct reason=ting_unavailable` comment. Sessions disappear on disconnect and are never reused or broadcast to an account. See [session lifecycle and deployment](docs/ting-sessions.md).
+
+## Organization publishing and app lifecycle
+
+See [organization publishing](docs/organization-publishing.md) for the permission model, creator attribution, Contacts signals, private audiences, deletion/restore and interface authentication. The exact routes and schemas are in `crates/server/openapi.json`. Organization creation responses omit `app_secret`; managers can rotate it explicitly.

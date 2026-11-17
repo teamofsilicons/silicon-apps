@@ -12,6 +12,7 @@ import { AppLogo, styles } from "./parts";
 /** "4.5 ★ · 21 installs · macOS, Linux, Windows" as one run of text, so it wraps like a sentence. */
 function facts(app: App): string {
   const parts = [
+    app.publisher?.type === "organization" ? app.publisher.name || app.publisher.id : null,
     app.review_count > 0 && app.rating !== null ? `${formatRating(app.rating)} ★` : null,
     `${formatCount(app.installs)} ${app.installs === 1 ? "install" : "installs"}`,
     operatingSystems(app.targets).join(", ") || null,
@@ -32,7 +33,7 @@ export function AppRow({ app, headingLevel = 3 }: { app: App; headingLevel?: 2 |
             <span className={`${styles.badge} ${styles.badgeAccent}`} data-sq="surface"><Lock size={10} strokeWidth={2} aria-hidden="true" />Private</span>
           ) : null}
         </Heading>
-        <p className={styles.rowText}>{app.description ? summaryOf(app.description) : "No description yet."}</p>
+        <p className={styles.rowText}>{app.tagline?.trim() || (app.description ? summaryOf(app.description) : "No description yet.")}</p>
         <p className={styles.rowFacts}>{facts(app)}</p>
       </div>
     </article>

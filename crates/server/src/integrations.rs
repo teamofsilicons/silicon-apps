@@ -40,6 +40,9 @@ pub async fn resolve(s: &Shared, id: &str) -> Result<Identity> {
             return Err(ApiError::bad("Development account ID is invalid."));
         }
         return Ok(Identity {
+            publishing: Default::default(),
+            publishing_error: None,
+            app_audience: String::new(),
             uuid: name.into(),
             id: id.into(),
             display_name: id.into(),
@@ -60,6 +63,9 @@ pub async fn resolve(s: &Shared, id: &str) -> Result<Identity> {
         return Err(ApiError::bad("This account has been deleted."));
     }
     Ok(Identity {
+        publishing: Default::default(),
+        publishing_error: None,
+        app_audience: String::new(),
         uuid: account.uuid,
         id: account.id,
         display_name: account.display_name,
@@ -116,6 +122,19 @@ pub async fn sync_app(s: &Shared, app: &App, secret: Option<&str>) -> Result<()>
     let mut value = json!({"app_id":app.app_id,"name":app.name,"description":app.description,"logo_url":app.logo,"homepage_url":app.links["website"].as_str().unwrap_or_default(),"owner_uuid":app.admin_uuid,"author_uuids":app.authors.iter().map(|a|a.uuid.clone()).collect::<Vec<_>>()});
     if let Some(secret) = secret {
         value["secret"] = json!(secret);
+    }
+    value["organization_id"] = json!(app.organization_id);
+    value["deleted_at"] = json!(app.deleted_at);
+    value["status"] = json!(if app.deleted_at.is_some() {
+        "disabled"
+    } else {
+        "active"
+    });
+    value["organization_access"] = json!(app.organization_access);
+    if app.organization_id.is_some() {
+        // Personal author rows are display/history only for organization apps.
+        value["owner_uuid"] = Value::Null;
+        value["author_uuids"] = json!([]);
     }
     s.accounts
         .service_sync_apps(token, &json!({"apps":[value]}))
@@ -457,31 +476,56 @@ pub async fn import_accounts(s: &Shared) -> Result<usize> {
         }
         let authors: Vec<Author> = serde_json::from_value(v["authors"].clone())
             .map_err(|e| ApiError::bad(format!("Imported authors are invalid: {e}")))?;
-        if authors.is_empty() {
+        let organization_id = v["organization_id"].as_str().map(str::to_owned);
+        if authors.is_empty() && organization_id.is_none() {
             return Err(ApiError::bad(format!(
                 "Existing app `{id}` has no valid authors."
             )));
         }
         let owner = v["owner_uuid"]
             .as_str()
-            .unwrap_or(&authors[0].uuid)
+            .unwrap_or(authors.first().map(|a| a.uuid.as_str()).unwrap_or(""))
             .to_owned();
         let admin = if authors.iter().any(|a| a.uuid == owner) {
             owner
         } else {
-            authors[0].uuid.clone()
+            authors.first().map(|a| a.uuid.clone()).unwrap_or_default()
         };
         let mut app = App {
+            deleted_at: v["deleted_at"].as_str().map(str::to_owned).or_else(|| {
+                (v["status"] == "disabled").then(|| {
+                    v["created_at"]
+                        .as_str()
+                        .unwrap_or("1970-01-01T00:00:00Z")
+                        .to_owned()
+                })
+            }),
+            organization_id: organization_id.clone(),
+            organization_name: None,
+            organization_logo_url: None,
+            organization_access: v
+                .get("organization_access")
+                .filter(|v| !v.is_null())
+                .map(|v| serde_json::from_value(v.clone()))
+                .transpose()
+                .map_err(|_| ApiError::bad("Invalid imported organization access."))?
+                .unwrap_or_default(),
             user_storage: None,
             app_id: id.into(),
             name: v["name"].as_str().unwrap_or(id).into(),
             description: v["description"].as_str().unwrap_or_default().into(),
+            tagline: String::new(),
             logo: v["logo_url"].as_str().unwrap_or_default().into(),
             logo_alt: String::new(),
             banner: String::new(),
             banner_alt: String::new(),
             tags: vec![],
-            visibility: "public".into(),
+            visibility: if organization_id.is_some() {
+                "private"
+            } else {
+                "public"
+            }
+            .into(),
             domains: vec![],
             account_ids: vec![],
             access_uuids: vec![],
@@ -738,6 +782,9 @@ pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Val
             });
             let mut identity = if let Some(account) = active_profile {
                 Some(Identity {
+                    publishing: Default::default(),
+                    publishing_error: None,
+                    app_audience: String::new(),
                     uuid: account.uuid,
                     id: account.id.unwrap(),
                     display_name: account.display_name,
@@ -752,6 +799,9 @@ pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Val
                     .ok()
                     .filter(|account| account.uuid == id)
                     .map(|account| Identity {
+                    publishing: Default::default(),
+                    publishing_error: None,
+                    app_audience: String::new(),
                         uuid: account.uuid,
                         id: account.id,
                         display_name: account.display_name,
@@ -763,6 +813,9 @@ pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Val
                 // The app-user view is the consent authority. A public ID lookup
                 // must never restore a photo after access was removed or deletion.
                 let identity = identity.get_or_insert_with(|| Identity {
+                    publishing: Default::default(),
+                    publishing_error: None,
+                    app_audience: String::new(),
                     uuid: id.clone(),
                     id: String::new(),
                     display_name: String::new(),

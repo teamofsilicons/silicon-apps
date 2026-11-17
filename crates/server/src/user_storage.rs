@@ -224,9 +224,58 @@ pub async fn handle(
     let write = *method != Method::GET;
     // Authenticate before testing existence or returning an idempotent response.
     let actor = authorize(s, headers, app, user, write).await?;
+    // The proof binds this record to its user; private organization storage also
+    // requires that user's current organization audience/management access.
+    let snapshot = s.store.lock().unwrap().app(app)?;
+    if snapshot.deleted_at.is_some() {
+        return Err(ApiError::missing());
+    }
+    let context = if snapshot.organization_id.is_some() && snapshot.visibility == "private" {
+        if user == "anon" {
+            return Err(ApiError::forbidden());
+        }
+        let base = s
+            .config
+            .organizations_url
+            .as_deref()
+            .ok_or_else(|| ApiError::unavailable("Organizations is not configured."))?;
+        let secret =
+            s.config.accounts_app_secret.as_deref().ok_or_else(|| {
+                ApiError::unavailable("Apps service credentials are not configured.")
+            })?;
+        Some(
+            silicon_publishing_policy::fetch_service(base, crate::model::APP_ID, secret, user)
+                .await
+                .map_err(ApiError::unavailable)?,
+        )
+    } else {
+        None
+    };
     let _gate = s.mutation_gate.lock().await;
     let mut store = s.store.lock().unwrap();
     let app_record = store.app(app)?;
+    if app_record.deleted_at.is_some() {
+        return Err(ApiError::missing());
+    }
+    if let Some(org) = &app_record.organization_id
+        && app_record.visibility == "private"
+    {
+        let permitted = context.as_ref().is_some_and(|context| {
+            context.audience_allows(
+                org,
+                silicon_publishing_policy::ResourceKind::Apps,
+                &app_record.organization_access,
+            ) || context.allows(
+                org,
+                silicon_publishing_policy::ResourceKind::Apps,
+                &app_record.organization_access,
+                silicon_publishing_policy::Permission::Read,
+            )
+        });
+        if !permitted {
+            return Err(ApiError::forbidden());
+        }
+    }
     let schema = app_record.user_storage.as_ref().ok_or_else(|| {
         ApiError::new(
             StatusCode::NOT_FOUND,

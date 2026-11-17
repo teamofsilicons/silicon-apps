@@ -348,7 +348,10 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
             "checked_at":probe.as_ref().map(|(_,at)|at.clone()),
             "commands":crate::model::COMMANDS
         },
-        "search":{"route":"/v1/apps","parameters":["q","target","visibility","mine","sort","limit","offset"],"sort":crate::store::SORTS,"max_limit":100},
+        "organization_publishing":{"context":"/v1/organizations","policy":"/v1/apps/{app_id}/organization-access","permissions":["create","read","edit","publish","manage"],"membership":"live","private_audience":"organization or restricted include/exclude subjects"},
+        "people":{"route":"/v1/people","ranking":"2 * sent + received, latest invitation, Contacts trust"},
+        "lifecycle":{"delete":"DELETE /v1/apps/{app_id}","restore":"POST /v1/apps/{app_id}/restore","restore_days":30,"ids_reused":false},
+        "search":{"route":"/v1/apps","parameters":["q","target","visibility","mine","organization_id","shared_with_me","shared_by","deleted","sort","limit","offset"],"sort":crate::store::SORTS,"max_limit":100},
         "streaming":{
             "sse":true,
             "transports":["auto","direct","ting"],

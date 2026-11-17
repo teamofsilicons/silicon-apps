@@ -115,6 +115,31 @@ impl std::fmt::Display for ApiError {
 impl std::error::Error for ApiError {}
 
 impl Client {
+    /// Delete distribution and disable Accounts sign-in; restore is possible for 30 days.
+    pub async fn delete_app(&self, app: &str, key: Option<&str>) -> Result<Value> {
+        self.action("DELETE", app, &[], None, key).await
+    }
+    pub async fn restore_app(&self, app: &str, key: Option<&str>) -> Result<Value> {
+        self.action("POST", app, &["restore"], Some(json!({})), key)
+            .await
+    }
+    pub async fn organization_publishers(&self) -> Result<Value> {
+        self.request("GET", &["v1", "organizations"], &[], None, None)
+            .await
+    }
+    pub async fn organization_access(&self, app: &str) -> Result<Value> {
+        self.action("GET", app, &["organization-access"], None, None)
+            .await
+    }
+    pub async fn set_organization_access(
+        &self,
+        app: &str,
+        policy: Value,
+        key: Option<&str>,
+    ) -> Result<Value> {
+        self.action("PUT", app, &["organization-access"], Some(policy), key)
+            .await
+    }
     pub fn new(base: &str, token: Option<String>) -> Result<Self> {
         let base = Url::parse(base).context("Apps server URL must be an absolute HTTP(S) URL")?;
         ensure!(
@@ -296,7 +321,26 @@ impl Client {
         logo: Option<&str>,
         key: Option<&str>,
     ) -> Result<Value> {
-        self.request("POST", &["v1","apps"], &[], Some(json!({"app_id":id,"name":name,"description":description,"logo":logo.unwrap_or("")})), key).await
+        self.create_with_tagline(id, name, description, None, logo, key)
+            .await
+    }
+    /// Create an app with its one-line store tagline (at most 60 characters), which a new app needs to publish.
+    pub async fn create_with_tagline(
+        &self,
+        id: &str,
+        name: &str,
+        description: &str,
+        tagline: Option<&str>,
+        logo: Option<&str>,
+        key: Option<&str>,
+    ) -> Result<Value> {
+        let mut body =
+            json!({"app_id":id,"name":name,"description":description,"logo":logo.unwrap_or("")});
+        if let Some(tagline) = tagline {
+            body["tagline"] = json!(tagline);
+        }
+        self.request("POST", &["v1", "apps"], &[], Some(body), key)
+            .await
     }
     pub async fn edit(&self, id: &str, changes: Value, key: Option<&str>) -> Result<Value> {
         self.request("PATCH", &["v1", "apps", id], &[], Some(changes), key)

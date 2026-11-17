@@ -54,6 +54,9 @@ async fn prepare_real_accounts_cutover_fixture() {
     let catalog = state.store.lock().unwrap().catalog().unwrap();
     let author = &catalog.apps["uuid-retention"].authors[0];
     let who = Identity {
+        publishing: Default::default(),
+        publishing_error: None,
+        app_audience: String::new(),
         uuid: author.uuid.clone(),
         id: author.id.clone(),
         display_name: author.display_name.clone(),

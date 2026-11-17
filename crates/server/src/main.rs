@@ -11,6 +11,24 @@ async fn main() {
     }
 }
 async fn run() -> silicon_apps_server::error::Result<()> {
+    if let Some(command) = std::env::args().nth(1)
+        && command == "apply-catalog-presentation-2026-11"
+    {
+        let database = std::env::args().nth(2).ok_or_else(|| {
+            silicon_apps_server::error::ApiError::bad("Supply the existing catalog database path.")
+        })?;
+        if !std::path::Path::new(&database).is_file() {
+            return Err(silicon_apps_server::error::ApiError::bad(
+                "Catalog database does not exist.",
+            ));
+        }
+        let mut store = silicon_apps_server::store::Store::open(std::path::Path::new(&database))?;
+        println!(
+            "{}",
+            silicon_apps_server::catalog_presentation::apply(&mut store)?
+        );
+        return Ok(());
+    }
     let config = Config::from_env()?;
     if std::env::args().nth(1).as_deref() == Some("ting-register") {
         silicon_apps_server::ting::register_type(&config).await?;

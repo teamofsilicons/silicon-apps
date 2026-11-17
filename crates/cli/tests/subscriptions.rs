@@ -16,6 +16,7 @@ fn config(dir: &std::path::Path) -> Config {
         bind: "127.0.0.1:0".parse().unwrap(),
         data_dir: dir.to_owned(),
         dev_auth: true,
+        organizations_url: None,
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
@@ -83,6 +84,9 @@ async fn cli_subscribes_follows_events_and_negotiates_capabilities() {
 
     // A published app with a development release.
     let who = Identity {
+        publishing: Default::default(),
+        publishing_error: None,
+        app_audience: String::new(),
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "alice".into(),
@@ -95,7 +99,7 @@ async fn cli_subscribes_follows_events_and_negotiates_capabilities() {
         (
             "POST",
             "apps",
-            json!({"app_id":"demo-app","name":"Demo","description":"d".repeat(200)}),
+            json!({"app_id":"demo-app","name":"Demo","description":"d".repeat(200),"tagline":"A demo app"}),
             Prepared {
                 secret: Some("s".into()),
                 ..Default::default()

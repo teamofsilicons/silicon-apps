@@ -40,7 +40,45 @@ impl Client {
         schema: Option<&StorageSchema>,
         key: Option<&str>,
     ) -> Result<Value> {
-        self.request("POST", &["v1", "apps"], &[], Some(json!({"app_id":id,"name":name,"description":description,"logo":logo.unwrap_or(""),"user_storage":schema})), key).await
+        self.create_with_details(id, name, description, None, logo, schema, key)
+            .await
+    }
+
+    /// Create a draft with its store tagline and optional per-account settings schema.
+    pub async fn create_with_details(
+        &self,
+        id: &str,
+        name: &str,
+        description: &str,
+        tagline: Option<&str>,
+        logo: Option<&str>,
+        schema: Option<&StorageSchema>,
+        key: Option<&str>,
+    ) -> Result<Value> {
+        self.create_with_publisher(id, name, description, tagline, logo, schema, None, key)
+            .await
+    }
+    /// Create a draft owned permanently by an organization, or by your personal account.
+    pub async fn create_with_publisher(
+        &self,
+        id: &str,
+        name: &str,
+        description: &str,
+        tagline: Option<&str>,
+        logo: Option<&str>,
+        schema: Option<&StorageSchema>,
+        organization_id: Option<&str>,
+        key: Option<&str>,
+    ) -> Result<Value> {
+        let mut body = json!({"app_id":id,"name":name,"description":description,"logo":logo.unwrap_or(""),"user_storage":schema});
+        if let Some(org) = organization_id {
+            body["organization_id"] = json!(org);
+        }
+        if let Some(tagline) = tagline {
+            body["tagline"] = json!(tagline);
+        }
+        self.request("POST", &["v1", "apps"], &[], Some(body), key)
+            .await
     }
 
     pub async fn storage_schema(&self, app: &str) -> Result<Value> {

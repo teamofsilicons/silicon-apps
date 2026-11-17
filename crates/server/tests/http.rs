@@ -21,6 +21,7 @@ fn config(dir: &std::path::Path) -> Config {
         bind: "127.0.0.1:0".parse().unwrap(),
         data_dir: dir.to_owned(),
         dev_auth: true,
+        organizations_url: None,
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
@@ -661,6 +662,9 @@ async fn http_mutations_require_keys_hide_drafts_and_do_not_accept_forged_identi
 }
 fn seed_private(state: &silicon_apps_server::Shared) {
     let who = Identity {
+        publishing: Default::default(),
+        publishing_error: None,
+        app_audience: String::new(),
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "Alice".into(),
@@ -685,7 +689,7 @@ fn seed_private(state: &silicon_apps_server::Shared) {
         "POST",
         "apps",
         "seed-app",
-        json!({"app_id":"secret-app","name":"Secret","description":"a".repeat(200)}),
+        json!({"app_id":"secret-app","name":"Secret","description":"a".repeat(200),"tagline":"A secret app"}),
         Prepared {
             secret: Some("secret".into()),
             ..Default::default()

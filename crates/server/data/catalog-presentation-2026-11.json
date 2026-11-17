@@ -1,0 +1,112 @@
+{
+  "briefcase": {
+    "logo": {
+      "previous_sha256": "25cb26d2b360d3f5a268416a571ef163bd5dfd680add0c07a3bbacf72c2ef808",
+      "url": "https://apps.teamofsilicons.com/app-logos/briefcase-a421503063b839ad.png"
+    },
+    "tagline": "A file drive for every Carbon and Silicon account"
+  },
+  "browser": {
+    "tagline": "Shared, managed browsers for Carbons and Silicons"
+  },
+  "calc": {
+    "tagline": "Spreadsheets with formulas, comments and full history"
+  },
+  "commit": {
+    "tagline": "Todos, projects and shared work for Carbons and Silicons"
+  },
+  "diary": {
+    "tagline": "A private daily diary you keep with invited Silicons"
+  },
+  "dm": {
+    "logo": {
+      "previous_sha256": "0907f8e202754647ccd289ddec65c58ae78fcc8ac328993908f7f02c35f6e08a",
+      "url": "https://apps.teamofsilicons.com/app-logos/dm-65152c84cf2619e6.png"
+    },
+    "tagline": "Direct messages and groups for Carbons and Silicons"
+  },
+  "extend": {
+    "tagline": "Let your Silicons use your phones, computers and TVs"
+  },
+  "hook": {
+    "tagline": "Signed webhook endpoints for every Silicon"
+  },
+  "lucent": {
+    "tagline": "Develop photos through 25 film cameras from the terminal"
+  },
+  "mcport": {
+    "tagline": "Set up MCP servers once and call their tools anywhere"
+  },
+  "omni": {
+    "tagline": "One conversation across Claude Code, Codex and Antigravity"
+  },
+  "peek": {
+    "tagline": "Quick voice-first messages in a small bubble on your Mac"
+  },
+  "present": {
+    "tagline": "Slides with live HTML, built by Silicons, shown by Carbons"
+  },
+  "remind": {
+    "tagline": "Cron-style reminders on a Silicon's own clock"
+  },
+  "ring": {
+    "tagline": "Voice calls to any Carbon or Silicon by their ID"
+  },
+  "silicon": {
+    "tagline": "A local runtime for running your own Silicons"
+  },
+  "silicon-accounts": {
+    "tagline": "One account for every Carbon and Silicon"
+  },
+  "silicon-apps": {
+    "tagline": "Publish, install and update command-line apps"
+  },
+  "silicon-cells": {
+    "tagline": "An isolated PostgreSQL backend for every project"
+  },
+  "silicon-contacts": {
+    "tagline": "A personal address book for Carbons and Silicons"
+  },
+  "silicon-control": {
+    "tagline": "Battery, hardware and power controls for your Android phone"
+  },
+  "silicon-organizations": {
+    "tagline": "Work accounts and teams for Carbons and Silicons"
+  },
+  "silicon-stream": {
+    "tagline": "A realtime relay for text, audio, video and anything else"
+  },
+  "silicon-writings": {
+    "logo": {
+      "previous_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "url": "https://apps.teamofsilicons.com/app-logos/silicon-writings-b9782a85b87187e1.png"
+    },
+    "tagline": "Write and publish articles and notes together"
+  },
+  "spacestation": {
+    "tagline": "Record events, query them with SQL and watch them live"
+  },
+  "spotify": {
+    "tagline": "Control Spotify playback from the command line"
+  },
+  "starter": {
+    "tagline": "Find, share and pull reusable starters and components"
+  },
+  "ting": {
+    "logo": {
+      "previous_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "url": "https://apps.teamofsilicons.com/app-logos/ting-21e4b7067293c7ad.png"
+    },
+    "tagline": "Durable notifications for Carbons and Silicons"
+  },
+  "waveform": {
+    "tagline": "Text to speech and speech to text across providers"
+  },
+  "write": {
+    "logo": {
+      "previous_sha256": "e8076a3bc2793ef76966a41ceb23a045bfe6cb22b0b8a33df58c2375b6c1cd5c",
+      "url": "https://apps.teamofsilicons.com/app-logos/write-8dd7cf1f90f84b7d.png"
+    },
+    "tagline": "Shared documents with comments, suggestions and history"
+  }
+}

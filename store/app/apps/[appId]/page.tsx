@@ -118,7 +118,7 @@ export default async function AppPage({ params, searchParams }: Props) {
           <div className={pageStyles.identity}>
             <h1 id="app-name" className={pageStyles.name}>{app.name}</h1>
             <p className={pageStyles.byline}>
-              {app.authors.length ? (
+              {app.publisher?.type === "organization" ? <span className={pageStyles.author}><Avatar name={app.publisher.name||app.publisher.id||"Organization"} id={app.publisher.id||""} photo={app.publisher.logo_url} size={22}/><span>Published by {app.publisher.name||app.publisher.id}</span></span> : app.authors.length ? (
                 <span>
                   By{" "}
                   {app.authors.map((author, index) => (

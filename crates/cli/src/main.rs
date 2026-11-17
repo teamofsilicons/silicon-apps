@@ -11,7 +11,7 @@ const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TELEMETRY_REMOVED: &str =
     "Telemetry was removed from Silicon Apps; there is nothing to turn on or off.";
 
-const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login --slt TOKEN\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target linux-x86_64 ring.tar.gz\n  silicon-apps upload ring --target windows-x86_64 --confirm-platform-checks ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 --confirm-platform-checks ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package LINUX_PACKAGE_ID --package WINDOWS_PACKAGE_ID --package MACOS_PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Linux validation runs in isolated server runners. Windows and macOS uploads require\n--confirm-platform-checks after checking the required commands on that platform. Bundled install scripts run automatically during installation and updates.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
+const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login --slt TOKEN\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --tagline \"Voice calls for Carbons and Silicons\" --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target linux-x86_64 ring.tar.gz\n  silicon-apps upload ring --target windows-x86_64 --confirm-platform-checks ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 --confirm-platform-checks ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package LINUX_PACKAGE_ID --package WINDOWS_PACKAGE_ID --package MACOS_PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Linux validation runs in isolated server runners. Windows and macOS uploads require\n--confirm-platform-checks after checking the required commands on that platform. Bundled install scripts run automatically during installation and updates.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
 
 #[derive(Parser)]
 #[command(name="silicon-apps",version,about="Create, publish, discover and install Silicon Apps",long_about=HELP,subcommand_required=true,arg_required_else_help=true)]
@@ -47,6 +47,9 @@ enum Command {
     },
     /// List public, shared private, or your authored apps (including Continue setup drafts).
     List {
+        /// Recoverable deleted apps; requires --mine.
+        #[arg(long, requires = "mine")]
+        deleted: bool,
         #[arg(long)]
         private: bool,
         #[arg(long)]
@@ -70,6 +73,19 @@ enum Command {
     /// A 1–2 character historical Silicon Accounts ID is sent to the server as well:
     /// it is available only to the signed-in account the operator reserved it for.
     Availability { app: String },
+    /// Recoverably delete an app and disable distribution/sign-in. Manager only.
+    Delete { app: String },
+    /// Restore an app within 30 days of deletion.
+    Restore { app: String },
+    /// List organizations and current publishing permissions.
+    Organizations,
+    /// Read resource grants, or replace them with a JSON policy.
+    OrganizationAccess {
+        app: String,
+        #[arg(long)]
+        file: Option<PathBuf>,
+    },
+
     /// Create an app and show its secret once. Next: setup, upload, release, publish.
     Create {
         /// Permanent app ID: 3–30 of a-z, 0-9, - and _. A 1–2 character historical
@@ -80,11 +96,17 @@ enum Command {
         name: String,
         #[arg(long, default_value = "")]
         description: String,
+        /// One plain line of at most 60 characters that store cards show; required to publish.
+        #[arg(long)]
+        tagline: Option<String>,
         #[arg(long)]
         logo: Option<String>,
         /// Optional JSON map of keys to {"type": "string", "default": "value"}.
         #[arg(long)]
         storage_schema: Option<PathBuf>,
+        /// Permanent organization publisher; requires create permission.
+        #[arg(long)]
+        organization: Option<String>,
     },
     /// Define optional settings, or read/write one user's guarded values with proofs.
     Storage {
@@ -304,16 +326,19 @@ enum Command {
     },
     /// Read bundled instructive/informative docs or the complete command tree.
     Docs {
-        #[arg(default_value="start",value_parser=["start","publish","manifest","install","auth","storage","why","tree","links"])]
+        #[arg(default_value="start",value_parser=["start","publish","manifest","install","auth","storage","organizations","why","tree","links"])]
         topic: String,
     },
 }
 #[derive(Subcommand)]
 enum Setup {
-    /// Save required details; description must be 200–600 characters to publish.
+    /// Save required details; publishing needs a 200–600 character description and a tagline.
     Details {
         #[arg(long)]
         name: Option<String>,
+        /// One plain line of at most 60 characters that store cards show. An empty value clears it.
+        #[arg(long)]
+        tagline: Option<String>,
         #[arg(long, conflicts_with = "description_file")]
         description: Option<String>,
         #[arg(long)]
@@ -748,7 +773,36 @@ async fn execute(cli: &Cli) -> Result<Value> {
             private,
             mine,
         } => client.search(query, *private, *mine).await?,
-        Command::List { private, mine } => client.search("", *private, *mine).await?,
+        Command::List {
+            private,
+            mine,
+            deleted,
+        } => {
+            if *deleted {
+                client
+                    .request(
+                        "GET",
+                        &["v1", "apps"],
+                        &[("mine", "true".into()), ("deleted", "true".into())],
+                        None,
+                        None,
+                    )
+                    .await?
+            } else {
+                client.search("", *private, *mine).await?
+            }
+        }
+        Command::Delete { app } => client.delete_app(app, key).await?,
+        Command::Restore { app } => client.restore_app(app, key).await?,
+        Command::Organizations => client.organization_publishers().await?,
+        Command::OrganizationAccess { app, file } => match file {
+            Some(file) => {
+                client
+                    .set_organization_access(app, read_json(file)?, key)
+                    .await?
+            }
+            None => client.organization_access(app).await?,
+        },
         Command::Show {
             app,
             install_script,
@@ -777,8 +831,10 @@ async fn execute(cli: &Cli) -> Result<Value> {
             app,
             name,
             description,
+            tagline,
             logo,
             storage_schema,
+            organization,
         } => {
             let schema: Option<apps::storage::StorageSchema> = storage_schema
                 .as_ref()
@@ -787,12 +843,14 @@ async fn execute(cli: &Cli) -> Result<Value> {
                 .map(serde_json::from_value)
                 .transpose()?;
             client
-                .create_with_storage(
+                .create_with_publisher(
                     app,
                     name,
                     description,
+                    tagline.as_deref(),
                     logo.as_deref(),
                     schema.as_ref(),
+                    organization.as_deref(),
                     key,
                 )
                 .await?
@@ -868,6 +926,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
         Command::Setup { app, step } => match step {
             Setup::Details {
                 name,
+                tagline,
                 description,
                 description_file,
                 tags,
@@ -875,6 +934,9 @@ async fn execute(cli: &Cli) -> Result<Value> {
                 let mut body = json!({"setup_step":1});
                 if let Some(name) = name {
                     body["name"] = json!(name);
+                }
+                if let Some(tagline) = tagline {
+                    body["tagline"] = json!(tagline);
                 }
                 if let Some(description) = description {
                     body["description"] = json!(description);

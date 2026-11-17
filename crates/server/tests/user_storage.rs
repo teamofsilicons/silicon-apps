@@ -1,5 +1,8 @@
 mod common;
-use axum::{Json, Router, routing::post};
+use axum::{
+    Json, Router,
+    routing::{get, post},
+};
 use common::*;
 use serde_json::{Value, json};
 use silicon_apps_server::{AppState, Shared, router, store::Prepared};
@@ -171,11 +174,31 @@ async fn fixture() -> (
             },
         ),
     );
+    let contexts = proofs.clone();
+    let verifier = verifier.route(
+        "/v1/integrations/silicon-apps/publishing/accounts/{uuid}",
+        get(
+            move |axum::extract::Path(uuid): axum::extract::Path<String>| {
+                let contexts = contexts.clone();
+                async move {
+                    Json(
+                        contexts
+                            .lock()
+                            .unwrap()
+                            .get("organization-context")
+                            .cloned()
+                            .unwrap_or(json!({"account_uuid":uuid,"organizations":[]})),
+                    )
+                }
+            },
+        ),
+    );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let task = tokio::spawn(async move { axum::serve(listener, verifier).await.unwrap() });
     let dir = tempfile::tempdir().unwrap();
     let mut cfg = config(dir.path());
+    cfg.organizations_url = Some(url.clone());
     cfg.accounts_url = url;
     cfg.accounts_app_secret = Some("verification-secret".into());
     let state = AppState::new(cfg).unwrap();
@@ -631,5 +654,90 @@ async fn schema_management_and_atomic_validation() {
     )
     .await;
     assert_eq!(r.0, 200);
+    task.abort();
+}
+
+#[tokio::test]
+async fn organization_storage_rechecks_membership_before_replay_and_deletion() {
+    let (_dir, state, app, proofs, task) = fixture().await;
+    {
+        let store = state.store.lock().unwrap();
+        let mut catalog = store.catalog().unwrap();
+        let resource = catalog.apps.get_mut("notes").unwrap();
+        resource.organization_id = Some("example".into());
+        resource.visibility = "private".into();
+        silicon_apps_server::store::Store::save_catalog(
+            &store.connection,
+            &catalog,
+            &silicon_apps_server::events::marks(&catalog),
+        )
+        .unwrap();
+    }
+    let context = json!({"account_uuid":USER,"organizations":[{"org_id":"example","name":"Example","admin":false,"teams":[],"permissions":{"apps":[]}}]});
+    proofs
+        .lock()
+        .unwrap()
+        .insert("organization-context".into(), context.clone());
+    let body = json!({"values":{"theme":"org-dark"}});
+    assert_eq!(
+        storage(
+            &app,
+            "PATCH",
+            "notes",
+            USER,
+            "write",
+            Some("owner"),
+            Some(body.clone()),
+            Some("org-storage"),
+            false
+        )
+        .await
+        .status,
+        200
+    );
+    proofs.lock().unwrap().remove("organization-context");
+    assert_eq!(
+        storage(&app, "GET", "notes", USER, "read", None, None, None, false)
+            .await
+            .status,
+        403
+    );
+    assert_eq!(
+        storage(
+            &app,
+            "PATCH",
+            "notes",
+            USER,
+            "write",
+            Some("owner"),
+            Some(body),
+            Some("org-storage"),
+            false
+        )
+        .await
+        .status,
+        403
+    );
+    proofs
+        .lock()
+        .unwrap()
+        .insert("organization-context".into(), context);
+    {
+        let store = state.store.lock().unwrap();
+        let mut catalog = store.catalog().unwrap();
+        catalog.apps.get_mut("notes").unwrap().deleted_at = Some(silicon_apps_server::model::now());
+        silicon_apps_server::store::Store::save_catalog(
+            &store.connection,
+            &catalog,
+            &silicon_apps_server::events::marks(&catalog),
+        )
+        .unwrap();
+    }
+    assert_eq!(
+        storage(&app, "GET", "notes", USER, "read", None, None, None, false)
+            .await
+            .status,
+        404
+    );
     task.abort();
 }

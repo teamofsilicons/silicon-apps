@@ -32,6 +32,8 @@ use std::{
 /// Every event type the service records, grouped by what it is about.
 pub const EVENT_TYPES: &[&str] = &[
     "app.created",
+    "app.deleted",
+    "app.restored",
     "app.imported_from_accounts",
     "app.id_migrated",
     "app.details_changed",
@@ -200,7 +202,7 @@ pub fn append(conn: &Connection, c: &Catalog, events: &[NewEvent]) -> Result<usi
             occurred_at: event.occurred_at.clone(),
         };
         for subscription in &targets {
-            if subscription.matches(&stored, c) {
+            if subscription.candidate(&stored, c) {
                 subscriptions::queue_delivery(conn, &subscription.id, stored.seq)?;
             }
         }
@@ -465,7 +467,7 @@ fn collect(
                     event.app_id.as_deref() == Some(id) && event.visibility != "direct"
                 }
                 (Feed::Account, _) => account_can_see(&event, who, &c),
-                (Feed::Subscription(_), Some(sub)) => sub.matches(&event, &c),
+                (Feed::Subscription(_), Some(sub)) => sub.matches_for(&event, &c, who),
                 _ => false,
             };
             if visible && types.allows(&event.kind) {
@@ -641,7 +643,7 @@ fn still_visible(st: &StreamState, event: &Event) -> Result<bool> {
                 subscriptions::get(&store.connection, id)?.is_some_and(|sub| {
                     sub.status == "active"
                         && sub.owner_uuid == st.who.uuid
-                        && sub.matches(event, &catalog)
+                        && sub.matches_for(event, &catalog, &st.who)
                 })
             }
         })

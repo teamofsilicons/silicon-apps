@@ -13,6 +13,7 @@ import json, sys
 
 REQUIRED_TARGETS = ["linux-x86_64","windows-x86_64","macos-aarch64"]
 UNSUPPORTED = {"type":"object","propertyNames":{"enum":REQUIRED_TARGETS},"additionalProperties":{"type":"string","minLength":200,"maxLength":1000},"description":"Why each required target left out of this release is not supported, by target: 200 to 1000 characters each. Public; promotion copies it."}
+TAGLINE_IN = {"type":"string","maxLength":60,"description":"One line of plain text for store cards, at most 60 characters after surrounding whitespace is trimmed. Line breaks, tabs and other control characters are refused. Required to publish an app that is not yet published; apps published before taglines existed stay published without one. Send an empty string to clear it."}
 def ref(name): return {"$ref": f"#/components/schemas/{name}"}
 def resp(name): return {"$ref": f"#/components/responses/{name}"}
 def param(name): return {"$ref": f"#/components/parameters/{name}"}
@@ -37,7 +38,7 @@ def ok(schema, desc="OK", headers=None):
     return r
 
 TARGETS = ["linux-x86_64","linux-i686","linux-aarch64","linux-armv7hf","windows-x86_64","windows-i686","windows-aarch64","macos-x86_64","macos-aarch64"]
-EVENT_TYPES = ["app.created","app.imported_from_accounts","app.id_migrated","app.details_changed","app.access_changed","app.published","app.secret_rotated","app.installed","media.uploaded","accounts.webhook_changed","package.validation_started","package.validation_step","package.accepted","package.validation_failed","release.created","release.promoted","release.withdrawn","author.invited","author.joined","author.invite_declined","author.invite_cancelled","author.left","author.removed","author.admin_transferred","review.updated","review.removed","ping"]
+EVENT_TYPES = ["app.deleted","app.restored","app.created","app.imported_from_accounts","app.id_migrated","app.details_changed","app.access_changed","app.published","app.secret_rotated","app.installed","media.uploaded","accounts.webhook_changed","package.validation_started","package.validation_step","package.accepted","package.validation_failed","release.created","release.promoted","release.withdrawn","author.invited","author.joined","author.invite_declined","author.invite_cancelled","author.left","author.removed","author.admin_transferred","review.updated","review.removed","ping"]
 
 schemas = {
  "Error": obj({"error": obj({
@@ -69,7 +70,7 @@ schemas = {
  "Links": obj({"website": S, "developer_docs": S, "android": S, "ios": S, "custom": {"type":"array","maxItems":4,"items": obj({"label": S, "url": S, "logo": S}, ["label","url"])}}),
  "App": obj({
      "app_id": {"type":"string","description":"Permanent ID: 3 to 30 of a-z, 0-9, - and _. An app from before Silicon Apps may keep its historical Silicon Accounts ID of 1 or 2 characters."},
-     "name": S, "description": S, "logo": S, "logo_alt": S, "banner": S, "banner_alt": S,
+     "name": S, "description": S, "tagline": {"type":"string","maxLength":60,"description":"The authors' one-line summary for store cards, or an empty string when they have not written one."}, "logo": S, "logo_alt": S, "banner": S, "banner_alt": S,
      "tags": arr(S), "visibility": {"type":"string","enum":["public","private"]},
      "domains": {"type":"array","items":S,"description":"Verified email domains with access. Authors only."},
      "account_ids": {"type":"array","items":S,"description":"Accounts shared with. Authors only."},
@@ -81,7 +82,7 @@ schemas = {
      "signed": {"type":"boolean","description":"Every package of the current release is signed by Apps."}, "signed_by_author": {"type":"boolean","description":"Every package of the current release is also signed by an author's own key."}, "signed_by": {"type":"array","items":S,"description":"The c:id or si:id of each author who signed a package of the current release."}, "withdrawn_releases": {"type":"array","items":ref("WithdrawnRelease"),"description":"Releases the authors withdrew, with their reasons."},
      "rating": {"type":["number","null"]}, "review_count": I, "installs": I,
      "is_author": {"type":"boolean","description":"Whether the caller is an author."}, "is_admin": {"type":"boolean","description":"Whether the caller is the admin. The admin is never marked to others."}},
-     ["app_id","name","description","tags","visibility","published","authors","targets","installs","is_author","is_admin"]),
+     ["app_id","name","description","tagline","tags","visibility","published","authors","targets","installs","is_author","is_admin"]),
  "AppPage": obj({"items": arr(ref("App")), "total": I, "limit": I, "offset": I, "next_offset": {"type":["integer","null"],"description":"Offset of the next page, or null on the last page."}, "sort": {"type":"string","enum":["relevance","rating","installs","name","updated","newest"]}}, ["items","total","limit","offset","next_offset","sort"]),
  "AuthorProfile": obj({"uuid": S, "id": S, "display_name": S, "items": arr(ref("App")), "total": I}, ["uuid","id","display_name","items","total"]),
  "Invite": obj({"id": S, "app_id": S, "to": {"type":"string","description":"c:id, si:id or email address."}, "account_uuid": {"type":["string","null"]}, "status": {"type":"string","enum":["pending","accepted","declined","cancelled"]}, "created_at": {"type":"string","format":"date-time"}}, ["id","app_id","to","status","created_at"]),
@@ -237,19 +238,19 @@ op("GET","/v1/apps","searchApps","Search and list apps","Catalog",
      {"name":"offset","in":"query","required":False,"description":"Items to skip. Use `next_offset` from the previous page.","schema":{"type":"integer","minimum":0,"default":0}}],
    errors=("BadRequest","Unauthorized","RateLimited"))
 op("POST","/v1/apps","createApp","Create an app","Authoring",
-   "Creates an unpublished app with you as its first author and returns its `app_secret` once. Registers the app with Silicon Accounts.",
-   {"200":ok(obj({"app":ref("App"),"app_secret":{"type":"string","description":"Shown once. Save it now."}},["app","app_secret"]))},security=AUTH,
-   body=json_body(obj({"app_id":{"type":"string","pattern":"^[a-z0-9_-]{1,30}$","description":"A new ID is 3 to 30 of a-z, 0-9, - and _. A historical Silicon Accounts ID of 1 or 2 characters is accepted only from the account the operator reserved it for; anyone else gets 400, as for any invalid ID."},"name":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":600},"logo":S},["app_id","name"])),
+   "Creates an unpublished app. Personal creation returns app_secret once. Organization creation requires Create, grants the creator Read/Edit and omits server secrets; a manager rotates the secret explicitly. Registers the app with Silicon Accounts.",
+   {"200":ok(obj({"app":ref("App"),"app_secret":{"type":"string","description":"Shown once. Save it now."}},["app"]))},security=AUTH,
+   body=json_body(obj({"app_id":{"type":"string","pattern":"^[a-z0-9_-]{1,30}$","description":"A new ID is 3 to 30 of a-z, 0-9, - and _. A historical Silicon Accounts ID of 1 or 2 characters is accepted only from the account the operator reserved it for; anyone else gets 400, as for any invalid ID."},"name":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":600},"tagline":TAGLINE_IN,"logo":S},["app_id","name"])),
    errors=MUT_ERR,mutation=True)
 op("GET","/v1/apps/availability/{app_id}","getAvailability","Check whether an app ID is free","Catalog","`available` is false for taken, reserved and invalid IDs. A historical Silicon Accounts ID of 1 or 2 characters is available only to the signed-in account the operator reserved it for; to anyone else it is an invalid ID.",{"200":ok(obj({"available":B},["available"]))},parameters_=[param("AppId")],errors=("RateLimited","Unavailable"))
 op("GET","/v1/apps/{app_id}","getApp","Get an app","Catalog","An app's page. Drafts are visible only to authors; private apps only to accounts they are shared with.",{"200":ok(ref("App"))},parameters_=[param("AppId")],errors=("Unauthorized","NotFound","RateLimited"))
 op("PATCH","/v1/apps/{app_id}","updateApp","Update app details","Authoring","Change details, links, media and the saved setup step. Authors only.",{"200":ok(ref("App"))},security=AUTH,parameters_=[param("AppId")],
-   body=json_body(obj({"name":S,"description":{"type":"string","maxLength":600},"tags":{"type":"array","maxItems":20,"items":{"type":"string","maxLength":60}},"logo":S,"logo_alt":S,"banner":S,"banner_alt":S,"carousel":{"type":"array","maxItems":20,"items":ref("CarouselItem")},"links":ref("Links"),"setup_step":{"type":"integer","minimum":1,"maximum":7}},extra=False)),
+   body=json_body(obj({"name":S,"description":{"type":"string","maxLength":600},"tagline":TAGLINE_IN,"tags":{"type":"array","maxItems":20,"items":{"type":"string","maxLength":60}},"logo":S,"logo_alt":S,"banner":S,"banner_alt":S,"carousel":{"type":"array","maxItems":20,"items":ref("CarouselItem")},"links":ref("Links"),"setup_step":{"type":"integer","minimum":1,"maximum":7}},extra=False)),
    errors=MUT_ERR,mutation=True)
 op("PUT","/v1/apps/{app_id}/access","setAccess","Set public or private access","Authoring","Replace visibility, shared accounts and allowed verified email domains. Admin only.",{"200":ok(ref("App"))},security=AUTH,parameters_=[param("AppId")],
    body=json_body(obj({"visibility":{"type":"string","enum":["public","private"]},"domains":{"type":"array","maxItems":100,"items":S},"account_ids":{"type":"array","items":S}},["visibility"])),errors=MUT_ERR,mutation=True)
 op("GET","/v1/apps/{app_id}/readiness","getReadiness","Check what publishing still needs","Authoring","Missing requirements for publishing. Authors only.",{"200":ok(ref("Readiness"))},security=AUTH,parameters_=[param("AppId")],errors=AUTHED_ERR)
-op("POST","/v1/apps/{app_id}/publish","publishApp","Publish an app","Authoring","Publishes immediately when ready. There is no review.",{"200":ok(ref("App"))},security=AUTH,parameters_=[param("AppId")],body=json_body(obj({}),required=False),errors=MUT_ERR,mutation=True)
+op("POST","/v1/apps/{app_id}/publish","publishApp","Publish an app","Authoring","Publishes immediately when ready: a name, a 200 to 600 character description, a tagline (unless the app is already published) and a release covering the required targets. There is no review.",{"200":ok(ref("App"))},security=AUTH,parameters_=[param("AppId")],body=json_body(obj({}),required=False),errors=MUT_ERR,mutation=True)
 op("POST","/v1/apps/{app_id}/secret/rotate","rotateAppSecret","Rotate the app secret","Authoring","Replaces the app secret and returns the new one once. The old one stops working.",{"200":ok(obj({"app_secret":S},["app_secret"]))},security=AUTH,parameters_=[param("AppId")],body=json_body(obj({}),required=False),errors=MUT_ERR,mutation=True)
 
 # Authors
@@ -391,6 +392,23 @@ for method, suffix, name, body in [
 ]:
     op(method,"/v1/apps/{app_id}/storage/users/{user_uuid}"+suffix,name,{"readStorage":"Read user settings","writeStorage":"Write user settings","resetStorage":"Reset user settings"}[name],"User storage",storage_desc+" PATCH merges defined keys; reset restores selected keys or all when omitted. Each user's values total at most 1 MiB. if_revision detects stale writes (409). Idempotency replays still require valid proofs.",{"200":ok(ref("StorageRecord"))},security=storage_auth,parameters_=storage_params,body=json_body(body) if body else None,errors=MUT_ERR,mutation=method != "GET")
 
+
+# Organization ownership and lifecycle use the same live bearer/session boundary.
+schemas["PublishingSubject"] = obj({"type":{"type":"string","enum":["account","team"]},"id":S},["type","id"],extra=False)
+schemas["PublishingGrant"] = obj({"subject":ref("PublishingSubject"),"resources":arr({"type":"string","enum":["apps","interfaces","cells"]}),"permissions":arr({"type":"string","enum":["create","read","edit","publish","manage"]})},["subject","permissions"],extra=False)
+schemas["ResourceAccess"] = obj({"grants":arr(ref("PublishingGrant")),"audience":obj({"mode":{"type":"string","enum":["organization","restricted"],"default":"organization"},"include":arr(ref("PublishingSubject")),"exclude":arr(ref("PublishingSubject"))},extra=False)},extra=False,desc="Resource grants cannot contain create or nonempty resources. Current membership and product access are always required. Exclusions win for ordinary private audience access; draft read/edit/publish/manage grants still allow management access.")
+schemas["PublishingContext"] = obj({"account_uuid":S,"organizations":arr(obj({"org_id":S,"name":S,"logo_url":nullable(S),"admin":B,"teams":arr(S),"permissions":{"type":"object","additionalProperties":arr(S)}},["org_id","name","admin","teams","permissions"]))},["account_uuid","organizations"])
+schemas["PersonSignal"] = obj({"uuid":S,"id":nullable(S),"display_name":nullable(S),"pfp_url":nullable(S),"sent":I,"received":I,"last_invited_at":S},["uuid","sent","received","last_invited_at"])
+schemas["App"]["properties"].update({"created_by":nullable(S),"shared_with_me":B,"organization_id":nullable(S),"organization_access":ref("ResourceAccess"),"publisher":obj({"type":{"type":"string","enum":["personal","organization"]},"id":S,"uuid":S,"name":nullable(S),"logo_url":nullable(S)},["type"]),"permissions":obj({"read":B,"edit":B,"publish":B,"manage":B},["read","edit","publish","manage"]),"deleted_at":nullable(S),"restore_until":nullable(S)})
+paths["/v1/apps"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]["organization_id"] = {**S,"description":"An organization in GET /v1/organizations where you can create apps. Immutable. Defaults to personal ownership. Organization drafts start private and creator receives read/edit only."}
+for name,desc,schema in [("deleted","Use with mine=true to list deleted apps.",B),("organization_id","Filter by organization publisher.",S),("shared_with_me","Only managed resources created by somebody else.",B),("shared_by","Filter by an accepted author UUID.",S)]:
+    paths["/v1/apps"]["get"]["parameters"].append({"name":name,"in":"query","required":False,"description":desc,"schema":schema})
+op("GET","/v1/organizations","listOrganizationPublishers","List organization publishers","Authoring","Live organization memberships, teams and publishing permissions. An outage never grants access.",{"200":ok(ref("PublishingContext"))},security=AUTH,errors=AUTHED_ERR+("Unavailable",))
+op("GET","/v1/people","listPeopleSignals","List invitation suggestions","Authors","Only your interaction history, aggregated across committed invitations. Rank by 2*sent+received, then latest invitation; overlay your connected Contacts names/photos and use trust to rank contact-only suggestions. Retries do not increase counts.",{"200":ok(obj({"items":arr(ref("PersonSignal"))},["items"]))},security=AUTH,errors=AUTHED_ERR)
+op("GET","/v1/apps/{app_id}/organization-access","getOrganizationAccess","Read organization access","Authoring","Current organization resource grants and private audience. Requires manage.",{"200":ok(ref("ResourceAccess"))},security=AUTH,parameters_=[param("AppId")],errors=AUTHED_ERR)
+op("PUT","/v1/apps/{app_id}/organization-access","setOrganizationAccess","Update organization access","Authoring","Replace per-app team/member grants and private audience. Requires manage; every target is checked against current organization membership. Ownership remains with the organization after members leave.",{"200":ok(ref("App"))},security=AUTH,parameters_=[param("AppId")],body=json_body(ref("ResourceAccess")),errors=MUT_ERR,mutation=True)
+op("DELETE","/v1/apps/{app_id}","deleteApp","Delete an app","Authoring","Requires personal admin or organization manage. Hides discovery, packages, media and user storage, cancels pending invites and disables Accounts sign-in. Retains the record and reserves the ID. Core platform apps cannot be deleted.",{"200":ok(ref("App"))},security=AUTH,parameters_=[param("AppId")],errors=MUT_ERR,mutation=True)
+op("POST","/v1/apps/{app_id}/restore","restoreApp","Restore a deleted app","Authoring","Requires current management permission and a deletion less than 30 days ago. Restores previous publication/access and Accounts status. Cancelled invitations stay cancelled. IDs remain reserved after recovery expires.",{"200":ok(ref("App"))},security=AUTH,parameters_=[param("AppId")],body=json_body(obj({}),required=False),errors=MUT_ERR,mutation=True)
 doc = {
  "openapi": "3.1.0",
  "info": {

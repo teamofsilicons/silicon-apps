@@ -5,6 +5,7 @@ use crate::{
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use silicon_publishing_policy::{Permission, ResourceKind, ResourcePolicy};
 use std::{collections::BTreeMap, path::Path};
 
 pub struct Store {
@@ -110,10 +111,75 @@ fn unsupported_targets(b: &Value) -> Result<BTreeMap<String, String>> {
 fn need(who: Option<&Identity>) -> Result<&Identity> {
     who.ok_or_else(ApiError::auth)
 }
+pub fn mutation_permission(method: &str, path: &[&str]) -> Permission {
+    match (method, path) {
+        ("DELETE", ["apps", _]) | ("POST", ["apps", _, "restore"]) => Permission::Manage,
+        ("POST", ["apps", _, "authors", "leave"]) => Permission::Read,
+        (
+            _,
+            [
+                "apps",
+                _,
+                "access"
+                | "organization-access"
+                | "admin"
+                | "secret"
+                | "webhook"
+                | "authors"
+                | "invites",
+                ..,
+            ],
+        ) => Permission::Manage,
+        ("POST", ["apps", _, "releases"])
+        | (_, ["apps", _, "publish"])
+        | (_, ["apps", _, "releases", _, "promote" | "withdraw"]) => Permission::Publish,
+        _ => Permission::Edit,
+    }
+}
 fn author(app: &App, who: Option<&Identity>) -> Result<()> {
     need(who)?;
+    if app.organization_id.is_some()
+        && let Some(error) = who.and_then(|w| w.publishing_error.as_deref())
+    {
+        return Err(ApiError::unavailable(error));
+    }
     if !app.is_author(who) {
         return Err(ApiError::forbidden());
+    }
+    Ok(())
+}
+/// A stored receipt never preserves access after deletion or a permission change.
+pub fn authorize_retry(
+    app: &App,
+    who: Option<&Identity>,
+    method: &str,
+    path: &[&str],
+) -> Result<()> {
+    let lifecycle = (method == "DELETE" && path.len() == 2)
+        || (method == "POST" && path.len() == 3 && path[2] == "restore");
+    if app.deleted_at.is_some() && !lifecycle {
+        return Err(ApiError::missing());
+    }
+    if lifecycle {
+        return admin(app, who);
+    }
+    if matches!(path.get(2), Some(&"installs" | &"review")) {
+        if method == "DELETE" && path.get(2) == Some(&"review") {
+            need(who)?;
+            return Ok(());
+        }
+        return if app.visible(who) {
+            Ok(())
+        } else {
+            Err(ApiError::missing())
+        };
+    }
+    author(app, who)?;
+    if app.organization_id.is_some() && !app.permits(who, mutation_permission(method, path)) {
+        return Err(ApiError::forbidden());
+    }
+    if matches!(path.get(2), Some(&"access" | &"admin")) {
+        admin(app, who)?;
     }
     Ok(())
 }
@@ -384,6 +450,59 @@ impl Store {
         if p == ["me"] {
             return Ok(json!(need(who)?));
         }
+        if p == ["people"] {
+            let w = need(who)?;
+            let mut stats: BTreeMap<String, (u64, u64, String)> = BTreeMap::new();
+            for app in c.apps.values() {
+                for event in &app.history {
+                    if event.kind != "author.invited" {
+                        continue;
+                    }
+                    let target = event.data["account_uuid"].as_str().or_else(|| {
+                        c.invites
+                            .iter()
+                            .find(|i| Some(i.id.as_str()) == event.data["id"].as_str())
+                            .and_then(|i| i.account_uuid.as_deref())
+                    });
+                    let Some(target) = target else { continue };
+                    let peer = if event.actor_uuid == w.uuid {
+                        target
+                    } else if target == w.uuid {
+                        &event.actor_uuid
+                    } else {
+                        continue;
+                    };
+                    if peer == w.uuid {
+                        continue;
+                    }
+                    let entry = stats.entry(peer.into()).or_default();
+                    if event.actor_uuid == w.uuid {
+                        entry.0 += 1
+                    } else {
+                        entry.1 += 1
+                    }
+                    entry.2 = entry.2.clone().max(event.at.clone());
+                }
+            }
+            let mut items:Vec<_>=stats.into_iter().map(|(uuid,(sent,received,at))|{
+                let author=c.apps.values().flat_map(|a|&a.authors).find(|a|a.uuid==uuid);
+                json!({"uuid":uuid,"id":author.map(|a|&a.id),"display_name":author.map(|a|&a.display_name),"pfp_url":author.and_then(|a|a.pfp_url.as_deref()),"sent":sent,"received":received,"last_invited_at":at})
+            }).collect();
+            items.sort_by(|a, b| {
+                (2 * b["sent"].as_u64().unwrap_or(0) + b["received"].as_u64().unwrap_or(0))
+                    .cmp(
+                        &(2 * a["sent"].as_u64().unwrap_or(0)
+                            + a["received"].as_u64().unwrap_or(0)),
+                    )
+                    .then_with(|| {
+                        b["last_invited_at"]
+                            .as_str()
+                            .cmp(&a["last_invited_at"].as_str())
+                    })
+            });
+            items.truncate(1000);
+            return Ok(json!({"items":items}));
+        }
         if p == ["invites"] {
             let w = need(who)?;
             return Ok(
@@ -457,6 +576,10 @@ impl Store {
                 .apps
                 .values()
                 .filter(|a| {
+                    a.deleted_at.is_some()
+                        == (mine && q.get("deleted").is_some_and(|v| v == "true"))
+                })
+                .filter(|a| {
                     if mine {
                         a.is_author(who)
                     } else {
@@ -464,6 +587,21 @@ impl Store {
                     }
                 })
                 .filter(|a| visibility.is_none_or(|v| v == &a.visibility))
+                .filter(|a| {
+                    q.get("organization_id")
+                        .is_none_or(|org| a.organization_id.as_ref() == Some(org))
+                })
+                .filter(|a| {
+                    q.get("shared_with_me").is_none_or(|v| v != "true")
+                        || who.is_some_and(|w| {
+                            a.is_author(Some(w))
+                                && a.history.first().is_none_or(|h| h.actor_uuid != w.uuid)
+                        })
+                })
+                .filter(|a| {
+                    q.get("shared_by")
+                        .is_none_or(|uuid| a.authors.iter().any(|author| &author.uuid == uuid))
+                })
                 .filter(|a| target.is_none_or(|t| a.targets().contains(t)))
                 .filter_map(|a| search_score(a, &query).map(|s| (s, a)))
                 .collect();
@@ -499,6 +637,9 @@ impl Store {
             return Err(ApiError::missing());
         }
         let app = c.apps.get(p[1]).ok_or_else(ApiError::missing)?;
+        if app.deleted_at.is_some() && p.len() == 2 && app.is_admin(who) {
+            return Ok(app.view(who));
+        }
         if !app.visible(who) {
             return Err(ApiError::missing());
         }
@@ -509,6 +650,10 @@ impl Store {
             return Err(ApiError::missing());
         }
         match p[2] {
+            "organization-access" => {
+                admin(app, who)?;
+                Ok(json!(app.organization_access))
+            }
             "storage-schema" => {
                 author(app, who)?;
                 Ok(json!({"app_id":app.app_id,"schema":app.user_storage}))
@@ -638,7 +783,33 @@ impl Store {
         self.expire_secret_replays()?;
         let actor = m.who.map(|i| i.uuid.as_str()).unwrap_or("anonymous");
         let fingerprint = format!("{}:{}:{}", m.method, m.path, m.digest);
-        if let Some(v) = self.replay(actor, m.key, &fingerprint)? {
+        if let Some(mut v) = self.replay(actor, m.key, &fingerprint)? {
+            let parts: Vec<_> = m.path.split('/').collect();
+            if parts.len() >= 2 && parts[0] == "apps" {
+                let app = self.app(parts[1])?;
+                authorize_retry(&app, m.who, m.method, &parts)?;
+            } else if parts == ["apps"]
+                && let Some(id) = v["app"]["app_id"].as_str()
+            {
+                let app = self.app(id)?;
+                author(&app, m.who)?;
+                if app.deleted_at.is_some() {
+                    return Err(ApiError::missing());
+                }
+                if let Some(org) = &app.organization_id {
+                    if !need(m.who)?.publishing.allows(
+                        org,
+                        silicon_publishing_policy::ResourceKind::Apps,
+                        &app.organization_access,
+                        silicon_publishing_policy::Permission::Create,
+                    ) {
+                        return Err(ApiError::forbidden());
+                    }
+                    if let Some(object) = v.as_object_mut() {
+                        object.remove("app_secret");
+                    }
+                }
+            }
             return Ok((v, true));
         }
         let tx = self
@@ -929,7 +1100,44 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             m.prepared.secret.as_ref().ok_or_else(|| {
                 ApiError::unavailable("Accounts app registration did not complete.")
             })?;
+        let organization_id = b
+            .get("organization_id")
+            .filter(|v| !v.is_null())
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| ApiError::bad("organization_id must be a string."))
+            })
+            .transpose()?;
+        if organization_id.is_some()
+            && let Some(error) = &w.publishing_error
+        {
+            return Err(ApiError::unavailable(error));
+        }
+        let organization = organization_id
+            .map(|id| {
+                w.publishing
+                    .organization(id)
+                    .filter(|_| {
+                        w.publishing.allows(
+                            id,
+                            ResourceKind::Apps,
+                            &ResourcePolicy::default(),
+                            Permission::Create,
+                        )
+                    })
+                    .ok_or_else(ApiError::forbidden)
+            })
+            .transpose()?;
         let mut app = App {
+            deleted_at: None,
+            organization_id: organization.map(|o| o.org_id.clone()),
+            organization_name: organization.map(|o| o.name.clone()),
+            organization_logo_url: organization.and_then(|o| o.logo_url.clone()),
+            organization_access: if organization.is_some() {
+                ResourcePolicy::for_creator(&w.uuid)
+            } else {
+                ResourcePolicy::default()
+            },
             user_storage: b
                 .get("user_storage")
                 .filter(|v| !v.is_null())
@@ -938,12 +1146,21 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             app_id: id.into(),
             name: name.into(),
             description: b["description"].as_str().unwrap_or_default().into(),
+            tagline: match b.get("tagline") {
+                Some(_) => str_field(b, "tagline")?.trim().into(),
+                None => String::new(),
+            },
             logo: b["logo"].as_str().unwrap_or_default().into(),
             logo_alt: String::new(),
             banner: String::new(),
             banner_alt: String::new(),
             tags: vec![],
-            visibility: "public".into(),
+            visibility: if organization.is_some() {
+                "private"
+            } else {
+                "public"
+            }
+            .into(),
             domains: vec![],
             account_ids: vec![],
             access_uuids: vec![],
@@ -973,8 +1190,13 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         }
         app.event(actor, "app.created", created);
         let view = app.view(who);
+        let response = if app.organization_id.is_some() {
+            json!({"app":view})
+        } else {
+            json!({"app":view,"app_secret":secret})
+        };
         c.apps.insert(id.into(), app);
-        return Ok(json!({"app":view,"app_secret":secret}));
+        return Ok(response);
     }
     if p.len() == 3 && p[0] == "invites" && m.method == "POST" {
         let w = need(who)?;
@@ -993,9 +1215,20 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             .apps
             .get_mut(&invite.app_id)
             .ok_or_else(ApiError::missing)?;
+        if app.deleted_at.is_some() {
+            return Err(ApiError::missing());
+        }
         match p[2] {
             "accept" => {
-                if !app.is_author(who) {
+                if let Some(org) = &app.organization_id {
+                    if w.publishing.organization(org).is_none() {
+                        return Err(ApiError::forbidden());
+                    }
+                    app.organization_access
+                        .grants
+                        .extend(ResourcePolicy::for_creator(&w.uuid).grants);
+                }
+                if !app.authors.iter().any(|a| a.uuid == w.uuid) {
                     app.authors.push(Author::from_identity(w));
                 }
                 invite.status = "accepted".into();
@@ -1023,6 +1256,51 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         return Err(ApiError::missing());
     }
     let app = c.apps.get_mut(p[1]).ok_or_else(ApiError::missing)?;
+    if m.method == "DELETE" && p.len() == 2 {
+        admin(app, who)?;
+        if matches!(
+            app.app_id.as_str(),
+            "silicon-apps" | "silicon-accounts" | "developer"
+        ) {
+            return Err(ApiError::bad(
+                "Core platform apps cannot be deleted through this API.",
+            ));
+        }
+        if app.deleted_at.is_none() {
+            app.deleted_at = Some(now());
+            app.event(actor, "app.deleted", json!({"restore_days":30}));
+            for invite in c
+                .invites
+                .iter_mut()
+                .filter(|i| i.app_id == app.app_id && i.status == "pending")
+            {
+                invite.status = "cancelled".into();
+            }
+            outbox.push(("accounts.sync".into(), json!({"app_id":app.app_id})));
+        }
+        return Ok(app.view(who));
+    }
+    if m.method == "POST" && p.len() == 3 && p[2] == "restore" {
+        admin(app, who)?;
+        let at = app
+            .deleted_at
+            .as_deref()
+            .ok_or_else(|| ApiError::conflict("This app is not deleted."))?;
+        let at = chrono::DateTime::parse_from_rfc3339(at)
+            .map_err(|_| ApiError::unavailable("The deletion timestamp is invalid."))?;
+        if chrono::Utc::now() >= at + chrono::Duration::days(30) {
+            return Err(ApiError::conflict(
+                "The 30-day app recovery period has ended. Its ID remains reserved.",
+            ));
+        }
+        app.deleted_at = None;
+        app.event(actor, "app.restored", json!({}));
+        outbox.push(("accounts.sync".into(), json!({"app_id":app.app_id})));
+        return Ok(app.view(who));
+    }
+    if app.deleted_at.is_some() {
+        return Err(ApiError::missing());
+    }
     if p.len() == 3 && p[2] == "installs" && m.method == "POST" {
         if !app.published || !app.visible(who) {
             return Err(ApiError::missing());
@@ -1092,6 +1370,26 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         return Ok(json!(review));
     }
     author(app, who)?;
+    if app.organization_id.is_some() && !app.permits(who, mutation_permission(m.method, &p)) {
+        return Err(ApiError::forbidden());
+    }
+    if p.len() == 3 && p[2] == "organization-access" && m.method == "PUT" {
+        if app.organization_id.is_none() {
+            return Err(ApiError::bad(
+                "This app is published from a personal account.",
+            ));
+        }
+        let policy: ResourcePolicy = serde_json::from_value(b.clone())
+            .map_err(|_| ApiError::bad("Supply a valid organization resource policy."))?;
+        policy.validate().map_err(ApiError::bad)?;
+        app.organization_access = policy;
+        app.event(
+            actor,
+            "app.access_changed",
+            json!({"organization_access":app.organization_access}),
+        );
+        return Ok(app.view(who));
+    }
     if p.len() == 3 && p[2] == "storage-schema" && m.method == "PUT" {
         let next = crate::user_storage::schema(b)?;
         crate::user_storage::extend_schema(app.user_storage.as_ref(), &next)?;
@@ -1111,6 +1409,7 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             if ![
                 "name",
                 "description",
+                "tagline",
                 "tags",
                 "logo",
                 "logo_alt",
@@ -1175,6 +1474,9 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             if b.get(key).is_some() {
                 *dest = str_field(b, key)?.to_owned();
             }
+        }
+        if b.get("tagline").is_some() {
+            app.tagline = str_field(b, "tagline")?.trim().to_owned();
         }
         if b.get("tags").is_some() {
             app.tags = strings(b, "tags")?;
@@ -1283,6 +1585,11 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         }
         "admin" if m.method == "POST" => {
             admin(app, who)?;
+            if app.organization_id.is_some() {
+                return Err(ApiError::bad(
+                    "Organization ownership is permanent. Change resource permissions instead of transferring personal adminship.",
+                ));
+            }
             let uuid = str_field(b, "uuid")?;
             if !app.authors.iter().any(|a| a.uuid == uuid) {
                 return Err(ApiError::bad(
@@ -1295,13 +1602,16 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         }
         "authors" if p.len() == 4 => {
             if p[3] == "leave" && m.method == "POST" {
-                if app.authors.len() == 1 {
+                if app.organization_id.is_none() && app.authors.len() == 1 {
                     return Err(ApiError::conflict(
                         "The last author cannot leave. Invite another author and wait for acceptance first.",
                     ));
                 }
                 app.authors.retain(|a| a.uuid != actor);
-                if app.admin_uuid == actor {
+                app.organization_access.grants.retain(|g| {
+                    g.subject != Some(silicon_publishing_policy::Subject::Account(actor.into()))
+                });
+                if app.organization_id.is_none() && app.admin_uuid == actor {
                     app.admin_uuid = app
                         .authors
                         .iter()
@@ -1322,6 +1632,9 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     return Err(ApiError::missing());
                 }
                 app.authors.retain(|a| a.uuid != p[3]);
+                app.organization_access.grants.retain(|g| {
+                    g.subject != Some(silicon_publishing_policy::Subject::Account(p[3].into()))
+                });
                 app.event(actor, "author.removed", json!({"uuid":p[3]}));
                 outbox.push(("accounts.sync".into(), json!({"app_id":app.app_id})));
                 Ok(json!({"status":"removed"}))
@@ -1590,6 +1903,8 @@ pub(crate) fn mutation_route_exists(method: &str, p: &[&str]) -> bool {
     matches!(
         (method, p),
         ("POST", ["apps" | "platforms" | "reports"])
+            | ("DELETE", ["apps", _])
+            | ("POST", ["apps", _, "restore"])
             | ("PATCH", ["apps", _])
             | ("POST", ["invites", _, "accept" | "decline"])
             | (
@@ -1597,7 +1912,7 @@ pub(crate) fn mutation_route_exists(method: &str, p: &[&str]) -> bool {
                 [
                     "apps",
                     _,
-                    "access" | "webhook" | "review" | "storage-schema"
+                    "access" | "webhook" | "review" | "storage-schema" | "organization-access"
                 ]
             )
             | ("DELETE", ["apps", _, "review"])
@@ -1671,6 +1986,16 @@ fn validate_details(a: &App) -> Result<()> {
     if a.published && a.description.chars().count() < 200 {
         return Err(ApiError::bad(
             "Published apps need at least 200 description characters.",
+        ));
+    }
+    if a.tagline.chars().count() > TAGLINE_MAX_CHARS {
+        return Err(ApiError::bad(format!(
+            "tagline is limited to {TAGLINE_MAX_CHARS} characters."
+        )));
+    }
+    if a.tagline.chars().any(char::is_control) {
+        return Err(ApiError::bad(
+            "tagline must be one line of plain text without line breaks or tabs.",
         ));
     }
     if a.logo_alt.chars().count() > 10000 || a.banner_alt.chars().count() > 10000 {
@@ -1756,7 +2081,8 @@ fn search_score(a: &App, q: &str) -> Option<u32> {
     if a.tags.iter().any(|t| t.eq_ignore_ascii_case(q)) {
         return Some(600);
     }
-    if a.description.to_lowercase().contains(q)
+    if a.tagline.to_lowercase().contains(q)
+        || a.description.to_lowercase().contains(q)
         || a.tags.iter().any(|t| t.to_lowercase().contains(q))
     {
         return Some(400);

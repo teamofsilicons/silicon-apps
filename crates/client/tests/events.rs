@@ -23,6 +23,7 @@ fn config(dir: &std::path::Path) -> Config {
         bind: "127.0.0.1:0".parse().unwrap(),
         data_dir: dir.to_owned(),
         dev_auth: true,
+        organizations_url: None,
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
@@ -77,11 +78,12 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     );
 
     // A published app with one development release.
-    alice
-        .create(
+    let created = alice
+        .create_with_tagline(
             "demo-app",
             "Demo",
             &"d".repeat(200),
+            Some("A demo app"),
             None,
             Some("client-create"),
         )
@@ -95,7 +97,11 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
         )
         .await
         .unwrap();
+    assert_eq!(created["app"]["tagline"], "A demo app");
     let who = Identity {
+        publishing: Default::default(),
+        publishing_error: None,
+        app_audience: String::new(),
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "alice".into(),

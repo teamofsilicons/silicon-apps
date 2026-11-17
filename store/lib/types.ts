@@ -52,9 +52,13 @@ export type Links = {
 };
 
 export type App = {
+  organization_id?:string|null;
+  publisher?:{type:"organization"|"personal";id?:string;name?:string|null;logo_url?:string|null;uuid?:string};
   app_id: string;
   name: string;
   description: string;
+  /** One plain line (at most 60 characters) written for store cards. Empty or absent for apps published before taglines existed. */
+  tagline?: string;
   logo: string;
   logo_alt?: string;
   banner: string;

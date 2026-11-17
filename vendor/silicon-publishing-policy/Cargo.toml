@@ -1,0 +1,13 @@
+[package]
+name = "silicon-publishing-policy"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/teamofsilicons/silicon-organizations"
+description = "Shared organization publishing authorization for Silicon developer resources"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+

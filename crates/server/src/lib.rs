@@ -1,3 +1,4 @@
+pub mod catalog_presentation;
 mod auth;
 pub mod config;
 pub mod discovery;
@@ -282,12 +283,19 @@ async fn dispatch(
         return Ok(response);
     }
     let token = auth::bearer(&s, &headers).await?;
-    let who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;
+    let mut who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;
     if let Some(who) = &who {
         integrations::refresh_identity(&s, who)?;
     }
     if path == "session" && method == Method::GET {
         return Ok(Json(json!({"authenticated":who.is_some(),"account":who})).into_response());
+    }
+    if path == "organizations" {
+        let actor = who.as_ref().ok_or_else(ApiError::auth)?;
+        if let Some(error) = &actor.publishing_error {
+            return Err(ApiError::unavailable(error));
+        }
+        return Ok(Json(json!(actor.publishing)).into_response());
     }
     let p: Vec<_> = path.trim_matches('/').split('/').collect();
     if p[0] == "keys" {
@@ -420,7 +428,10 @@ async fn dispatch(
         }
         if p.len() == 3 && p[0] == "apps" && p[2] == "webhook" {
             let app = s.store.lock().unwrap().app(p[1])?;
-            if !app.is_author(who.as_ref()) {
+            if app.deleted_at.is_some() {
+                return Err(ApiError::missing());
+            }
+            if !app.permits(who.as_ref(), silicon_publishing_policy::Permission::Manage) {
                 return Err(ApiError::forbidden());
             }
             let t = token.as_deref().ok_or_else(ApiError::auth)?;
@@ -446,7 +457,11 @@ async fn dispatch(
     auth::check_csrf(&s, &headers)?;
     let key = idempotency_key(&headers)?;
     let _guard = s.mutation_gate.lock().await;
-    let actor = who.as_ref().map(|i| i.uuid.as_str()).unwrap_or("anonymous");
+    let actor_uuid = who
+        .as_ref()
+        .map(|i| i.uuid.clone())
+        .unwrap_or_else(|| "anonymous".into());
+    let actor = actor_uuid.as_str();
     let digest = hash(&raw);
     let upload = p.len() == 4 && p[0] == "apps" && p[2] == "packages";
     let author_signature = if upload {
@@ -481,9 +496,6 @@ async fn dispatch(
         .lock()
         .unwrap()
         .pending_secret(actor, key, &fingerprint)?;
-    if let Some(v) = s.store.lock().unwrap().replay(actor, key, &fingerprint)? {
-        return Ok(([("Idempotent-Replayed", "true")], Json(v)).into_response());
-    }
     let media = p.len() == 3 && p[0] == "apps" && p[2] == "media";
     let body: Value = if upload || media || raw.is_empty() {
         json!({})
@@ -491,6 +503,97 @@ async fn dispatch(
         serde_json::from_slice(&raw)
             .map_err(|e| ApiError::bad(format!("Request JSON is invalid: {e}")))?
     };
+    // Receipts do not retain permissions after an organization or team change.
+    if p.len() >= 2 && p[0] == "apps" && !matches!(p.get(2), Some(&"installs" | &"review")) {
+        let app = s.store.lock().unwrap().app(p[1])?;
+        store::authorize_retry(&app, who.as_ref(), method.as_str(), &p)?;
+        if app.organization_id.is_some() {
+            if let Some(error) = who.as_ref().and_then(|w| w.publishing_error.as_deref()) {
+                return Err(ApiError::unavailable(error));
+            }
+            if !app.permits(
+                who.as_ref(),
+                store::mutation_permission(method.as_str(), &p),
+            ) {
+                return Err(ApiError::forbidden());
+            }
+        }
+    }
+    if p == ["apps"]
+        && let Some(org) = body.get("organization_id").and_then(Value::as_str)
+    {
+        let w = who.as_ref().ok_or_else(ApiError::auth)?;
+        if let Some(error) = &w.publishing_error {
+            return Err(ApiError::unavailable(error));
+        }
+        if !w.publishing.allows(
+            org,
+            silicon_publishing_policy::ResourceKind::Apps,
+            &Default::default(),
+            silicon_publishing_policy::Permission::Create,
+        ) {
+            return Err(ApiError::forbidden());
+        }
+    }
+    let replay = s.store.lock().unwrap().replay(actor, key, &fingerprint)?;
+    if let Some(mut v) = replay {
+        if p == ["apps"]
+            && let Some(id) = v["app"]["app_id"].as_str()
+        {
+            let app = s.store.lock().unwrap().app(id)?;
+            if app.deleted_at.is_some() {
+                return Err(ApiError::missing());
+            }
+            if !app.is_author(who.as_ref()) {
+                return Err(ApiError::forbidden());
+            }
+            if app.organization_id.is_some() {
+                if let Some(object) = v.as_object_mut() {
+                    object.remove("app_secret");
+                }
+            }
+        }
+        return Ok(([("Idempotent-Replayed", "true")], Json(v)).into_response());
+    }
+    if p.len() == 3 && p[0] == "apps" && p[2] == "organization-access" {
+        let app = s.store.lock().unwrap().app(p[1])?;
+        let org = app
+            .organization_id
+            .as_deref()
+            .ok_or_else(|| ApiError::bad("This app has a personal publisher."))?;
+        let w = who.as_ref().ok_or_else(ApiError::auth)?;
+        let policy: silicon_publishing_policy::ResourcePolicy =
+            serde_json::from_value(body.clone())
+                .map_err(|_| ApiError::bad("Supply a valid organization resource policy."))?;
+        policy.validate().map_err(ApiError::bad)?;
+        if !s.config.dev_auth {
+            let base = s
+                .config
+                .organizations_url
+                .as_deref()
+                .ok_or_else(|| ApiError::unavailable("Organizations is not configured."))?;
+            let response = s
+                .http
+                .post(format!(
+                    "{}/v1/integrations/{}/orgs/{org}/publishing-policy/validate",
+                    base.trim_end_matches('/'),
+                    w.app_audience
+                ))
+                .timeout(std::time::Duration::from_secs(10))
+                .bearer_auth(token.as_deref().ok_or_else(ApiError::auth)?)
+                .json(&policy)
+                .send()
+                .await
+                .map_err(|_| {
+                    ApiError::unavailable("Organizations could not validate these grants.")
+                })?;
+            if !response.status().is_success() {
+                return Err(ApiError::bad(
+                    "Choose current members and teams in this organization.",
+                ));
+            }
+        }
+    }
     // Check app authorization before contacting runners, Accounts or mail providers.
     if p.len() >= 3 && p[0] == "apps" && !matches!(p[2], "installs" | "review") {
         let app = s.store.lock().unwrap().app(p[1])?;
@@ -630,6 +733,7 @@ async fn dispatch(
                 return Err(error);
             }
         }
+        who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;
     }
     if p.len() >= 3 && p[0] == "apps" && p[2] == "webhook" {
         let t = token.as_deref().ok_or_else(ApiError::auth)?;
@@ -669,6 +773,9 @@ async fn dispatch(
     }
     // Synchronize ownership before acknowledging it, so a removed author immediately loses Accounts configuration rights.
     let sync_change = p.len() == 2 && p[0] == "apps" && method == Method::PATCH
+        || p.len() == 2 && p[0] == "apps" && method == Method::DELETE
+        || p.len() == 3 && p[0] == "apps" && p[2] == "restore"
+        || p.len() == 3 && p[0] == "apps" && p[2] == "organization-access"
         || p.len() >= 3 && p[0] == "apps" && matches!(p[2], "authors" | "admin")
         || p.len() == 3 && p[0] == "invites" && p[2] == "accept";
     if sync_change {

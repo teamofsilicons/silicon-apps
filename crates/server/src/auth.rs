@@ -208,10 +208,13 @@ fn developer_route(method: &Method, path: &str) -> bool {
     let p: Vec<_> = path.split('/').collect();
     matches!(
         (method.as_str(), p.as_slice()),
-        ("GET", ["me" | "session" | "targets" | "invites" | "apps"])
-            | ("GET", ["apps", "availability", _])
+        (
+            "GET",
+            ["me" | "session" | "targets" | "invites" | "apps" | "organizations" | "people"]
+        ) | ("GET", ["apps", "availability", _])
             | ("GET", ["apps", _])
             | ("GET" | "PUT", ["apps", _, "storage-schema"])
+            | ("GET" | "PUT", ["apps", _, "organization-access"])
             | (
                 "GET",
                 [
@@ -230,6 +233,8 @@ fn developer_route(method: &Method, path: &str) -> bool {
             | ("GET", ["apps", _, "packages", _, "download"])
             | ("POST", ["apps"])
             | ("PATCH", ["apps", _])
+            | ("DELETE", ["apps", _])
+            | ("POST", ["apps", _, "restore"])
             | ("POST", ["invites", _, "accept" | "decline"])
             | ("PUT", ["apps", _, "access" | "webhook"])
             | (
@@ -266,6 +271,9 @@ async fn verified_identity(
             return Err(ApiError::auth());
         }
         return Ok(Some(Identity {
+            publishing: Default::default(),
+            publishing_error: None,
+            app_audience: String::new(),
             uuid: parts[1].into(),
             id: parts[2].into(),
             display_name: parts[2].into(),
@@ -333,7 +341,36 @@ async fn verified_identity(
             }
         })
     };
+    let (publishing, publishing_error) = match &s.config.organizations_url {
+        Some(base) => match silicon_publishing_policy::fetch(
+            base,
+            if claims.aud == ["developer"] {
+                "developer"
+            } else {
+                APP_ID
+            },
+            token,
+            &user.uuid,
+        )
+        .await
+        {
+            Ok(context) => (context, None),
+            Err(message) => (Default::default(), Some(message)),
+        },
+        None => (
+            Default::default(),
+            Some("Organization publishing is not configured.".into()),
+        ),
+    };
     Ok(Some(Identity {
+        publishing,
+        publishing_error,
+        app_audience: if claims.aud == ["developer"] {
+            "developer"
+        } else {
+            APP_ID
+        }
+        .into(),
         uuid: user.uuid,
         id: user.id,
         display_name: user.display_name,

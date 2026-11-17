@@ -100,6 +100,9 @@ fn from_row(r: &rusqlite::Row) -> rusqlite::Result<Subscription> {
 impl Subscription {
     pub fn owner(&self) -> Identity {
         Identity {
+            publishing: Default::default(),
+            publishing_error: None,
+            app_audience: String::new(),
             uuid: self.owner_uuid.clone(),
             id: self.owner_id.clone(),
             display_name: String::new(),
@@ -110,7 +113,9 @@ impl Subscription {
     /// Whether this subscription receives an event. Access is checked when the
     /// event happens, so losing access to an app stops its deliveries.
     pub fn matches(&self, event: &Event, c: &Catalog) -> bool {
-        let owner = self.owner();
+        self.matches_for(event, c, &self.owner())
+    }
+    pub fn matches_for(&self, event: &Event, c: &Catalog, owner: &Identity) -> bool {
         let visible = match &self.app_id {
             Some(app_id) => events::app_subscriber_can_see(event, app_id, &owner, c),
             None => events::account_can_see(event, &owner, c),
@@ -122,6 +127,21 @@ impl Subscription {
                 || event
                     .channel()
                     .is_some_and(|channel| self.channels.iter().any(|c| c == channel)))
+    }
+    pub fn candidate(&self, event: &Event, c: &Catalog) -> bool {
+        if let Some(id) = &self.app_id {
+            if event.app_id.as_ref() == Some(id)
+                && c.apps.get(id).is_some_and(|a| a.organization_id.is_some())
+            {
+                return TypeFilter(self.types.clone()).allows(&event.kind)
+                    && (self.channels.is_empty()
+                        || !event.kind.starts_with("release.")
+                        || event
+                            .channel()
+                            .is_some_and(|ch| self.channels.iter().any(|c| c == ch)));
+            }
+        }
+        self.matches(event, c)
     }
     pub fn view(&self) -> Value {
         json!({
@@ -920,6 +940,52 @@ async fn attempt(s: &Shared, due: &Due) -> std::result::Result<u16, (Option<u16>
             "The subscription or its event no longer exists.".into(),
         ));
     };
+    let ping = event.kind == "ping"
+        && event.visibility == "direct"
+        && event.actor_uuid == sub.owner_uuid
+        && event.data["subscription_id"].as_str() == Some(sub.id.as_str());
+    let mut owner = sub.owner();
+    let org = s
+        .store
+        .lock()
+        .unwrap()
+        .catalog()
+        .map_err(|e| (None, e.message))?
+        .apps
+        .get(event.app_id.as_deref().unwrap_or(""))
+        .is_some_and(|a| a.organization_id.is_some());
+    if org && !ping {
+        let base = s
+            .config
+            .organizations_url
+            .as_deref()
+            .ok_or((None, "Organizations is unavailable.".into()))?;
+        let secret = s
+            .config
+            .accounts_app_secret
+            .as_deref()
+            .ok_or((None, "The Apps service is not configured.".into()))?;
+        owner.publishing = silicon_publishing_policy::fetch_service(
+            base,
+            crate::model::APP_ID,
+            secret,
+            &owner.uuid,
+        )
+        .await
+        .map_err(|e| (None, e))?;
+    }
+    let catalog = s
+        .store
+        .lock()
+        .unwrap()
+        .catalog()
+        .map_err(|e| (None, e.message))?;
+    if sub.status != "active" || (!ping && !sub.matches_for(&event, &catalog, &owner)) {
+        return Err((
+            Some(403),
+            "access_revoked: the event is no longer visible to this subscription.".into(),
+        ));
+    }
     let (Some(raw_url), Some(secret)) = (sub.url.as_deref(), sub.secret.as_deref()) else {
         return Err((
             None,
@@ -1012,6 +1078,7 @@ fn record(s: &Shared, due: &Due, result: std::result::Result<u16, (Option<u16>, 
             "UPDATE subscription_deliveries SET status='delivered',attempts=attempts+1,delivered_at=?1,last_attempt_at=?1,last_status=?2,last_error=NULL WHERE id=?3",
             params![at, status, due.id],
         ),
+        Err((status,error)) if error.starts_with("access_revoked:") => store.connection.execute("UPDATE subscription_deliveries SET status='failed',last_error=?1,last_status=?2,last_attempt_at=?3 WHERE id=?4",params![error,status,at,due.id]),
         Err((status, error)) => {
             let wait = RETRY_SECONDS[(due.attempts as usize).min(RETRY_SECONDS.len() - 1)];
             store.connection.execute(
