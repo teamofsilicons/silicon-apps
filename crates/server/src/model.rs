@@ -173,6 +173,9 @@ pub struct App {
     pub app_id: String,
     pub name: String,
     pub description: String,
+    /// One plain-text line for store cards. Apps published before taglines existed have none.
+    #[serde(default)]
+    pub tagline: String,
     pub logo: String,
     #[serde(default)]
     pub logo_alt: String,
@@ -301,7 +304,7 @@ impl App {
             .unwrap_or_default();
         signed_by.sort();
         signed_by.dedup();
-        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"unsupported_targets":latest.map(|r| r.unsupported_targets.clone()).unwrap_or_default(),"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
+        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"tagline":self.tagline,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"unsupported_targets":latest.map(|r| r.unsupported_targets.clone()).unwrap_or_default(),"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
         if self.is_author(who) {
             v["domains"] = json!(self.domains);
             v["account_ids"] = json!(self.account_ids);
@@ -326,6 +329,10 @@ impl App {
         }
         if !(200..=600).contains(&self.description.chars().count()) {
             errors.push(json!({"field":"description","message":"Description must contain 200 to 600 characters."}));
+        }
+        // Apps published before taglines existed stay valid without one.
+        if !self.published && self.tagline.is_empty() {
+            errors.push(json!({"field":"tagline","message":format!("Tagline must contain 1 to {TAGLINE_MAX_CHARS} characters.")}));
         }
         if self.releases.iter().all(Release::is_withdrawn) {
             errors.push(json!({"field":"packages","message":"Create a development release with validated packages for linux-x86_64, windows-x86_64 and macos-aarch64, or a reason for each one it leaves out.","missing_targets":REQUIRED_RELEASE_TARGETS}));
@@ -355,6 +362,8 @@ pub struct Catalog {
     #[serde(default)]
     pub platforms: BTreeMap<String, Vec<String>>,
 }
+/// The longest tagline, in characters, that a store card shows on one line.
+pub const TAGLINE_MAX_CHARS: usize = 60;
 pub fn valid_app_id(s: &str) -> bool {
     (3..=30).contains(&s.len())
         && s.bytes()

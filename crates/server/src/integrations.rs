@@ -475,6 +475,7 @@ pub async fn import_accounts(s: &Shared) -> Result<usize> {
             app_id: id.into(),
             name: v["name"].as_str().unwrap_or(id).into(),
             description: v["description"].as_str().unwrap_or_default().into(),
+            tagline: String::new(),
             logo: v["logo_url"].as_str().unwrap_or_default().into(),
             logo_alt: String::new(),
             banner: String::new(),

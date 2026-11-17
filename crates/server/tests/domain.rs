@@ -40,7 +40,7 @@ fn create(s: &mut Store, w: &Identity, id: &str) -> Value {
         "POST",
         "apps",
         &format!("create-{id}"),
-        json!({"app_id":id,"name":id,"description":"A".repeat(200)}),
+        json!({"app_id":id,"name":id,"description":"A".repeat(200),"tagline":"A test app"}),
         Prepared {
             secret: Some("sa_app_test_secret".into()),
             ..Default::default()
@@ -954,7 +954,7 @@ fn one_time_secret_replay_expires_and_plaintext_is_removed_from_storage() {
         .query_row("SELECT response FROM idempotency", [], |r| r.get(0))
         .unwrap();
     assert!(!raw.contains("sa_app_test_secret"));
-    let body = json!({"app_id":"test-app","name":"test-app","description":"A".repeat(200)});
+    let body = json!({"app_id":"test-app","name":"test-app","description":"A".repeat(200),"tagline":"A test app"});
     let e = change(
         &mut s,
         Some(&a),
@@ -1039,4 +1039,257 @@ fn platform_id_migration_keeps_release_history_and_refuses_collisions() {
         .query_row("SELECT document FROM catalog WHERE id=1", [], |r| r.get(0))
         .unwrap();
     assert_eq!(raw, unchanged);
+}
+fn patch(s: &mut Store, w: &Identity, id: &str, key: &str, body: Value) -> Result<Value, String> {
+    change(
+        s,
+        Some(w),
+        "PATCH",
+        &format!("apps/{id}"),
+        key,
+        body,
+        Prepared::default(),
+    )
+    .map(|(v, _)| v)
+    .map_err(|e| e.message)
+}
+#[test]
+fn tagline_is_one_trimmed_plain_line_of_at_most_sixty_characters() {
+    let mut s = Store::memory().unwrap();
+    let alice = who("alice");
+    create(&mut s, &alice, "card-app");
+    let app = patch(
+        &mut s,
+        &alice,
+        "card-app",
+        "tagline-trim",
+        json!({"tagline":"  Calendars that sync themselves \u{a0}"}),
+    )
+    .unwrap();
+    assert_eq!(app["tagline"], "Calendars that sync themselves");
+    let sixty = "é".repeat(TAGLINE_MAX_CHARS);
+    let app = patch(
+        &mut s,
+        &alice,
+        "card-app",
+        "tagline-60",
+        json!({"tagline":sixty}),
+    )
+    .unwrap();
+    assert_eq!(
+        app["tagline"], sixty,
+        "the limit counts characters, not bytes"
+    );
+    let too_long = patch(
+        &mut s,
+        &alice,
+        "card-app",
+        "tagline-61",
+        json!({"tagline":"x".repeat(TAGLINE_MAX_CHARS + 1)}),
+    )
+    .unwrap_err();
+    assert!(too_long.contains("60 characters"), "{too_long}");
+    for (key, text) in [
+        ("tagline-newline", "Two\nlines"),
+        ("tagline-tab", "Tab\there"),
+    ] {
+        let err = patch(&mut s, &alice, "card-app", key, json!({ "tagline": text })).unwrap_err();
+        assert!(err.contains("one line"), "{err}");
+    }
+    assert!(
+        patch(
+            &mut s,
+            &alice,
+            "card-app",
+            "tagline-number",
+            json!({"tagline":5})
+        )
+        .is_err()
+    );
+    assert_eq!(
+        s.app("card-app").unwrap().tagline,
+        sixty,
+        "rejected edits change nothing"
+    );
+    let created = change(
+        &mut s,
+        Some(&alice),
+        "POST",
+        "apps",
+        "create-with-tagline",
+        json!({"app_id":"tagged","name":"Tagged","tagline":" Set at creation "}),
+        Prepared {
+            secret: Some("sa_app_test_secret".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap()
+    .0;
+    assert_eq!(created["app"]["tagline"], "Set at creation");
+}
+#[test]
+fn a_new_app_needs_a_tagline_to_publish() {
+    let mut s = Store::memory().unwrap();
+    let alice = who("alice");
+    create(&mut s, &alice, "untagged");
+    patch(
+        &mut s,
+        &alice,
+        "untagged",
+        "clear-tagline",
+        json!({"tagline":"   "}),
+    )
+    .unwrap();
+    let readiness = s
+        .read("apps/untagged/readiness", &BTreeMap::new(), Some(&alice))
+        .unwrap();
+    assert!(
+        readiness["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["field"] == "tagline"),
+        "{readiness}"
+    );
+    let packages: Vec<_> = REQUIRED_RELEASE_TARGETS
+        .into_iter()
+        .map(|target| package(&mut s, &alice, "untagged", target)["id"].clone())
+        .collect();
+    change(
+        &mut s,
+        Some(&alice),
+        "POST",
+        "apps/untagged/releases",
+        "release-untagged",
+        json!({"version":"1.0.0","package_ids":packages}),
+        Prepared::default(),
+    )
+    .unwrap();
+    let refused = change(
+        &mut s,
+        Some(&alice),
+        "POST",
+        "apps/untagged/publish",
+        "publish-untagged",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        refused.details["errors"][0]["field"], "tagline",
+        "{:?}",
+        refused.details
+    );
+    assert!(!s.app("untagged").unwrap().published);
+    patch(
+        &mut s,
+        &alice,
+        "untagged",
+        "add-tagline",
+        json!({"tagline":"Now with a tagline"}),
+    )
+    .unwrap();
+    change(
+        &mut s,
+        Some(&alice),
+        "POST",
+        "apps/untagged/publish",
+        "publish-tagged",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    assert!(s.app("untagged").unwrap().published);
+}
+#[test]
+fn apps_published_before_taglines_stay_published_and_editable_without_one() {
+    let mut s = Store::memory().unwrap();
+    let alice = who("alice");
+    create(&mut s, &alice, "legacy");
+    publish(&mut s, &alice, "legacy");
+    // Catalog documents written before taglines existed have no `tagline` key at all.
+    s.connection
+        .execute(
+            "UPDATE catalog SET document=json_remove(document,'$.apps.legacy.tagline') WHERE id=1",
+            [],
+        )
+        .unwrap();
+    let raw: String = s
+        .connection
+        .query_row("SELECT document FROM catalog", [], |r| r.get(0))
+        .unwrap();
+    assert!(!raw.contains("tagline"));
+    let legacy = s.app("legacy").unwrap();
+    assert!(legacy.published);
+    assert_eq!(legacy.tagline, "");
+    let page = s.read("apps/legacy", &BTreeMap::new(), None).unwrap();
+    assert_eq!(page["tagline"], "", "readers always get the field");
+    let readiness = s
+        .read("apps/legacy/readiness", &BTreeMap::new(), Some(&alice))
+        .unwrap();
+    assert_eq!(readiness["ready"], true, "{readiness}");
+    let edited = patch(
+        &mut s,
+        &alice,
+        "legacy",
+        "legacy-tags",
+        json!({"tags":["calendar"]}),
+    )
+    .unwrap();
+    assert_eq!(edited["published"], true);
+    change(
+        &mut s,
+        Some(&alice),
+        "POST",
+        "apps/legacy/publish",
+        "republish-legacy",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    let tagged = patch(
+        &mut s,
+        &alice,
+        "legacy",
+        "legacy-tagline",
+        json!({"tagline":"Finally a card line"}),
+    )
+    .unwrap();
+    assert_eq!(tagged["tagline"], "Finally a card line");
+    let cleared = patch(
+        &mut s,
+        &alice,
+        "legacy",
+        "legacy-clear",
+        json!({"tagline":""}),
+    )
+    .unwrap();
+    assert_eq!(cleared["tagline"], "");
+    assert_eq!(cleared["published"], true);
+}
+#[test]
+fn search_matches_tagline_words() {
+    let mut s = Store::memory().unwrap();
+    let owner = who("owner");
+    for id in ["tagline-app", "other-app"] {
+        create(&mut s, &owner, id);
+        publish(&mut s, &owner, id);
+    }
+    patch(
+        &mut s,
+        &owner,
+        "tagline-app",
+        "tagline-search",
+        json!({"tagline":"Spreadsheets everyone can edit"}),
+    )
+    .unwrap();
+    let results = s
+        .read(
+            "apps",
+            &BTreeMap::from([("q".into(), "spreadsheets".into())]),
+            None,
+        )
+        .unwrap();
+    assert_eq!(results["total"], 1, "{results}");
+    assert_eq!(results["items"][0]["app_id"], "tagline-app");
 }

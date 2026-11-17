@@ -152,6 +152,8 @@ async fn authors_sign_and_withdraw_and_installers_verify_in_ci_mode() {
             "ring",
             "--name",
             "Ring",
+            "--tagline",
+            "Voice calls for Carbons and Silicons",
             "--description",
             &description,
         ]),

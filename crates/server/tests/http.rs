@@ -684,7 +684,7 @@ fn seed_private(state: &silicon_apps_server::Shared) {
         "POST",
         "apps",
         "seed-app",
-        json!({"app_id":"secret-app","name":"Secret","description":"a".repeat(200)}),
+        json!({"app_id":"secret-app","name":"Secret","description":"a".repeat(200),"tagline":"A secret app"}),
         Prepared {
             secret: Some("secret".into()),
             ..Default::default()
