@@ -1,6 +1,6 @@
 # Organization publishing and catalog rollout
 
-The store, Developer portal and supporting services went live on 17–18 November 2026. The catalog contains all 30 taglines from the supplied Markdown. Briefcase, DM, Ting, Write and Silicon Writings serve the five supplied PNG files. [Silicon Apps](https://apps.teamofsilicons.com) · [Silicon Developer](https://developers.teamofsilicons.com)
+The store, Developer portal and supporting services went live on 17–18 November 2026. The catalog contains all 30 taglines from the supplied Markdown. Briefcase, DM, Ring, Write and Silicon Writings now use the full-square artwork from the ZIP. Ting uses its original monogram. [Icon correction verification](verification-catalog-icons-2026-11-18.json) · [Silicon Apps](https://apps.teamofsilicons.com) · [Silicon Developer](https://developers.teamofsilicons.com)
 
 ## Production components
 
