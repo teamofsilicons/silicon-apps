@@ -86,6 +86,8 @@ def publish(root, folder, expected):
             app['releases'].append({'id':uid(app_id+'/'+channel+'/'+version),'app_id':app_id,'channel':channel,'version':version,'package_ids':ids,'notes':f'{NAMES[app_id]} {version}. Native packages verified on all nine supported targets.','created_at':now,'promoted_from':uid(app_id+'/development/'+version) if channel=='production' else None})
             changed=True
         if changed:
+            if app_id == 'silicon-apps' and not app.get('interface_api_documentation_url'):
+                app['interface_api_documentation_url'] = 'https://apps.teamofsilicons.com/openapi.json'
             app['published']=True;app['setup_step']=7;app['updated_at']=now
             app['history'].append({'id':uid(app_id+'/publication/'+version),'at':now,'actor_uuid':'system','kind':'app.first_party_published','data':{'version':version,'source_commit':metadata['source_commit'],'workflow':metadata['workflow'],'release_manifest_sha256':expected,'targets':sorted(TARGETS)},'idempotency_key':None})
         catalog['apps'][app_id]=app
