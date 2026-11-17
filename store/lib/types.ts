@@ -55,6 +55,8 @@ export type App = {
   app_id: string;
   name: string;
   description: string;
+  /** One plain line (at most 60 characters) written for store cards. Empty or absent for apps published before taglines existed. */
+  tagline?: string;
   logo: string;
   logo_alt?: string;
   banner: string;

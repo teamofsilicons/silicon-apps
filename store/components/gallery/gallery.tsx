@@ -1,63 +1,33 @@
 /**
- * The All Apps gallery (Anil, 2026-11-14): every app the visitor can see as a picture card, for browsing rather than
- * scanning a list. A card is a cover (the app's own picture where it has one, else its banner or first picture, else
- * its icon large on one of the account site's soft pictures, chosen by its id so it stays the same), the app's icon
- * rising into the cover's lower-left corner, its name, its first sentence, and its rating and systems. The whole card
- * is a link to the app. Server-rendered.
+ * The apps as a grid (Anil, 2026-11-17), on All Apps and a category's grid view. Built for finding an app, not for
+ * browsing pictures: columns (as many as fit at 20rem or more, three on a wide page) of open rows with no box and no cover, each the app's icon, its name, its tagline (the authors' line for cards, at most 60 characters; else the first sentence
+ * of its description, whole, wrapping as it needs), between hairlines. The whole row is a link to the app.
+ * Ratings are left off for now (Anil, 2026-11-17: most apps have none yet), and so are the systems' marks (Anil,
+ * 2026-11-17; components/home/os-icons.tsx, still used by the list view). Server-rendered.
  */
 import { AppMark } from "@/components/home/app-mark";
-import { limitWords, withoutName } from "@/components/home/feature";
-import { OsIcons } from "@/components/home/os-icons";
+import { withoutName } from "@/components/home/feature";
 import { withAppIcon } from "@/lib/app-icons";
-import { APP_PICTURES } from "@/lib/app-pictures";
-import { formatRating, safeImage } from "@/lib/format";
 import { appPath } from "@/lib/seo";
 import type { App } from "@/lib/types";
 import styles from "./gallery.module.css";
 
-const GROUNDS = ["/banner/bg-110.webp", "/banner/bg-102.webp", "/banner/bg-127.webp", "/banner/bg-139.webp"];
-
-/** The same ground for an app every time: its id, hashed. */
-function groundOf(appId: string): string {
-  let hash = 0;
-  for (const char of appId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return GROUNDS[hash % GROUNDS.length];
-}
-
-/** The app's own picture, else its banner, else its first picture; none when it has nothing of its own. */
-function pictureOf(app: App): { src: string; focus?: string } | null {
-  const own = APP_PICTURES[app.app_id];
-  if (own) return own;
-  const banner = safeImage(app.banner);
-  if (banner) return { src: banner };
-  const first = (app.carousel ?? []).find(item => item.kind !== "video" && safeImage(item.url));
-  return first ? { src: safeImage(first.url)! } : null;
+/** The description's first sentence, whole (Anil, 2026-11-17: never cut mid-sentence), without the app's name at its
+ * start where that reads well. Publishing asks for 200 to 600 characters in all; the first sentences run 37 to 191. */
+function firstSentence(app: App): string {
+  const text = app.description.replace(/\s+/g, " ").trim();
+  const [first] = text.split(/(?<=[.!?])\s/);
+  return first ? withoutName(app.name, first) : "";
 }
 
 function Card({ app }: { app: App }) {
-  const marked = withAppIcon(app);
-  const picture = pictureOf(app);
   return (
     <li className={styles.card}>
       <a href={appPath(app.app_id)} className={styles.link}>
-        <span className={styles.cover} data-sq="clip" aria-hidden="true">
-          {picture ? (
-            // eslint-disable-next-line @next/next/no-img-element -- the app's own picture, shown as it is.
-            <img src={picture.src} alt="" style={{ objectPosition: picture.focus ?? "center" }} loading="lazy" decoding="async" />
-          ) : (
-            <span className={styles.ground} style={{ backgroundImage: `url("${groundOf(app.app_id)}")` }}>
-              <span className={styles.bigIcon}><AppMark app={marked} size={64} /></span>
-            </span>
-          )}
-        </span>
-        <span className={styles.icon} aria-hidden="true"><AppMark app={marked} size={40} /></span>
+        <AppMark app={withAppIcon(app)} size={44} />
         <span className={styles.words}>
           <span className={styles.name}>{app.name}</span>
-          <span className={styles.line}>{app.description ? limitWords(withoutName(app.name, app.description), 12) : "No description yet."}</span>
-          <span className={styles.meta}>
-            {app.rating !== null ? <span aria-label={`${formatRating(app.rating)} out of 5 stars`}>{formatRating(app.rating)} <span className={styles.star} aria-hidden="true">★</span></span> : <span>No ratings yet</span>}
-            <OsIcons targets={app.targets} />
-          </span>
+          <span className={styles.line}>{app.tagline?.trim() || firstSentence(app) || "No description yet."}</span>
         </span>
       </a>
     </li>

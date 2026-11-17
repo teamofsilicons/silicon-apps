@@ -25,7 +25,20 @@
 @media (max-width: 899px) { .brandText { display: none; } }
 
 /* Below the top bar: the section list and the page, inset 8px, with 8px between them. */
-.body { --sidebar-width: 248px; position: relative; display: grid; min-width: 0; flex: 1; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); gap: var(--space-related); padding: var(--space-related); }
+.body { --sidebar-width: 248px; position: relative; display: grid; min-width: 0; flex: 1; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); gap: var(--space-related); padding: var(--space-related); transition: grid-template-columns var(--duration-standard) var(--ease-standard); }
+
+/* The sidebar's width in steps (sidebar-resize.tsx, the account site's): a 17px grab area over the page box's left edge.
+   On hover, focus or drag a grip forms at mid-height, as on Silicon UI's ResizablePanels; the box's own edge stays as
+   it is. Under 900px there is no sidebar beside the page, so no handle. */
+.resize { position: absolute; z-index: 2; top: calc(var(--space-related) * 2); bottom: calc(var(--space-related) * 2); left: calc(var(--space-related) + var(--sidebar-width)); width: calc(var(--space-related) * 2 + 1px); cursor: col-resize; touch-action: none; outline: none; }
+.resizeGrip { position: absolute; top: 50%; right: 0; left: 0; display: block; width: 4px; height: 32px; margin: calc(var(--space-inset) * -1) auto 0; border-radius: var(--radius-full); background: var(--border-strong); opacity: 0; pointer-events: none; transform: scaleY(.6); transition: opacity var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard), transform var(--duration-standard) var(--ease-standard); }
+@media (hover: hover) and (pointer: fine) {
+  .resize:hover .resizeGrip { opacity: 1; transform: none; }
+}
+.resize:focus-visible .resizeGrip, .resize[data-active] .resizeGrip { opacity: 1; transform: none; }
+.resize[data-active] .resizeGrip { background: var(--foreground); }
+:global(body):has(.resize[data-active]) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+@media (max-width: 899px) { .resize { display: none; } }
 .aside { position: sticky; top: calc(var(--top-height) + var(--space-related)); height: calc(100dvh - var(--top-height) - (var(--space-related) * 2)); overflow-y: auto; }
 @media (max-width: 899px) {
   .body { display: flex; flex-direction: column; gap: 0; padding: 0; }
@@ -72,6 +85,6 @@
 @media (min-width: 900px) { .menu { display: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .brand { transition: none; }
+  .brand, .body, .resizeGrip { transition: none; }
   .menu:popover-open { animation: none; }
 }

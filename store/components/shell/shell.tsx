@@ -8,6 +8,8 @@
  * section list (Silicon UI's NavList: Home and All Apps, then the categories under a small label), then at its foot the profile, full width (the signed-in account, which opens
  * Settings, or Sign In), over a hairline and the other sites as small grey chips. Below 900px the same sidebar opens from a menu button in the top bar, as
  * a native popover sheet where the account site uses Silicon UI's BottomSheet, so it works without script.
+ * From 900px the sidebar's width can be changed in three steps by dragging the page box's left edge (the account
+ * site's handle, sidebar-resize.tsx, Anil 2026-11-17); it needs script, so without it the sidebar stays at 248px.
  * Server-rendered; links are plain links, so every page is a full HTML document.
  */
 import type { ReactNode } from "react";
@@ -25,6 +27,7 @@ import { LINKS } from "@/lib/site";
 import type { Account } from "@/lib/types";
 import { StoreLinks } from "./links";
 import { SearchInput } from "./search-field";
+import { ShellBody } from "./sidebar-resize";
 import styles from "./shell.module.css";
 import sidebar from "./sidebar.module.css";
 
@@ -105,12 +108,12 @@ export function Shell({ path, account, children }: { path: string; account: Acco
             </Button>
           </span>
         </header>
-        <div className={styles.body}>
-          <aside className={styles.aside} aria-label="Sidebar"><Sidebar path={path} account={account} id="side" brand /></aside>
+        {/* The sidebar's width in steps, with a handle on the page box's edge (sidebar-resize.tsx, the account site's). */}
+        <ShellBody controls="store-sidebar" aside={<aside id="store-sidebar" className={styles.aside} aria-label="Sidebar"><Sidebar path={path} account={account} id="side" brand /></aside>}>
           <main id="main" data-sq-native="" className={styles.main} tabIndex={-1}>
             {children}
           </main>
-        </div>
+        </ShellBody>
         <div id="site-menu" popover="auto" className={styles.menu} data-sq="surface" role="dialog" aria-label="Menu">
           <div className={styles.menuHead}>
             <span className={styles.menuTitle}>Menu</span>
