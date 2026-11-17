@@ -1,6 +1,6 @@
 # Organization publishing, contacts and interface access
 
-This change spans Silicon Apps, Accounts, Organizations, Interfaces, Cells, Contacts and the developer portal. It is a source change; deploying only the portal is insufficient.
+Organization publishing is live across Silicon Apps, Accounts, Organizations, Interfaces, Cells, Contacts and the developer portal. [Production release and verification](../deploy/verification-organization-publishing-2026-11-18.md)
 
 ## Ownership and permissions
 
@@ -40,9 +40,9 @@ The CLI exposes `delete`, `restore`, `list --mine --deleted`, `organizations`, `
 
 ## Integrating an interface
 
-Use `/openapi.json`, `/v1/capabilities` and `/.well-known/agent-card.json` to discover the Apps API. An interface obtains an Accounts access token for `silicon-apps`, sends `Authorization: Bearer TOKEN`, and calls the same HTTP operations as the store/CLI. An interface secret or a token for another app is not an Apps access token. Live Accounts verification and resource permissions still apply. The developer token exception is restricted to the portal's publishing routes. User-storage proofs remain a separate scoped API.
+Use `/openapi.json`, `/v1/capabilities` and `/.well-known/agent-card.json` to discover the Apps API. Add `silicon-apps-catalog` to an interface's app IDs. Send the Accounts token from `apps["silicon-apps-catalog"].access_token` as `Authorization: Bearer TOKEN`. The service verifies the signature, audience and live sign-in, then applies the account's current sharing rules to published apps. The `interface_catalog` capability lists the supported reads.
 
-An interface can search/list apps, read a listing and its interface API documentation/use cases/license, resolve/download releases, read/write authorized storage, publish/manage resources with the caller's grants, delete/restore apps and consume authorized events. Include the target `app_id` for organization webhook subscriptions; current authority is rechecked before delivery. SSE feeds use the live caller's visibility. Keep reusable operation keys across uncertain retries; a key does not preserve revoked authority.
+Interfaces can search the catalog, display a listing and its API documentation, use cases, license, reviews and media, and resolve or download signed releases. Guarded app storage uses separate account and app proofs. Publishing, recovery, event streams and webhooks use the first-party Apps or Developer permissions documented in OpenAPI. Organization webhooks recheck authority for the target app before delivery.
 
 New publication requires a one-line tagline (maximum 60 characters) and an HTTPS interface API documentation URL. Existing publications are grandfathered. Listing metadata describes the app's actual API; it does not generate arbitrary endpoints for third-party apps.
 

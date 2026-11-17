@@ -502,6 +502,7 @@
     },
     "/v1/targets": {
       "get": {
+        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "getTargets",
         "summary": "Get target populations",
         "description": "Supported targets, how many signed-in accounts were seen on each, and whether an upload worker is configured. `targets` selects targets for `total_reach`.",
@@ -564,6 +565,7 @@
     },
     "/v1/apps": {
       "get": {
+        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "searchApps",
         "summary": "Search and list apps",
         "description": "Published apps you can see, best match first. Exact ID and name matches rank ahead of prefixes, substrings and typo matches; rating only breaks ties. `mine=true` lists apps you author, drafts included.",
@@ -948,6 +950,7 @@
     },
     "/v1/apps/{app_id}": {
       "get": {
+        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "getApp",
         "summary": "Get an app",
         "description": "An app's page. Drafts are visible only to authors; private apps only to accounts they are shared with.",
@@ -2863,6 +2866,7 @@
     },
     "/v1/apps/{app_id}/packages/{package_id}/download": {
       "get": {
+        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "downloadPackage",
         "summary": "Download a package",
         "description": "The package bytes. Visibility is checked on every download; check the SHA-256 and the signature from `resolve` before you run anything. Packages that belong only to withdrawn releases return 410 to everyone but the app's authors.",
@@ -3385,6 +3389,7 @@
     },
     "/v1/apps/{app_id}/resolve": {
       "get": {
+        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "resolveRelease",
         "summary": "Resolve a release for a target",
         "description": "The release and package to install, with the API's signature over its manifest. Defaults to the latest production release that is not withdrawn. An exact version that was withdrawn returns 410 `release_withdrawn` with the reason and the replacement.",
@@ -3597,6 +3602,7 @@
     },
     "/v1/apps/{app_id}/reviews": {
       "get": {
+        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "listReviews",
         "summary": "List reviews",
         "description": "Reviews and the average rating.",
@@ -4238,6 +4244,7 @@
     },
     "/v1/apps/{app_id}/media/{media_id}": {
       "get": {
+        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "getMedia",
         "summary": "Get media",
         "description": "Media bytes. Visibility is checked on every read.",
@@ -7026,7 +7033,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "A Silicon Accounts access token for the silicon-apps audience."
+        "description": "A Silicon Accounts access token for the silicon-apps audience. For interface catalog reads, register silicon-apps-catalog in the interface's app IDs. Send apps[\"silicon-apps-catalog\"].access_token as the bearer. This audience can read published listings shared with the account, reviews, media, targets, resolutions and package downloads. Drafts and publishing require first-party authorization."
       },
       "sessionCookie": {
         "type": "apiKey",

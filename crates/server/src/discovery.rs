@@ -349,6 +349,7 @@ pub async fn capabilities(s: &Shared, q: &BTreeMap<String, String>) -> Result<Va
             "commands":crate::model::COMMANDS
         },
         "organization_publishing":{"context":"/v1/organizations","policy":"/v1/apps/{app_id}/organization-access","permissions":["create","read","edit","publish","manage"],"membership":"live","private_audience":"organization or restricted include/exclude subjects"},
+        "interface_catalog":{"app_id":crate::model::CATALOG_AUDIENCE,"authentication":"Use the Accounts access token returned for this app in an interface sign-in.","operations":["GET /v1/targets","GET /v1/apps","GET /v1/apps/{app_id}","GET /v1/apps/{app_id}/reviews","GET /v1/apps/{app_id}/resolve","GET /v1/apps/{app_id}/media/{media_id}","GET /v1/apps/{app_id}/packages/{package_id}/download"],"visibility":"Published listings in the account's audience"},
         "people":{"route":"/v1/people","ranking":"2 * sent + received, latest invitation, Contacts trust"},
         "lifecycle":{"delete":"DELETE /v1/apps/{app_id}","restore":"POST /v1/apps/{app_id}/restore","restore_days":30,"ids_reused":false},
         "search":{"route":"/v1/apps","parameters":["q","target","visibility","mine","organization_id","shared_with_me","shared_by","deleted","sort","limit","offset"],"sort":crate::store::SORTS,"max_limit":100},

@@ -1,6 +1,6 @@
 # Developer platform integration — local verification
 
-Implemented on 2026-11-17 across Silicon Apps, Accounts, Organizations, Interfaces, Cells and Contacts. These changes are local source changes; they have not been committed, deployed or used to change production accounts or organizations. Existing uncommitted work was preserved.
+This record covers predeployment verification on 17 November 2026 across Silicon Apps, Accounts, Organizations, Interfaces, Cells and Contacts. The subsequent production release is recorded in the [deployment and acceptance report](../../deploy/verification-organization-publishing-2026-11-18.md).
 
 ## Delivered behavior
 

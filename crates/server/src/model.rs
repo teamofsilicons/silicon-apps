@@ -3,6 +3,8 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 pub const APP_ID: &str = "silicon-apps";
+/// Read-only Accounts audience for catalog use through a Silicon Interface.
+pub const CATALOG_AUDIENCE: &str = "silicon-apps-catalog";
 
 pub use silicon_apps_package::{REQUIRED_RELEASE_TARGETS, TARGETS, missing_required_targets};
 /// A required target left out of a release needs a public reason of this many characters.
@@ -238,6 +240,9 @@ impl App {
         who: Option<&Identity>,
         permission: silicon_publishing_policy::Permission,
     ) -> bool {
+        if who.is_some_and(|identity| identity.app_audience == CATALOG_AUDIENCE) {
+            return false;
+        }
         match &self.organization_id {
             Some(org) => who.is_some_and(|i| {
                 i.publishing.allows(
@@ -467,7 +472,10 @@ pub fn valid_app_id(s: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
 }
 pub fn reserved_app_id(s: &str) -> bool {
-    matches!(s, "accounts" | "silicon-accounts" | "developer" | "apps")
+    matches!(
+        s,
+        "accounts" | "silicon-accounts" | "developer" | "apps" | CATALOG_AUDIENCE
+    )
 }
 pub fn version_tuple(s: &str) -> Option<(u64, u64, u64)> {
     let p: Vec<_> = s.split('.').collect();

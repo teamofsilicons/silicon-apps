@@ -52,6 +52,29 @@ fn create(s: &mut Store, w: &Identity, id: &str) -> Value {
     .unwrap()
     .0
 }
+
+#[test]
+fn catalog_signin_observes_sharing_without_inheriting_the_users_author_permissions() {
+    let mut store = Store::memory().unwrap();
+    let owner = who("alice");
+    create(&mut store, &owner, "catalog-test");
+    let mut app = store.app("catalog-test").unwrap();
+    let mut catalog_user = owner.clone();
+    catalog_user.app_audience = silicon_apps_server::model::CATALOG_AUDIENCE.into();
+    assert!(app.visible(Some(&owner)));
+    assert!(!app.visible(Some(&catalog_user)));
+    app.published = true;
+    app.visibility = "private".into();
+    assert!(!app.visible(Some(&catalog_user)));
+    app.access_uuids.push(owner.uuid.clone());
+    assert!(app.visible(Some(&catalog_user)));
+    assert!(!app.is_admin(Some(&catalog_user)));
+    let view = app.view(Some(&catalog_user));
+    assert!(view.get("account_ids").is_none());
+    assert!(view.get("organization_access").is_none());
+    app.deleted_at = Some("2026-11-18T00:00:00Z".into());
+    assert!(!app.visible(Some(&catalog_user)));
+}
 fn package(s: &mut Store, w: &Identity, id: &str, target: &str) -> Value {
     let pkg = Package {
         id: format!("pkg-{target}"),

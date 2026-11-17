@@ -2,7 +2,7 @@ use crate::{
     Shared,
     error::{ApiError, Result},
     integrations::accounts_error,
-    model::{APP_ID, Identity},
+    model::{APP_ID, CATALOG_AUDIENCE, Identity},
 };
 use axum::{
     Json,
@@ -166,7 +166,7 @@ pub async fn bearer(s: &Shared, headers: &HeaderMap) -> Result<Option<String>> {
 }
 
 pub async fn identity(s: &Shared, token: Option<&str>) -> Result<Option<Identity>> {
-    verified_identity(s, token, false).await
+    verified_identity(s, token, false, false).await
 }
 
 /// Revalidate a long-lived stream without starting a rotating token refresh
@@ -201,7 +201,59 @@ pub async fn authoring_identity(
     method: &Method,
     path: &str,
 ) -> Result<Option<Identity>> {
-    verified_identity(s, token, developer_route(method, path)).await
+    verified_identity(
+        s,
+        token,
+        developer_route(method, path),
+        catalog_route(method, path),
+    )
+    .await
+}
+
+fn catalog_route(method: &Method, path: &str) -> bool {
+    let segments: Vec<_> = path.split('/').collect();
+    method == Method::GET
+        && matches!(
+            segments.as_slice(),
+            ["apps" | "targets"]
+                | ["apps", _]
+                | ["apps", _, "reviews" | "resolve"]
+                | ["apps", _, "media", _]
+                | ["apps", _, "packages", _, "download"]
+        )
+}
+
+#[cfg(test)]
+mod catalog_route_tests {
+    use super::*;
+
+    #[test]
+    fn catalog_tokens_are_limited_to_consumer_reads() {
+        for path in [
+            "apps",
+            "apps/sample",
+            "apps/sample/reviews",
+            "apps/sample/resolve",
+            "apps/sample/media/image",
+            "apps/sample/packages/pkg/download",
+        ] {
+            assert!(catalog_route(&Method::GET, path));
+            assert!(!catalog_route(&Method::DELETE, path));
+            assert!(!catalog_route(&Method::PATCH, path));
+        }
+        for path in [
+            "people",
+            "organizations",
+            "apps/sample/organization-access",
+            "apps/sample/authors",
+            "keys",
+            "events",
+            "apps/sample/webhook",
+            "apps/sample/storage-schema",
+        ] {
+            assert!(!catalog_route(&Method::GET, path));
+        }
+    }
 }
 
 fn developer_route(method: &Method, path: &str) -> bool {
@@ -257,6 +309,7 @@ async fn verified_identity(
     s: &Shared,
     token: Option<&str>,
     allow_developer: bool,
+    allow_catalog: bool,
 ) -> Result<Option<Identity>> {
     let Some(token) = token else { return Ok(None) };
     if s.config.dev_auth && token.starts_with("dev:") {
@@ -287,6 +340,9 @@ async fn verified_identity(
     if allow_developer {
         options.audiences.push("developer".into());
     }
+    if allow_catalog {
+        options.audiences.push(CATALOG_AUDIENCE.into());
+    }
     let claims = verify_access_token(&jwks, token, &options).map_err(|e| {
         ApiError::new(
             axum::http::StatusCode::UNAUTHORIZED,
@@ -300,7 +356,10 @@ async fn verified_identity(
     }
     // First-party reuse is deliberately one exact audience, not a general
     // multi-audience fallback. Existing Apps token validation stays unchanged.
-    if !claims.aud.iter().any(|aud| aud == APP_ID) && claims.aud != ["developer"] {
+    let catalog = claims.aud == [CATALOG_AUDIENCE];
+    if (claims.aud.iter().any(|aud| aud == CATALOG_AUDIENCE) && !(catalog && allow_catalog))
+        || (!catalog && !claims.aud.iter().any(|aud| aud == APP_ID) && claims.aud != ["developer"])
+    {
         return Err(ApiError::auth());
     }
     let secret = s.config.accounts_app_secret.as_deref().unwrap_or("");
@@ -341,36 +400,28 @@ async fn verified_identity(
             }
         })
     };
-    let (publishing, publishing_error) = match &s.config.organizations_url {
-        Some(base) => match silicon_publishing_policy::fetch(
-            base,
-            if claims.aud == ["developer"] {
-                "developer"
-            } else {
-                APP_ID
-            },
-            token,
-            &user.uuid,
-        )
-        .await
-        {
-            Ok(context) => (context, None),
-            Err(message) => (Default::default(), Some(message)),
-        },
-        None => (
-            Default::default(),
-            Some("Organization publishing is not configured.".into()),
-        ),
+    let audience = if catalog {
+        CATALOG_AUDIENCE
+    } else if claims.aud == ["developer"] {
+        "developer"
+    } else {
+        APP_ID
+    };
+    let context = match &s.config.organizations_url {
+        Some(base) if catalog => {
+            silicon_publishing_policy::fetch_service(base, APP_ID, secret, &user.uuid).await
+        }
+        Some(base) => silicon_publishing_policy::fetch(base, audience, token, &user.uuid).await,
+        None => Err("Organization publishing is not configured.".to_owned()),
+    };
+    let (publishing, publishing_error) = match context {
+        Ok(context) => (context, None),
+        Err(message) => (Default::default(), Some(message)),
     };
     Ok(Some(Identity {
         publishing,
         publishing_error,
-        app_audience: if claims.aud == ["developer"] {
-            "developer"
-        } else {
-            APP_ID
-        }
-        .into(),
+        app_audience: audience.into(),
         uuid: user.uuid,
         id: user.id,
         display_name: user.display_name,

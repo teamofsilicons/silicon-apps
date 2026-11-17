@@ -284,7 +284,7 @@ async fn dispatch(
     }
     let token = auth::bearer(&s, &headers).await?;
     let mut who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;
-    if let Some(who) = &who {
+    if let Some(who) = &who && who.app_audience != model::CATALOG_AUDIENCE {
         integrations::refresh_identity(&s, who)?;
     }
     if path == "session" && method == Method::GET {
