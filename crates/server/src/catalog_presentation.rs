@@ -19,6 +19,7 @@ struct Listing {
 struct Logo {
     url: String,
     previous_sha256: String,
+    previous_rollout_url: Option<String>,
 }
 
 pub fn apply(store: &mut Store) -> Result<Value> {
@@ -29,12 +30,15 @@ pub fn apply(store: &mut Store) -> Result<Value> {
         .connection
         .transaction_with_behavior(TransactionBehavior::Immediate)?;
     tx.execute_batch("CREATE TABLE IF NOT EXISTS catalog_presentation_updates (revision TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")?;
-    let revision = "2026-11-taglines-and-logos";
-    if tx.query_row(
-        "SELECT EXISTS(SELECT 1 FROM catalog_presentation_updates WHERE revision=?1)",
-        [revision],
-        |r| r.get::<_, bool>(0),
-    )? {
+    let original = "2026-11-taglines-and-logos";
+    let revision = "2026-11-18-maskable-icons";
+    let (original_applied, corrected) = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM catalog_presentation_updates WHERE revision=?1),
+                EXISTS(SELECT 1 FROM catalog_presentation_updates WHERE revision=?2)",
+        [original, revision],
+        |row| Ok((row.get::<_, bool>(0)?, row.get::<_, bool>(1)?)),
+    )?;
+    if corrected {
         return Ok(json!({"already_applied":true}));
     }
     let raw: String = tx.query_row("SELECT document FROM catalog WHERE id=1", [], |r| r.get(0))?;
@@ -44,18 +48,22 @@ pub fn apply(store: &mut Store) -> Result<Value> {
     let mut taglines = 0;
     let mut logos = 0;
     for (id, entry) in entries {
+        // The correction only touches the six affected logos on an upgraded catalog.
+        if original_applied && entry.logo.is_none() {
+            continue;
+        }
         let app = catalog
             .apps
             .get_mut(&id)
             .filter(|a| a.published && a.deleted_at.is_none())
             .ok_or_else(|| ApiError::conflict(format!("Expected published listing {id}.")))?;
-        if !app.tagline.is_empty() && app.tagline != entry.tagline {
+        if !original_applied && !app.tagline.is_empty() && app.tagline != entry.tagline {
             return Err(ApiError::conflict(format!(
                 "The tagline for {id} changed since preflight."
             )));
         }
         let mut changed = Vec::new();
-        if app.tagline != entry.tagline {
+        if !original_applied && app.tagline != entry.tagline {
             app.tagline = entry.tagline;
             changed.push("tagline");
             taglines += 1;
@@ -63,7 +71,16 @@ pub fn apply(store: &mut Store) -> Result<Value> {
         if let Some(logo) = entry.logo
             && app.logo != logo.url
         {
-            if hash(app.logo.as_bytes()) != logo.previous_sha256 {
+            let expected = if original_applied {
+                logo.previous_rollout_url.as_deref()
+            } else {
+                None
+            };
+            let matches_previous = match expected {
+                Some(url) => app.logo == url,
+                None => hash(app.logo.as_bytes()) == logo.previous_sha256,
+            };
+            if !matches_previous {
                 return Err(ApiError::conflict(format!(
                     "The logo for {id} changed since preflight."
                 )));
@@ -86,8 +103,8 @@ pub fn apply(store: &mut Store) -> Result<Value> {
     }
     Store::save_catalog(&tx, &catalog, &marks)?;
     tx.execute(
-        "INSERT INTO catalog_presentation_updates(revision,applied_at) VALUES(?1,?2)",
-        params![revision, now()],
+        "INSERT OR IGNORE INTO catalog_presentation_updates(revision,applied_at) VALUES(?1,?3),(?2,?3)",
+        params![original, revision, now()],
     )?;
     tx.commit()?;
     Ok(json!({"taglines":taglines,"logos":logos,"revision":revision}))
