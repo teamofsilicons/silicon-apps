@@ -23,3 +23,9 @@ The release operator verified the running executable and readiness on each host.
 - The production verification identity had no organization memberships. Cross-organization acceptance, work-account defaults and privileged deletion and restoration were exercised with isolated accounts and resources.
 
 [Developer portal](https://developers.teamofsilicons.com) · [Organization publishing guide](../docs/organization-publishing.md)
+
+## Authors form follow-up
+
+The Apps API at `ddd50442e49957538caf5fc6d35c69f8ca0adcc4` and Developer at `9cce3f446bf98160d2ffb6329b640312dc45f52e` are live. Personal app co-authors can invite an organization using the same permission as a person. Organization-owned apps require Manage. The Authors form places the Person and Organization options together and displays people suggestions in an anchored dropdown.
+
+On the deployed Silicon Stream Authors page, Chromium showed zero vertical movement of the send button at 1440 px and 390 px. The browser check supplied a direct co-author fixture, used the live frontend and intercepted submission. Separately, the authenticated production API reached destination validation for a direct co-author without admin permissions. A deliberately invalid organization ID returned HTTP 400 before invitation creation. The local Apps workspace suite, 103 portal unit tests and 124 browser tests passed.
