@@ -1,6 +1,6 @@
 # Organization publishing, contacts and interface access
 
-The original organization publishing release is recorded in the [production verification](../deploy/verification-organization-publishing-2026-11-18.md).
+The original organization publishing release is recorded in the [production verification](../deploy/verification-organization-publishing-2026-11-18.md). The subsequent release added organization author invitations and resource settings. [Release verification](../deploy/verification-developer-organization-authors-2026-11-18.md)
 
 ## Ownership and permissions
 
