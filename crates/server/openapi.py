@@ -360,7 +360,17 @@ op("DELETE","/v1/keys/{key_id}","revokeAuthorKey","Revoke an author key","Releas
 
 # Other
 op("POST","/v1/platforms","registerPlatform","Record your platform","Accounts","Records the signed-in account's target for target populations.",{"200":ok(obj({"registered":B,"target":S},["registered","target"]))},security=AUTH,body=json_body(obj({"target":{"type":"string","enum":TARGETS}},["target"])),errors=MUT_ERR,mutation=True)
-op("POST","/v1/reports","reportBug","Report a bug","Accounts","Mails a bug report to the maintainers, with an optional pull request link.",{"200":ok(obj({"id":S,"status":{"type":"string","const":"queued"}},["id","status"]))},body=json_body(obj({"message":{"type":"string","minLength":1,"maxLength":20000},"pr":S},["message"])),errors=("BadRequest","Unauthorized","Conflict","RateLimited","Unavailable"),mutation=True)
+SCREENSHOT_TYPES = ["image/png","image/jpeg","image/webp"]
+SCREENSHOT = obj({
+    "name":{"type":"string","description":"File name. Surrounding whitespace and control characters are removed and it is cut to 120 characters; an empty name becomes `screenshot`."},
+    "content_type":{"type":"string","enum":SCREENSHOT_TYPES,"description":"The image type. The decoded bytes must start with that format's signature."},
+    "data":{"type":"string","contentEncoding":"base64","description":"The image as standard base64 with padding, at most 5 MiB (5,242,880 bytes) once decoded."},
+},["name","content_type","data"],extra=False,desc="An optional screenshot. The report mail links to it at GET /v1/reports/{report_id}/screenshot with a random key only the recipients receive; mail is plain text, so it is not attached.")
+op("POST","/v1/reports","reportBug","Report a bug","Accounts","Mails a bug report to the maintainers, with an optional pull request link and screenshot. Unknown fields are refused with 400. The request body may be up to 8 MiB.",{"200":ok(obj({"id":S,"status":{"type":"string","const":"queued"}},["id","status"]))},body=json_body(obj({"message":{"type":"string","minLength":1,"maxLength":20000},"pr":S,"screenshot":SCREENSHOT},["message"],extra=False)),errors=("BadRequest","Unauthorized","Conflict","RateLimited","Unavailable"),mutation=True)
+op("GET","/v1/reports/{report_id}/screenshot","getReportScreenshot","Get a report's screenshot","Accounts","The screenshot sent with a bug report, for the maintainers who received the report mail. The `key` from the mailed link is the only credential; a missing report, missing screenshot or wrong key is 404.",{"200":{"description":"The screenshot.","content":{m:{"schema":{"type":"string","format":"binary"}} for m in SCREENSHOT_TYPES}}},security=PUBLIC,
+   parameters_=[{"name":"report_id","in":"path","required":True,"description":"The report ID returned by POST /v1/reports.","schema":{"type":"string"}},
+                {"name":"key","in":"query","required":True,"description":"The secret key from the mailed link.","schema":{"type":"string"}}],
+   errors=("NotFound","RateLimited"))
 
 # Auth
 redirect = {"303":{"description":"Redirect.","headers":{"Location":{"description":"Where to go next.","schema":{"type":"string"}}}}}

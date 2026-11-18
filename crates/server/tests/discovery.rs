@@ -142,6 +142,18 @@ async fn seeded() -> (tempfile::TempDir, axum::Router, Value) {
     )
     .await;
     assert_eq!(status, 201, "{author_key}");
+    // Reports need a mail transport this fixture lacks, so the screenshot a
+    // report would have stored is written directly.
+    state
+        .store
+        .lock()
+        .unwrap()
+        .connection
+        .execute(
+            "INSERT INTO report_screenshots(report_id,key_hash,name,content_type,data,created_at) VALUES('seed-report',?1,'shot.png','image/png',?2,'2026-11-19T00:00:00Z')",
+            rusqlite::params![silicon_apps_server::store::hash(b"seed-key"), b"\x89PNG\r\n\x1a\n".to_vec()],
+        )
+        .unwrap();
     let ids = json!({
         "app_id":"demo-app","target":"linux-x86_64","package_id":package_id,"release_id":release_id,
         "invite_id":pending["id"],"media_id":media["id"],"subscription_id":sub["subscription"]["id"],"uuid":"bob",
@@ -160,6 +172,9 @@ async fn every_documented_operation_is_served() {
         }
         if *template == "/v1/authors/{uuid}" {
             path = "/v1/authors/alice".into();
+        }
+        if *template == "/v1/reports/{report_id}/screenshot" {
+            path = "/v1/reports/seed-report/screenshot?key=seed-key".into();
         }
         if *template == "/v1/apps/{app_id}/resolve" {
             path.push_str("?target=linux-x86_64&channel=development");
