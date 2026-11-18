@@ -1,0 +1,39 @@
+/* An app page's header, Editorial (app-header.tsx, Anil, 2026-11-18): the 72px icon on the left with the name (display)
+   and the lede (h2's size, regular) beside it, centred on it, and the actions (up to 34rem, so the button and a one-line command fit side by side) on the right of that row,
+   under the words once it is too narrow; a block's room, a hairline, then the labelled facts across the page (a caption
+   over each value: Developer, Category, Version, Systems as chips, Signed). On the type scale throughout. Under 640px the icon steps down to 56px and the lede to body. */
+.header { display: grid; min-width: 0; gap: var(--space-block); }
+
+.top { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-block) var(--space-inset); }
+.icon { display: flex; flex: none; }
+.words { display: grid; min-width: 0; flex: 1 1 20rem; gap: var(--space-tight); }
+.name { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-related); margin: 0; color: var(--foreground); font: var(--display); letter-spacing: var(--display-tracking); overflow-wrap: anywhere; }
+.line { max-width: 52ch; margin: 0; color: var(--text-soft); font: var(--h2); font-weight: var(--weight-regular); letter-spacing: var(--h2-tracking); text-wrap: pretty; }
+
+.facts { min-width: 0; padding-top: var(--space-block); border-top: 1px solid var(--border); }
+.list { display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-group) var(--space-page); margin: 0; }
+.list > div { display: grid; min-width: 0; align-content: start; gap: var(--space-related); }
+.list dt { color: var(--text-muted); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
+.list dd { display: flex; min-width: 0; min-height: 1.75rem; align-items: center; margin: 0; color: var(--foreground); font: var(--small); letter-spacing: var(--small-tracking); }
+.version { font-family: var(--font-mono); }
+/* Stacked (a sidebar): one fact under another. */
+.list[data-stacked] { display: grid; gap: var(--space-group); }
+.quiet { color: var(--text-muted); }
+/* Systems: each a chip, as the developer and category chips (a pill on the quiet ground), its mark at the start; not
+   a link, so no hover. */
+.chips { display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-tight); margin: 0; padding: 0; list-style: none; }
+.chip { display: inline-flex; align-items: center; gap: var(--space-tight); padding: var(--space-hair) var(--space-related); border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.mark { width: 14px; height: 14px; flex: none; fill: currentColor; }
+.signed { display: inline-flex; align-items: center; gap: var(--space-tight); color: var(--text-secondary); text-decoration: none; }
+.signed[data-signed] { color: var(--foreground); }
+.signed[data-signed] svg { color: var(--success); }
+.signed:hover { text-decoration: underline; text-underline-offset: 3px; }
+.get { display: grid; min-width: 0; flex: 0 1 34rem; gap: var(--space-related); }
+
+@media (max-width: 639px) {
+  .top { column-gap: var(--space-group); }
+  .words { flex-basis: 0; }
+  .get { flex-basis: 100%; }
+  .icon :first-child { width: 56px !important; height: 56px !important; }
+  .line { font: var(--body); letter-spacing: var(--body-tracking); }
+}

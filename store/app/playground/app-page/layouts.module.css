@@ -1,0 +1,25 @@
+/* The page-layout lab's layouts (page.tsx). Only where the page's sections sit changes; each keeps its own styles. */
+
+/* 1 · Sidebar is the page's now: components/app/app-layout.module.css. */
+
+/* 3 · Label column: every section (the header's top row too) on one grid, a 9rem label column and the content, a
+   page's room apart; the section's title in the label column, everything else in the content column; reading widths
+   inside a section stay as they are. Under 768px, as the page is. */
+.labels { --label-column: 9rem; display: grid; }
+.labels > section { display: grid; max-width: none; grid-template-columns: var(--label-column) minmax(0, 1fr); align-items: start; column-gap: var(--space-page); }
+.labels > section > h2 { grid-column: 1; grid-row: 1; }
+.labels > section > :not(h2) { grid-column: 2; }
+.labels > header > div:first-child { display: grid; grid-template-columns: var(--label-column) minmax(0, 1fr) auto; column-gap: var(--space-page); }
+.labels > header > div:first-child > span:first-child { justify-self: start; }
+@media (max-width: 1023px) {
+  .labels > header > div:first-child { grid-template-columns: var(--label-column) minmax(0, 1fr); }
+  .labels > header > div:first-child > :last-child { grid-column: 2; }
+}
+@media (max-width: 767px) {
+  .labels > section { grid-template-columns: minmax(0, 1fr); }
+  .labels > section > h2, .labels > section > :not(h2) { grid-column: 1; grid-row: auto; }
+  .labels > header > div:first-child { display: flex; }
+}
+
+/* 2 · One column: everything at the reading width. */
+.column { max-width: 70ch; }

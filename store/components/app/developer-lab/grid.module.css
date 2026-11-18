@@ -1,0 +1,28 @@
+/* The Developer lab's Grid (designs.tsx GridDesign; the page's design until Profile, 2026-11-18): one grid for the whole
+   section, the store's app grid (components/gallery: as many columns as fit at 20rem, a page's room between them), so
+   the people line up with More by the developer under them. A person is an app row: the 44px picture, an inset's room,
+   the name (body) over the id and the count (small), a block's room above and below and a hairline under. The links are
+   one row of pills between them, as the tags are under About. */
+.section { display: grid; min-width: 0; gap: var(--space-related); margin-top: var(--space-page); }
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.group { display: grid; min-width: 0; gap: var(--space-tight); margin-top: var(--space-block); }
+.subtitle { margin: 0; color: var(--foreground); font: var(--h3); letter-spacing: var(--h3-tracking); }
+
+.people { display: grid; min-width: 0; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); column-gap: var(--space-page); margin: 0; padding: 0; list-style: none; }
+.personRow { min-width: 0; border-bottom: 1px solid var(--border-subtle); }
+.person { display: flex; min-width: 0; align-items: center; gap: var(--space-inset); padding-block: var(--space-block); color: inherit; text-decoration: none; }
+.person:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-hair); border-radius: var(--radius-control); }
+@media (hover: hover) and (pointer: fine) { .person:hover .name { text-decoration: underline; text-underline-offset: 3px; } }
+.face { width: 44px; height: 44px; flex: none; }
+.who { display: grid; min-width: 0; gap: var(--space-tight); }
+.name { overflow: hidden; color: var(--foreground); font: var(--body); letter-spacing: var(--body-tracking); text-overflow: ellipsis; white-space: nowrap; }
+.id { overflow: hidden; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); text-overflow: ellipsis; white-space: nowrap; }
+
+.links { display: flex; flex-wrap: wrap; gap: var(--space-tight); margin: var(--space-related) 0 0; padding: 0; list-style: none; }
+.link { display: inline-flex; align-items: center; gap: var(--space-tight); padding: var(--space-hair) var(--space-related); border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.link:hover { background: var(--surface-pressed); }
+.out { color: var(--text-muted); }
+
+.moreHead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-group); }
+.all { color: var(--accent); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.all:hover { text-decoration: underline; text-underline-offset: 3px; }

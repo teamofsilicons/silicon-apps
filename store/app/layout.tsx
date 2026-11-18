@@ -13,7 +13,7 @@ import { headers } from "next/headers";
 import Script from "next/script";
 import type { ReactNode } from "react";
 import { DevTools } from "@/components/dev/dev-tools";
-import { labFontVariables } from "./fonts";
+import { labFontVariables, siteFontVariable } from "./fonts";
 import { Shell } from "@/components/shell/shell";
 import { JsonLd, organizationLd, websiteLd } from "@/lib/seo";
 import { getAccount } from "@/lib/session";
@@ -54,7 +54,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const [incoming, account, path] = await Promise.all([headers(), getAccount(), currentPath()]);
   const nonce = incoming.get("x-nonce") ?? undefined;
   return (
-    <html lang="en" data-surface="site" className={process.env.NODE_ENV === "development" ? labFontVariables : undefined} suppressHydrationWarning>
+    <html lang="en" data-surface="site" className={process.env.NODE_ENV === "development" ? `${siteFontVariable} ${labFontVariables}` : siteFontVariable} suppressHydrationWarning>
       <body>
         {/* Before anything paints or hydrates, through Next's own Script (beforeInteractive), with the request's nonce:
             an inline <script> in the layout's tree makes React 19 warn in development, since the client re-renders it. */}

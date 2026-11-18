@@ -1,0 +1,42 @@
+/* The Developer lab's other designs (designs.tsx): B Shelf, C Profile, D Byline. Shared: the section's room above, the
+   title (h2), a subtitle (h3) with See all at the end. */
+.section { display: grid; min-width: 0; gap: var(--space-related); margin-top: var(--space-page); }
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.group { display: grid; min-width: 0; align-content: start; gap: var(--space-related); margin-top: var(--space-group); }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-group); }
+.subtitle { margin: 0; color: var(--foreground); font: var(--h3); letter-spacing: var(--h3-tracking); }
+.all { color: var(--accent); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.all:hover { text-decoration: underline; text-underline-offset: 3px; }
+.out { color: var(--text-muted); }
+
+/* B · Shelf */
+.chips, .pills { display: flex; flex-wrap: wrap; gap: var(--space-tight); margin: 0; padding: 0; list-style: none; }
+.personChip { display: inline-flex; align-items: center; gap: var(--space-related); padding: var(--space-tight) var(--space-group) var(--space-tight) var(--space-tight); border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--foreground); text-decoration: none; }
+.personChip:hover, .pill:hover { background: var(--surface-pressed); }
+.chipName { font: var(--label); letter-spacing: var(--label-tracking); }
+.chipId { color: var(--text-muted); font: var(--small); letter-spacing: var(--small-tracking); }
+.pill { display: inline-flex; align-items: center; gap: var(--space-tight); padding: var(--space-hair) var(--space-related); border-radius: var(--radius-pill); color: var(--text-secondary); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.shelf { --tile: 9.5rem; display: grid; grid-auto-columns: var(--tile); grid-auto-flow: column; gap: var(--space-group); margin: 0; padding: 0 0 var(--space-related); overflow-x: auto; list-style: none; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+.shelf > li { scroll-snap-align: start; }
+.tile { display: grid; justify-items: start; gap: var(--space-tight); color: inherit; text-decoration: none; }
+.tile > :first-child { margin-bottom: var(--space-tight); }
+.tileName { color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.tile:hover .tileName { text-decoration: underline; text-underline-offset: 3px; }
+.tileLine { display: -webkit-box; overflow: hidden; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+
+/* D · Byline */
+.byline { max-width: 70ch; margin: 0; color: var(--text-soft); font: var(--body); line-height: var(--leading-read); letter-spacing: var(--body-tracking); }
+.byPerson { display: inline-flex; align-items: center; gap: var(--space-tight); color: var(--foreground); font-weight: var(--weight-medium); text-decoration: none; vertical-align: middle; }
+.byPerson:hover { text-decoration: underline; text-underline-offset: 3px; }
+.words { margin: 0; color: var(--text-muted); font: var(--label); letter-spacing: var(--label-tracking); }
+.words a { color: var(--accent); text-decoration: none; }
+.words a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.dock { display: flex; flex-wrap: wrap; gap: var(--space-group) var(--space-block); margin: 0; padding: 0; list-style: none; }
+.dockItem { display: grid; width: 5.5rem; justify-items: center; gap: var(--space-tight); color: var(--foreground); font: var(--small); letter-spacing: var(--small-tracking); text-align: center; text-decoration: none; }
+.dockItem span { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+.dockItem:hover span { text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 639px) {
+  .dock { gap: var(--space-group) var(--space-related); }
+  .dockItem { width: 4.75rem; }
+}

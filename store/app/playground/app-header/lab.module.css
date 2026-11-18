@@ -1,0 +1,15 @@
+/* /playground/app-header (page.tsx): the designs as tabs and the apps as small links on one row, what the chosen design
+   does, a dashed rule, then the header itself at the page's width. */
+.lab { display: grid; min-width: 0; gap: var(--space-group); }
+.controls { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-related) var(--space-block); }
+.tabs { --sq-r: var(--radius-control); display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-hair); padding: var(--space-hair); border-radius: var(--radius-control); background: var(--surface-muted); }
+.tab { padding: var(--space-tight) var(--space-related); border-radius: var(--radius-control); color: var(--text-secondary); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; white-space: nowrap; }
+.tab:hover { color: var(--foreground); }
+.tab[aria-current] { background: var(--surface); box-shadow: var(--shadow-resting); color: var(--foreground); }
+.apps { display: flex; flex-wrap: wrap; gap: var(--space-tight) var(--space-group); }
+.app { color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); text-decoration: none; }
+.app:hover { color: var(--foreground); }
+.app[aria-current] { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }
+.line { margin: 0; color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); }
+.rule { width: 100%; margin: var(--space-related) 0 var(--space-group); border: 0; border-top: 1px dashed var(--border-strong); }
+.page { display: grid; min-width: 0; gap: var(--space-section); }

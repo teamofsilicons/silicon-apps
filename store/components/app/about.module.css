@@ -1,0 +1,11 @@
+/* An app page's About (about.tsx, Anil, 2026-11-18): a page's room above it (it follows the screenshots, else the header's facts), the title
+   (h2), the description in body at a reading width (70ch) and the reading line height (--leading-read, 1.5, Anil 2026-11-18; body's is 1.4) in --text-soft with a related step between paragraphs, then
+   the tags as small pills on the quiet ground, as the header's chips. */
+.about { display: grid; min-width: 0; gap: var(--space-group); margin-top: var(--space-page); }
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.prose { display: grid; max-width: 70ch; gap: var(--space-related); color: var(--text-soft); font: var(--body); line-height: var(--leading-read); letter-spacing: var(--body-tracking); text-wrap: pretty; }
+.prose p { margin: 0; }
+.quiet { color: var(--text-muted); }
+.tags { display: flex; flex-wrap: wrap; gap: var(--space-tight); margin: 0; padding: 0; list-style: none; }
+.tag { display: inline-flex; padding: var(--space-hair) var(--space-related); border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--text-secondary); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.tag:hover { background: var(--surface-pressed); color: var(--foreground); }

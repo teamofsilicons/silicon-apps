@@ -13,4 +13,4 @@
 .words { display: grid; min-width: 0; gap: var(--space-tight); }
 /* The name at the base size in the primary colour (--foreground), regular (400); the line small in --text-soft (Anil, 2026-11-17). */
 .name { overflow: hidden; color: var(--foreground); font: var(--body); letter-spacing: var(--body-tracking); text-overflow: ellipsis; white-space: nowrap; }
-.line { color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); text-wrap: pretty; }
+.line { color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); text-wrap: pretty; }

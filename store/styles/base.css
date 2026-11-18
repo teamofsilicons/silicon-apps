@@ -28,6 +28,12 @@ body {
   font: var(--body);
   letter-spacing: var(--body-tracking);
 }
+/* Allo's roundness, 0 (sharp) to 100 (round), at 20 (Anil, 2026-11-18); faces without the axis ignore it. Set on every
+   element and marked important, since the `font` shorthand every class's type token uses resets it to normal. It
+   names only ROND, so weight (wght) and optical size (opsz) still follow font-weight and font-size. The dev tools'
+   own text keeps the shipped type (styles/tokens.css). */
+*, *::before, *::after { font-variation-settings: "ROND" 20 !important; }
+[data-type-inspect-exempt], [data-type-inspect-exempt] * { font-variation-settings: normal !important; }
 
 h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd { margin: 0; }
 h1, h2, h3, h4, h5, h6 { font-weight: 500; text-wrap: balance; }

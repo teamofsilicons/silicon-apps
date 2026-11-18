@@ -1,0 +1,26 @@
+/* An app page's Compatibility (compatibility.tsx, Anil, 2026-11-18), at About's reading width (70ch): a page's room
+   above, the title (h2) and a quiet line, then a row per system between hairlines: the mark and name in an 8rem column
+   (dimmed when the app has nothing for it), the processors as chips beside it (a pill on the quiet ground with a green
+   check when built; a faint dashed pill when not), and any reason under them. On a phone the name goes above the chips. */
+.section { display: grid; min-width: 0; max-width: 70ch; gap: var(--space-related); margin-top: var(--space-page); }
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.lede { margin: 0 0 var(--space-related); color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+
+.systems { display: grid; margin: 0; padding: 0; border-top: 1px solid var(--border-subtle); list-style: none; }
+.system { display: grid; grid-template-columns: 8rem minmax(0, 1fr); align-items: center; gap: var(--space-related) var(--space-group); padding-block: var(--space-group); border-bottom: 1px solid var(--border-subtle); }
+.name { display: inline-flex; align-items: center; gap: var(--space-related); margin: 0; color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.name[data-none] { color: var(--text-muted); }
+.mark { width: 16px; height: 16px; flex: none; fill: currentColor; }
+
+.chips { display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-tight); margin: 0; padding: 0; list-style: none; }
+.chip { display: inline-flex; align-items: center; gap: var(--space-tight); padding: var(--space-hair) var(--space-related); border: 1px solid transparent; border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.check { color: var(--success); }
+.chip[data-off] { border-color: var(--border); border-style: dashed; background: transparent; color: var(--text-muted); font-weight: var(--weight-regular); }
+
+.reason { grid-column: 2; margin: 0; color: var(--text-soft); font: var(--small); line-height: var(--leading-read); letter-spacing: var(--small-tracking); }
+.reason strong { color: var(--foreground); font-weight: var(--weight-medium); }
+
+@media (max-width: 639px) {
+  .system { grid-template-columns: minmax(0, 1fr); }
+  .reason { grid-column: 1; }
+}

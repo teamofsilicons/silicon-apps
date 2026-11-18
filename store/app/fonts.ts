@@ -58,5 +58,18 @@ const bdoGrotesk = localFont({
   preload: false,
 });
 
+/** Allo (Josh Puckett, SIL OFL 1.1, assets/fonts/allo with its licence), the site's face on trial (Anil, 2026-11-18):
+ * the variable font, weight 100 to 900, with a roundness axis (ROND) the site sets to 20 (styles/base.css). Loaded on
+ * every page, unlike the lab's faces. */
+const allo = localFont({
+  src: [{ path: "../assets/fonts/allo/AlloVariable.woff2", weight: "100 900", style: "normal" }],
+  variable: "--font-allo",
+  display: "swap",
+  fallback: ["system-ui", "sans-serif"],
+});
+
+/** The class name that puts Allo's variable on <html> (app/layout.tsx), on every page. */
+export const siteFontVariable = allo.variable;
+
 /** The class names that put the lab's face variables on <html> (development only, app/layout.tsx). */
 export const labFontVariables = [hankenGrotesk.variable, geist.variable, inter.variable, workSans.variable, texGyreHeros.variable, liberationSans.variable, cooperHewitt.variable, bdoGrotesk.variable].join(" ");

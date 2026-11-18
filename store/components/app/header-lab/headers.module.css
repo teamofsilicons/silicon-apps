@@ -1,0 +1,24 @@
+/* The header lab's Cover design (headers.tsx). Shared: the meta line ("By" the authors, the category). */
+.meta { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-tight) var(--space-group); margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+.meta[data-center] { justify-content: center; }
+
+/* B · Cover: the picture at 4:1 (2:1 on a phone) in the cards' corner; the 96px icon on a white ring rising half into
+   it; the words beside the icon, below the picture's edge, and the actions on the right of the same row (under the
+   words once the row is too narrow). Without a picture, a soft gradient of the accent. */
+.cover { display: grid; min-width: 0; }
+.coverArt { --sq-r: var(--radius-container); aspect-ratio: 4 / 1; border: 1px solid var(--border-subtle); background-color: var(--surface-muted); background-size: cover; }
+.coverArt[data-fallback] { background-image: radial-gradient(120% 160% at 10% 0%, var(--accent-subtle), transparent 60%), radial-gradient(90% 140% at 100% 100%, color-mix(in oklab, var(--series-2) 18%, var(--surface)), transparent 70%); }
+.coverBody { display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-inset); padding-inline: var(--space-block); }
+.coverIcon { --sq-r: 28%; display: flex; margin-top: calc(var(--space-page) * -1.5); padding: var(--space-tight); border-radius: 28%; background: var(--surface); }
+.coverRow { display: flex; min-width: 0; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-group) var(--space-block); padding-top: var(--space-group); }
+.coverWords { display: grid; min-width: 0; flex: 1 1 20rem; gap: var(--space-tight); }
+.coverName { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-related); margin: 0; color: var(--foreground); font: var(--h1); letter-spacing: var(--h1-tracking); }
+.coverLine { margin: 0; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); }
+.coverGet { display: grid; min-width: 0; flex: 0 1 30rem; gap: var(--space-related); }
+@media (max-width: 639px) {
+  .coverArt { aspect-ratio: 2 / 1; }
+  .coverBody { padding-inline: 0; gap: var(--space-group); }
+  .coverIcon { margin-top: calc(var(--space-page) * -1); margin-left: var(--space-group); }
+  .coverIcon :first-child { width: 64px !important; height: 64px !important; }
+  .coverRow { grid-column: 1 / -1; padding-top: 0; }
+}

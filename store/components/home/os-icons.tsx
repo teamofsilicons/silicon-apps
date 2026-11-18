@@ -15,6 +15,14 @@ const LINUX =
 const MARKS: Record<string, string> = { macOS: APPLE, Linux: LINUX, Windows: WINDOWS };
 const ORDER = ["macOS", "Linux", "Windows"];
 
+/** One system's mark alone (Simple Icons, decorative), for a chip that names the system beside it (the app page's
+ * header, Anil 2026-11-18). Nothing for a system without a mark. */
+export function OsMark({ system, className }: { system: string; className?: string }) {
+  const mark = MARKS[system];
+  if (!mark) return null;
+  return <svg viewBox="0 0 24 24" className={className ?? styles.icon} aria-hidden="true" focusable="false"><path d={mark} /></svg>;
+}
+
 export function OsIcons({ targets }: { targets: string[] }) {
   const systems = ORDER.filter(system => operatingSystems(targets).includes(system));
   if (!systems.length) return null;

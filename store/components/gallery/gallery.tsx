@@ -14,7 +14,7 @@ import styles from "./gallery.module.css";
 
 /** The description's first sentence, whole (Anil, 2026-11-17: never cut mid-sentence), without the app's name at its
  * start where that reads well. Publishing asks for 200 to 600 characters in all; the first sentences run 37 to 191. */
-function firstSentence(app: App): string {
+export function firstSentence(app: App): string {
   const text = app.description.replace(/\s+/g, " ").trim();
   const [first] = text.split(/(?<=[.!?])\s/);
   return first ? withoutName(app.name, first) : "";

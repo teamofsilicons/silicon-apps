@@ -38,7 +38,9 @@ export type WithdrawnRelease = {
   withdrawn_by: string;
 };
 
-export type Media = { url: string; kind: "image" | "video"; alt?: string };
+/** A screenshot or video in an app's carousel. `form` says which frame the store shows it in (Anil, 2026-11-18): a
+ * desktop window (16:10) or a phone (9:19.5). Proposed, not in the API yet; absent means desktop. */
+export type Media = { url: string; kind: "image" | "video"; alt?: string; form?: "desktop" | "mobile" };
 
 export type CustomLink = { label: string; url: string; logo?: string };
 
