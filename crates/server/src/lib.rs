@@ -703,9 +703,6 @@ async fn dispatch(
         let to = str_field(&body, "to")?.trim();
         if let Some(org) = to.strip_prefix("org:") {
             let w = who.as_ref().ok_or_else(ApiError::auth)?;
-            if !s.store.lock().unwrap().app(p[1])?.is_admin(Some(w)) {
-                return Err(ApiError::forbidden());
-            }
             let base = s
                 .config
                 .organizations_url

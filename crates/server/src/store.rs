@@ -1702,7 +1702,6 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                 let to = str_field(b, "to")?.trim();
                 let resolved = m.prepared.identities.first();
                 if let Some(org) = to.strip_prefix("org:") {
-                    admin(app, who)?;
                     if m.prepared.resolved_organization.as_deref() != Some(org) {
                         return Err(ApiError::bad("Choose an existing organization ID."));
                     }

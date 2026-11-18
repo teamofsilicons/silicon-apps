@@ -27,7 +27,7 @@ Private organization apps default to the whole organization. A restricted audien
 
 ### Invite an organization as an author
 
-In Developer, open the app's **Authors** tab. Under **Organization authors**, enter the organization ID and choose **Invite organization**. An account with the recipient organization's Apps Manage permission can accept in **Invitations**. The API takes `{"to":"org:studio"}` on `POST /v1/apps/{app_id}/invites` and uses the regular accept or decline endpoint.
+In Developer, open the app's **Authors** tab. Choose **Organization**, enter its ID and select **Invite organization**. Direct authors of a personal app and managers of an organization-owned app can send invitations. An account with the recipient organization's Apps Manage permission can accept in **Invitations**. The API takes `{"to":"org:studio"}` on `POST /v1/apps/{app_id}/invites` and uses the regular accept or decline endpoint.
 
 Acceptance records the organization ID. Its members contribute using their current Apps Read, Edit and Publish grants. The owning publisher retains management authority, including deletion and author removal. A host manager can remove the organization in **Authors** or with `DELETE /v1/apps/{app_id}/organization-authors/{org_id}`. The publisher of an existing app stays fixed.
 

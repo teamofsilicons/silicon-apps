@@ -384,6 +384,23 @@ fn invitees_have_no_author_rights_until_acceptance_and_only_admin_can_remove() {
         Prepared::default(),
     )
     .unwrap();
+    // A direct co-author of a personal app can invite either kind of author.
+    assert!(!s.app("test-app").unwrap().is_admin(Some(&b)));
+    let (organization_invite, _) = change(
+        &mut s,
+        Some(&b),
+        "POST",
+        "apps/test-app/invites",
+        "invite-studio",
+        json!({"to":"org:studio"}),
+        Prepared {
+            resolved_organization: Some("studio".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(organization_invite["to"], "org:studio");
+
     change(
         &mut s,
         Some(&b),
@@ -1593,6 +1610,23 @@ fn organization_invitation_grants_live_author_access_without_transferring_owners
     assert!(!app.permits(Some(&contributor), Permission::Publish));
     assert!(app.permits(Some(&manager), Permission::Publish));
     assert!(!app.is_admin(Some(&manager)));
+    assert_eq!(
+        change(
+            &mut store,
+            Some(&manager),
+            "POST",
+            path,
+            "guest-cannot-invite",
+            json!({"to":"org:third-studio"}),
+            Prepared {
+                resolved_organization: Some("third-studio".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap_err()
+        .status,
+        403
+    );
     assert!(
         change(
             &mut store,
