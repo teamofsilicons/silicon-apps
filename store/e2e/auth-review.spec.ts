@@ -22,7 +22,7 @@ test("Sign in goes through the Apps API to Silicon Accounts and comes back to th
   expect(authorize.searchParams.get("app_id")).toBe("silicon-apps");
   expect(authorize.searchParams.get("code_challenge_method")).toBe("S256");
   expect(authorize.searchParams.get("redirect_uri")).toMatch(/\/v1\/auth\/callback$/);
-  expect(login.headers()["set-cookie"]).toContain("apps_oauth_state=");
+  expect(login.headers()["set-cookie"]).toMatch(/apps_oauth_state_[A-Za-z0-9_-]+=1;/);
 
   // Only local paths come back: anything else returns to the home page.
   const outside = await request.get(`/sign-in?return_to=${encodeURIComponent("https://example.com/")}`, { maxRedirects: 0 });
