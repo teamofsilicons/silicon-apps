@@ -36,15 +36,22 @@ fn session_cookie(s: &Shared, id: &str, max_age: i64) -> String {
         }
     )
 }
-fn state_cookie(s: &Shared, state: &str, max_age: i64) -> String {
+/// One cookie per sign-in attempt, named for its state, so starting sign-in again (another tab, a second click) never
+/// overwrites an attempt still on its way back from Silicon Accounts. `apps_oauth_state` was the single cookie before;
+/// the callback still accepts it until the last such attempt expires.
+const STATE_COOKIE: &str = "apps_oauth_state";
+fn state_cookie(s: &Shared, name: &str, value: &str, max_age: i64) -> String {
     format!(
-        "apps_oauth_state={state}; Path=/v1/auth; HttpOnly; SameSite=Lax; Max-Age={max_age}{}",
+        "{name}={value}; Path=/v1/auth; HttpOnly; SameSite=Lax; Max-Age={max_age}{}",
         if s.config.public_url.starts_with("https:") {
             "; Secure"
         } else {
             ""
         }
     )
+}
+fn attempt_cookie(state: &str) -> String {
+    format!("{STATE_COOKIE}_{state}")
 }
 pub fn check_csrf(s: &Shared, headers: &HeaderMap) -> Result<()> {
     if cookie(headers, "apps_session").is_none() {
@@ -471,7 +478,10 @@ pub async fn handle_auth(
             .scopes(["profile", "email"]);
         let url = s.accounts.authorize_url(&params);
         return Ok((
-            [("Set-Cookie", state_cookie(s, &state, 600))],
+            [(
+                "Set-Cookie",
+                state_cookie(s, &attempt_cookie(&state), "1", 600),
+            )],
             Redirect::to(url.as_str()),
         )
             .into_response());
@@ -480,7 +490,9 @@ pub async fn handle_auth(
         let state = q
             .get("state")
             .ok_or_else(|| ApiError::bad("The sign-in callback is missing state."))?;
-        if cookie(headers, "apps_oauth_state").as_deref() != Some(state) {
+        let this_browser = cookie(headers, &attempt_cookie(state)).as_deref() == Some("1")
+            || cookie(headers, STATE_COOKIE).as_deref() == Some(state);
+        if !this_browser {
             return Err(ApiError::new(
                 axum::http::StatusCode::FORBIDDEN,
                 "oauth_state_mismatch",
@@ -533,9 +545,11 @@ pub async fn handle_auth(
             "Set-Cookie",
             session_cookie(s, &id, 30 * 24 * 3600).parse().unwrap(),
         );
-        response
-            .headers_mut()
-            .append("Set-Cookie", state_cookie(s, "", 0).parse().unwrap());
+        for name in [attempt_cookie(state), STATE_COOKIE.to_owned()] {
+            response
+                .headers_mut()
+                .append("Set-Cookie", state_cookie(s, &name, "", 0).parse().unwrap());
+        }
         return Ok(response);
     }
     if *method != Method::POST {
