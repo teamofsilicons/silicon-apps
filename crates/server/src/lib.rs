@@ -1,5 +1,5 @@
-pub mod catalog_presentation;
 mod auth;
+pub mod catalog_presentation;
 pub mod config;
 pub mod discovery;
 pub mod error;
@@ -284,7 +284,9 @@ async fn dispatch(
     }
     let token = auth::bearer(&s, &headers).await?;
     let mut who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;
-    if let Some(who) = &who && who.app_audience != model::CATALOG_AUDIENCE {
+    if let Some(who) = &who
+        && who.app_audience != model::CATALOG_AUDIENCE
+    {
         integrations::refresh_identity(&s, who)?;
     }
     if path == "session" && method == Method::GET {
@@ -497,17 +499,27 @@ async fn dispatch(
         .unwrap()
         .pending_secret(actor, key, &fingerprint)?;
     let media = p.len() == 3 && p[0] == "apps" && p[2] == "media";
-    let body: Value = if upload || media || raw.is_empty() {
+    let mut body: Value = if upload || media || raw.is_empty() {
         json!({})
     } else {
         serde_json::from_slice(&raw)
             .map_err(|e| ApiError::bad(format!("Request JSON is invalid: {e}")))?
     };
+    if p == ["apps"] && body.get("organization_id").is_none() {
+        let identity = who.as_ref().ok_or_else(ApiError::auth)?;
+        if let Some(id) = identity
+            .publishing
+            .default_publisher(&identity.id)
+            .map_err(ApiError::bad)?
+        {
+            body["organization_id"] = json!(id);
+        }
+    }
     // Receipts do not retain permissions after an organization or team change.
     if p.len() >= 2 && p[0] == "apps" && !matches!(p.get(2), Some(&"installs" | &"review")) {
         let app = s.store.lock().unwrap().app(p[1])?;
         store::authorize_retry(&app, who.as_ref(), method.as_str(), &p)?;
-        if app.organization_id.is_some() {
+        if app.uses_organization_permissions(who.as_ref()) {
             if let Some(error) = who.as_ref().and_then(|w| w.publishing_error.as_deref()) {
                 return Err(ApiError::unavailable(error));
             }
@@ -534,6 +546,12 @@ async fn dispatch(
         ) {
             return Err(ApiError::forbidden());
         }
+    }
+    if p.len() == 3 && p[0] == "invites" {
+        s.store
+            .lock()
+            .unwrap()
+            .authorize_invitation(p[1], who.as_ref().ok_or_else(ApiError::auth)?)?;
     }
     let replay = s.store.lock().unwrap().replay(actor, key, &fingerprint)?;
     if let Some(mut v) = replay {
@@ -682,8 +700,28 @@ async fn dispatch(
         }
     }
     if p.len() == 3 && p[0] == "apps" && p[2] == "invites" && method == Method::POST {
-        let to = str_field(&body, "to")?;
-        if !to.contains('@') {
+        let to = str_field(&body, "to")?.trim();
+        if let Some(org) = to.strip_prefix("org:") {
+            let w = who.as_ref().ok_or_else(ApiError::auth)?;
+            if !s.store.lock().unwrap().app(p[1])?.is_admin(Some(w)) {
+                return Err(ApiError::forbidden());
+            }
+            let base = s
+                .config
+                .organizations_url
+                .as_deref()
+                .ok_or_else(|| ApiError::unavailable("Organizations is not configured."))?;
+            let publisher = silicon_publishing_policy::lookup_publisher(
+                base,
+                &w.app_audience,
+                token.as_deref().ok_or_else(ApiError::auth)?,
+                org,
+            )
+            .await
+            .map_err(ApiError::unavailable)?
+            .ok_or_else(|| ApiError::bad("Choose an existing organization ID."))?;
+            prepared.resolved_organization = Some(publisher.org_id);
+        } else if !to.contains('@') {
             prepared
                 .identities
                 .push(integrations::resolve(&s, to).await?);

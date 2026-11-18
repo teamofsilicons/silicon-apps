@@ -342,10 +342,11 @@ export default async function AppPage({ params, searchParams }: Props) {
           ) : null}
 
 
-          {app.authors.length ? (
+          {app.authors.length || app.author_organizations?.length ? (
             <section aria-labelledby="authors-title" className={pageStyles.detail}>
               <h2 id="authors-title" className={pageStyles.label}>Authors</h2>
               <ul className={pageStyles.people} role="list">
+                {app.author_organizations?.map(org => <li key={`org:${org}`}><span className={pageStyles.person}><Avatar name={org} id={org} size={28}/><span>{org}</span><span className={pageStyles.personId}>Organization</span></span></li>)}
                 {app.authors.map(author => (
                   <li key={author.uuid}>
                     <a href={authorPath(author.uuid)} className={pageStyles.person}>

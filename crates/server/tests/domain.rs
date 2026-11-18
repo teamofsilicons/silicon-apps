@@ -1493,3 +1493,148 @@ fn organization_drafts_live_permissions_audience_and_departure() {
         Some("studio")
     );
 }
+
+#[test]
+fn organization_invitation_grants_live_author_access_without_transferring_ownership() {
+    use silicon_publishing_policy::{Permission, ResourceKind};
+    let host = who("host");
+    let mut manager = who("org-manager");
+    manager.publishing =
+        serde_json::from_value(json!({"account_uuid":manager.uuid,"organizations":[{
+            "org_id":"guest","name":"Guest","admin":false,"permissions":{"apps":["manage"]}
+        }]}))
+        .unwrap();
+    let mut contributor = who("editor");
+    contributor.publishing =
+        serde_json::from_value(json!({"account_uuid":contributor.uuid,"organizations":[{
+            "org_id":"guest","name":"Guest","admin":false,"permissions":{"apps":["edit"]}
+        }]}))
+        .unwrap();
+    let mut store = Store::memory().unwrap();
+    create(&mut store, &host, "invite-project");
+    let path = "apps/invite-project/invites";
+    let target = json!({"to":"org:guest"});
+    let destination = || Prepared {
+        resolved_organization: Some("guest".into()),
+        ..Default::default()
+    };
+    assert!(
+        change(
+            &mut store,
+            Some(&host),
+            "POST",
+            path,
+            "unknown",
+            target.clone(),
+            Prepared::default()
+        )
+        .is_err()
+    );
+    let invitation = change(
+        &mut store,
+        Some(&host),
+        "POST",
+        path,
+        "invite",
+        target.clone(),
+        destination(),
+    )
+    .unwrap()
+    .0;
+    assert!(
+        change(
+            &mut store,
+            Some(&host),
+            "POST",
+            path,
+            "duplicate",
+            target,
+            destination()
+        )
+        .is_err()
+    );
+    let id = invitation["id"].as_str().unwrap();
+    let accept = format!("invites/{id}/accept");
+    let inbox = |db: &Store, user: &Identity| {
+        db.read("invites", &BTreeMap::new(), Some(user)).unwrap()["items"]
+            .as_array()
+            .unwrap()
+            .len()
+    };
+    assert_eq!(inbox(&store, &manager), 1);
+    assert_eq!(inbox(&store, &contributor), 0);
+    assert!(
+        change(
+            &mut store,
+            Some(&contributor),
+            "POST",
+            &accept,
+            "wrong-role",
+            json!({}),
+            Prepared::default()
+        )
+        .is_err()
+    );
+    change(
+        &mut store,
+        Some(&manager),
+        "POST",
+        &accept,
+        "accept",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    let app = store.app("invite-project").unwrap();
+    assert_eq!(app.author_organizations, ["guest"]);
+    assert_eq!(app.authors.len(), 1);
+    assert_eq!(app.admin_uuid, host.uuid);
+    assert!(app.permits(Some(&contributor), Permission::Edit));
+    assert!(!app.permits(Some(&contributor), Permission::Publish));
+    assert!(app.permits(Some(&manager), Permission::Publish));
+    assert!(!app.is_admin(Some(&manager)));
+    assert!(
+        change(
+            &mut store,
+            Some(&manager),
+            "DELETE",
+            "apps/invite-project",
+            "cannot-delete",
+            json!({}),
+            Prepared::default()
+        )
+        .is_err()
+    );
+    manager.publishing.organizations[0]
+        .permissions
+        .remove(&ResourceKind::Apps);
+    assert!(
+        change(
+            &mut store,
+            Some(&manager),
+            "POST",
+            &accept,
+            "accept",
+            json!({}),
+            Prepared::default()
+        )
+        .is_err()
+    );
+    assert!(!app.visible(Some(&manager)));
+    change(
+        &mut store,
+        Some(&host),
+        "DELETE",
+        "apps/invite-project/organization-authors/guest",
+        "remove",
+        json!({}),
+        Prepared::default(),
+    )
+    .unwrap();
+    assert!(
+        !store
+            .app("invite-project")
+            .unwrap()
+            .is_author(Some(&contributor))
+    );
+}

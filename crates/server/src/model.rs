@@ -185,6 +185,8 @@ pub struct App {
     #[serde(default)]
     pub organization_id: Option<String>,
     #[serde(default)]
+    pub author_organizations: Vec<String>,
+    #[serde(default)]
     pub organization_name: Option<String>,
     #[serde(default)]
     pub organization_logo_url: Option<String>,
@@ -243,6 +245,15 @@ impl App {
         if who.is_some_and(|identity| identity.app_audience == CATALOG_AUDIENCE) {
             return false;
         }
+        if who.is_some_and(|i| {
+            i.publishing.author_allows(
+                &self.author_organizations,
+                silicon_publishing_policy::ResourceKind::Apps,
+                permission,
+            )
+        }) {
+            return true;
+        }
         match &self.organization_id {
             Some(org) => who.is_some_and(|i| {
                 i.publishing.allows(
@@ -259,6 +270,11 @@ impl App {
                 _ => who.is_some_and(|i| self.authors.iter().any(|a| a.uuid == i.uuid)),
             },
         }
+    }
+    pub fn uses_organization_permissions(&self, who: Option<&Identity>) -> bool {
+        self.organization_id.is_some()
+            || (!self.author_organizations.is_empty()
+                && !who.is_some_and(|i| self.authors.iter().any(|a| a.uuid == i.uuid)))
     }
     pub fn is_author(&self, who: Option<&Identity>) -> bool {
         self.permits(who, silicon_publishing_policy::Permission::Read)
@@ -393,6 +409,7 @@ impl App {
                     .as_str()
                     .is_some_and(|creator| creator != w.uuid)
         }));
+        v["author_organizations"] = json!(self.author_organizations);
         v["organization_id"] = json!(self.organization_id);
         v["deleted_at"] = json!(self.deleted_at);
         v["restore_until"] = self

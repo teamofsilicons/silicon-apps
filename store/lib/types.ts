@@ -74,6 +74,7 @@ export type App = {
   created_at: string;
   updated_at: string;
   authors: Author[];
+  author_organizations?: string[];
   targets: string[];
   /** The authors' public reason for each required target (linux-x86_64, windows-x86_64, macos-aarch64) the current
    * release leaves out. */

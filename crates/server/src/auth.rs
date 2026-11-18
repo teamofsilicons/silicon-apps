@@ -299,7 +299,10 @@ fn developer_route(method: &Method, path: &str) -> bool {
             )
             | ("POST", ["apps", _, "secret" | "webhook", "rotate"])
             | ("POST", ["apps", _, "authors", "leave"])
-            | ("DELETE", ["apps", _, "authors" | "invites", _])
+            | (
+                "DELETE",
+                ["apps", _, "authors" | "invites" | "organization-authors", _]
+            )
             | ("POST", ["apps", _, "packages", _])
             | ("POST", ["apps", _, "releases", _, "promote" | "withdraw"])
     )

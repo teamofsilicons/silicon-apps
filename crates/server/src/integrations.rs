@@ -500,6 +500,7 @@ pub async fn import_accounts(s: &Shared) -> Result<usize> {
                         .to_owned()
                 })
             }),
+            author_organizations: Vec::new(),
             organization_id: organization_id.clone(),
             organization_name: None,
             organization_logo_url: None,
@@ -799,9 +800,9 @@ pub async fn refresh_view_identities(s: &Shared, mut value: Value) -> Result<Val
                     .ok()
                     .filter(|account| account.uuid == id)
                     .map(|account| Identity {
-                    publishing: Default::default(),
-                    publishing_error: None,
-                    app_audience: String::new(),
+                        publishing: Default::default(),
+                        publishing_error: None,
+                        app_audience: String::new(),
                         uuid: account.uuid,
                         id: account.id,
                         display_name: account.display_name,

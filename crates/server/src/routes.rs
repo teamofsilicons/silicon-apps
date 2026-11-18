@@ -40,6 +40,7 @@ pub const ROUTES: &[(&str, &str)] = &[
     ("POST", "/v1/apps/{app_id}/authors/leave"),
     ("DELETE", "/v1/apps/{app_id}/authors/{uuid}"),
     ("POST", "/v1/apps/{app_id}/admin"),
+    ("DELETE", "/v1/apps/{app_id}/organization-authors/{org_id}"),
     ("GET", "/v1/apps/{app_id}/invites"),
     ("POST", "/v1/apps/{app_id}/invites"),
     ("DELETE", "/v1/apps/{app_id}/invites/{invite_id}"),

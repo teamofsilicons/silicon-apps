@@ -261,7 +261,11 @@ pub async fn handle(
         && app_record.visibility == "private"
     {
         let permitted = context.as_ref().is_some_and(|context| {
-            context.audience_allows(
+            context.author_allows(
+                &app_record.author_organizations,
+                silicon_publishing_policy::ResourceKind::Apps,
+                silicon_publishing_policy::Permission::Read,
+            ) || context.audience_allows(
                 org,
                 silicon_publishing_policy::ResourceKind::Apps,
                 &app_record.organization_access,

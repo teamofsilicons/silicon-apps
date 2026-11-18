@@ -131,7 +131,9 @@ impl Subscription {
     pub fn candidate(&self, event: &Event, c: &Catalog) -> bool {
         if let Some(id) = &self.app_id {
             if event.app_id.as_ref() == Some(id)
-                && c.apps.get(id).is_some_and(|a| a.organization_id.is_some())
+                && c.apps.get(id).is_some_and(|a| {
+                    a.organization_id.is_some() || !a.author_organizations.is_empty()
+                })
             {
                 return TypeFilter(self.types.clone()).allows(&event.kind)
                     && (self.channels.is_empty()
@@ -953,7 +955,7 @@ async fn attempt(s: &Shared, due: &Due) -> std::result::Result<u16, (Option<u16>
         .map_err(|e| (None, e.message))?
         .apps
         .get(event.app_id.as_deref().unwrap_or(""))
-        .is_some_and(|a| a.organization_id.is_some());
+        .is_some_and(|a| a.organization_id.is_some() || !a.author_organizations.is_empty());
     if org && !ping {
         let base = s
             .config

@@ -36,6 +36,7 @@ const MIGRATIONS: [&str; 6] = [
 #[derive(Default)]
 pub struct Prepared {
     pub identities: Vec<Identity>,
+    pub resolved_organization: Option<String>,
     pub package: Option<Package>,
     pub secret: Option<String>,
     pub webhook: Option<Value>,
@@ -122,6 +123,7 @@ pub fn mutation_permission(method: &str, path: &[&str]) -> Permission {
                 _,
                 "access"
                 | "organization-access"
+                | "organization-authors"
                 | "admin"
                 | "secret"
                 | "webhook"
@@ -175,7 +177,9 @@ pub fn authorize_retry(
         };
     }
     author(app, who)?;
-    if app.organization_id.is_some() && !app.permits(who, mutation_permission(method, path)) {
+    if app.uses_organization_permissions(who)
+        && !app.permits(who, mutation_permission(method, path))
+    {
         return Err(ApiError::forbidden());
     }
     if matches!(path.get(2), Some(&"access" | &"admin")) {
@@ -196,6 +200,11 @@ fn admin(app: &App, who: Option<&Identity>) -> Result<()> {
     Ok(())
 }
 fn invite_matches(i: &Invite, w: &Identity) -> bool {
+    if let Some(org) = i.to.strip_prefix("org:") {
+        return w
+            .publishing
+            .can_answer(org, silicon_publishing_policy::ResourceKind::Apps);
+    }
     i.account_uuid.as_deref() == Some(&w.uuid)
         || i.to.contains('@')
             && w.verified_emails
@@ -335,6 +344,22 @@ impl Store {
         tx.execute("UPDATE sessions SET expires_at=0", [])?;
         tx.commit()?;
         Ok(true)
+    }
+    pub fn authorize_invitation(&self, id: &str, who: &Identity) -> Result<()> {
+        let catalog = self.catalog()?;
+        let invite = catalog
+            .invites
+            .iter()
+            .find(|i| i.id == id && invite_matches(i, who))
+            .ok_or_else(ApiError::missing)?;
+        if !catalog
+            .apps
+            .get(&invite.app_id)
+            .is_some_and(|app| app.deleted_at.is_none())
+        {
+            return Err(ApiError::missing());
+        }
+        Ok(())
     }
     pub fn app(&self, id: &str) -> Result<App> {
         self.catalog()?
@@ -658,7 +683,7 @@ impl Store {
                 author(app, who)?;
                 Ok(json!({"app_id":app.app_id,"schema":app.user_storage}))
             }
-            "authors" => Ok(json!({"items":app.authors})),
+            "authors" => Ok(json!({"items":app.authors,"organizations":app.author_organizations})),
             "readiness" => {
                 author(app, who)?;
                 Ok(app.readiness())
@@ -785,6 +810,9 @@ impl Store {
         let fingerprint = format!("{}:{}:{}", m.method, m.path, m.digest);
         if let Some(mut v) = self.replay(actor, m.key, &fingerprint)? {
             let parts: Vec<_> = m.path.split('/').collect();
+            if parts.len() == 3 && parts[0] == "invites" {
+                self.authorize_invitation(parts[1], need(m.who)?)?;
+            }
             if parts.len() >= 2 && parts[0] == "apps" {
                 let app = self.app(parts[1])?;
                 authorize_retry(&app, m.who, m.method, &parts)?;
@@ -1130,6 +1158,7 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             .transpose()?;
         let mut app = App {
             deleted_at: None,
+            author_organizations: Vec::new(),
             organization_id: organization.map(|o| o.org_id.clone()),
             organization_name: organization.map(|o| o.name.clone()),
             organization_logo_url: organization.and_then(|o| o.logo_url.clone()),
@@ -1219,6 +1248,18 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             return Err(ApiError::missing());
         }
         match p[2] {
+            "accept" if invite.to.starts_with("org:") => {
+                let org = invite.to.trim_start_matches("org:").to_owned();
+                if !app.author_organizations.contains(&org) {
+                    app.author_organizations.push(org.clone());
+                }
+                invite.status = "accepted".into();
+                app.event(
+                    actor,
+                    "author.joined",
+                    json!({"invite_id":invite.id,"organization_id":org}),
+                );
+            }
             "accept" => {
                 if let Some(org) = &app.organization_id {
                     if w.publishing.organization(org).is_none() {
@@ -1370,7 +1411,9 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         return Ok(json!(review));
     }
     author(app, who)?;
-    if app.organization_id.is_some() && !app.permits(who, mutation_permission(m.method, &p)) {
+    if app.uses_organization_permissions(who)
+        && !app.permits(who, mutation_permission(m.method, &p))
+    {
         return Err(ApiError::forbidden());
     }
     if p.len() == 3 && p[2] == "organization-access" && m.method == "PUT" {
@@ -1600,8 +1643,20 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             app.event(actor, "author.admin_transferred", b.clone());
             Ok(json!({"status":"transferred"}))
         }
+        "organization-authors" if p.len() == 4 && m.method == "DELETE" => {
+            admin(app, who)?;
+            let Some(index) = app.author_organizations.iter().position(|org| org == p[3]) else {
+                return Ok(json!({"removed":false}));
+            };
+            let org = app.author_organizations.remove(index);
+            app.event(actor, "author.removed", json!({"organization_id":org}));
+            Ok(json!({"removed":true}))
+        }
         "authors" if p.len() == 4 => {
             if p[3] == "leave" && m.method == "POST" {
+                if !app.authors.iter().any(|a| a.uuid == actor) {
+                    return Err(ApiError::forbidden());
+                }
                 if app.organization_id.is_none() && app.authors.len() == 1 {
                     return Err(ApiError::conflict(
                         "The last author cannot leave. Invite another author and wait for acceptance first.",
@@ -1646,7 +1701,19 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             if p.len() == 3 && m.method == "POST" {
                 let to = str_field(b, "to")?.trim();
                 let resolved = m.prepared.identities.first();
-                if !to.contains('@') && resolved.is_none() {
+                if let Some(org) = to.strip_prefix("org:") {
+                    admin(app, who)?;
+                    if m.prepared.resolved_organization.as_deref() != Some(org) {
+                        return Err(ApiError::bad("Choose an existing organization ID."));
+                    }
+                    if app.organization_id.as_deref() == Some(org)
+                        || app.author_organizations.iter().any(|id| id == org)
+                    {
+                        return Err(ApiError::conflict(
+                            "This organization already owns or authors this app.",
+                        ));
+                    }
+                } else if !to.contains('@') && resolved.is_none() {
                     return Err(ApiError::bad("Invitee must resolve to a c:id or si:id."));
                 }
                 if to.len() > 254 || to.is_empty() || to.contains('@') && !valid_email(to) {
@@ -1926,7 +1993,10 @@ pub(crate) fn mutation_route_exists(method: &str, p: &[&str]) -> bool {
             )
             | ("POST", ["apps", _, "secret" | "webhook", "rotate"])
             | ("POST", ["apps", _, "authors", "leave"])
-            | ("DELETE", ["apps", _, "authors" | "invites", _])
+            | (
+                "DELETE",
+                ["apps", _, "authors" | "invites" | "organization-authors", _]
+            )
             | ("POST", ["apps", _, "packages", _])
             | ("POST", ["apps", _, "releases", _, "promote" | "withdraw"])
     )

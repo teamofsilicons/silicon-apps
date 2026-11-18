@@ -502,7 +502,6 @@
     },
     "/v1/targets": {
       "get": {
-        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "getTargets",
         "summary": "Get target populations",
         "description": "Supported targets, how many signed-in accounts were seen on each, and whether an upload worker is configured. `targets` selects targets for `total_reach`.",
@@ -565,7 +564,6 @@
     },
     "/v1/apps": {
       "get": {
-        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "searchApps",
         "summary": "Search and list apps",
         "description": "Published apps you can see, best match first. Exact ID and name matches rank ahead of prefixes, substrings and typo matches; rating only breaks ties. `mine=true` lists apps you author, drafts included.",
@@ -808,8 +806,11 @@
                     ]
                   },
                   "organization_id": {
-                    "type": "string",
-                    "description": "An organization in GET /v1/organizations where you can create apps. Immutable. Defaults to personal ownership. Organization drafts start private and creator receives read/edit only."
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "An organization in GET /v1/organizations where you can create apps. Immutable. Work accounts default to their organization. Explicit null selects a personal publisher. Organization drafts start private and creator receives read/edit only."
                   }
                 },
                 "required": [
@@ -950,7 +951,6 @@
     },
     "/v1/apps/{app_id}": {
       "get": {
-        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "getApp",
         "summary": "Get an app",
         "description": "An app's page. Drafts are visible only to authors; private apps only to accounts they are shared with.",
@@ -1577,7 +1577,7 @@
       "get": {
         "operationId": "listAuthors",
         "summary": "List authors",
-        "description": "Every accepted author.",
+        "description": "Accepted account authors and organization IDs.",
         "tags": [
           "Authors"
         ],
@@ -1607,6 +1607,12 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/Author"
+                      }
+                    },
+                    "organizations": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
                       }
                     }
                   },
@@ -2013,7 +2019,7 @@
       "post": {
         "operationId": "inviteAuthor",
         "summary": "Invite an author",
-        "description": "Invite a Carbon or Silicon by c:id, si:id or email. They become an author when they accept.",
+        "description": "Invite an account by ID or email, or an organization by org:ID. An organization manager accepts for the organization.",
         "tags": [
           "Authors"
         ],
@@ -2866,7 +2872,6 @@
     },
     "/v1/apps/{app_id}/packages/{package_id}/download": {
       "get": {
-        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "downloadPackage",
         "summary": "Download a package",
         "description": "The package bytes. Visibility is checked on every download; check the SHA-256 and the signature from `resolve` before you run anything. Packages that belong only to withdrawn releases return 410 to everyone but the app's authors.",
@@ -3389,7 +3394,6 @@
     },
     "/v1/apps/{app_id}/resolve": {
       "get": {
-        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "resolveRelease",
         "summary": "Resolve a release for a target",
         "description": "The release and package to install, with the API's signature over its manifest. Defaults to the latest production release that is not withdrawn. An exact version that was withdrawn returns 410 `release_withdrawn` with the reason and the replacement.",
@@ -3602,7 +3606,6 @@
     },
     "/v1/apps/{app_id}/reviews": {
       "get": {
-        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "listReviews",
         "summary": "List reviews",
         "description": "Reviews and the average rating.",
@@ -4244,7 +4247,6 @@
     },
     "/v1/apps/{app_id}/media/{media_id}": {
       "get": {
-        "x-interface-audience": "silicon-apps-catalog",
         "operationId": "getMedia",
         "summary": "Get media",
         "description": "Media bytes. Visibility is checked on every read.",
@@ -6696,6 +6698,98 @@
         }
       }
     },
+    "/v1/apps/{app_id}/organization-authors/{org_id}": {
+      "delete": {
+        "operationId": "removeOrganizationAuthor",
+        "summary": "Remove an organization author",
+        "description": "Requires host management permission. Revokes the organization's author access.",
+        "tags": [
+          "Authors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "removed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "removed"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
     "/v1/apps/{app_id}/organization-access": {
       "get": {
         "operationId": "getOrganizationAccess",
@@ -7033,7 +7127,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "A Silicon Accounts access token for the silicon-apps audience. For interface catalog reads, register silicon-apps-catalog in the interface's app IDs. Send apps[\"silicon-apps-catalog\"].access_token as the bearer. This audience can read published listings shared with the account, reviews, media, targets, resolutions and package downloads. Drafts and publishing require first-party authorization."
+        "description": "A Silicon Accounts access token for the silicon-apps audience."
       },
       "sessionCookie": {
         "type": "apiKey",
@@ -8046,6 +8140,12 @@
             ],
             "description": "Only returned to authors. Null when storage is not defined."
           },
+          "author_organizations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "created_by": {
             "type": [
               "string",
@@ -8235,7 +8335,7 @@
           },
           "to": {
             "type": "string",
-            "description": "c:id, si:id or email address."
+            "description": "c:id, si:id, email address or org:organization-id."
           },
           "account_uuid": {
             "type": [

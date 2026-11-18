@@ -218,7 +218,127 @@ pub struct Context {
     pub organizations: Vec<OrganizationContext>,
 }
 
+pub fn valid_organization_id(id: &str) -> bool {
+    (3..=30).contains(&id.len())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
+}
+
+#[derive(Deserialize)]
+pub struct Publisher {
+    pub org_id: String,
+    pub name: String,
+}
+
+fn integration_base<'a>(base: &'a str, audience: &str) -> Result<&'a str, String> {
+    let url = reqwest::Url::parse(base).map_err(|_| "Invalid Organizations URL.")?;
+    if (url.scheme() != "https"
+        && !(url.scheme() == "http"
+            && matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "::1"))))
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err("Organizations requires HTTPS (HTTP is allowed only on loopback).".into());
+    }
+    if audience.is_empty()
+        || !audience
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
+    {
+        return Err("Invalid integration audience.".into());
+    }
+    Ok(base.trim_end_matches('/'))
+}
+
+pub async fn lookup_publisher(
+    base: &str,
+    audience: &str,
+    token: &str,
+    id: &str,
+) -> Result<Option<Publisher>, String> {
+    if !valid_organization_id(id) {
+        return Ok(None);
+    }
+    let base = integration_base(base, audience)?;
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|_| "Organizations is unavailable.")?;
+    let mut response = client
+        .get(format!("{base}/v1/integrations/{audience}/publishers/{id}"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|_| "Organizations is unavailable.")?;
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+    if !response.status().is_success() {
+        return Err("Organizations could not verify this publisher.".into());
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| "Organizations response was interrupted.")?
+    {
+        if bytes.len() + chunk.len() > 16_384 {
+            return Err("Organization profile is too large.".into());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    let publisher: Publisher =
+        serde_json::from_slice(&bytes).map_err(|_| "Invalid organization profile.")?;
+    if publisher.org_id != id {
+        return Err("Organizations returned a different publisher.".into());
+    }
+    Ok(Some(publisher))
+}
+
 impl Context {
+    /// The verified work handle determines its home org. The create operation still checks its live grant.
+    pub fn default_publisher<'a>(&'a self, account_id: &'a str) -> Result<Option<&'a str>, String> {
+        if let Some((_, org)) = account_id.rsplit_once('.')
+            && valid_organization_id(org)
+        {
+            return Ok(Some(org));
+        }
+        match self.organizations.as_slice() {
+            [] => Ok(None),
+            [org] => Ok(Some(&org.org_id)),
+            _ => Err("Choose a publisher for this resource.".into()),
+        }
+    }
+    /// Responding on behalf of an organization requires current management permission for the product.
+    pub fn can_answer(&self, org: &str, kind: ResourceKind) -> bool {
+        self.allows(org, kind, &ResourcePolicy::default(), Permission::Manage)
+    }
+    pub fn invitation_targets(&self, kind: ResourceKind) -> Vec<String> {
+        self.organizations
+            .iter()
+            .filter(|org| self.can_answer(&org.org_id, kind))
+            .map(|org| format!("org:{}", org.org_id))
+            .collect()
+    }
+    /// A co-author can delegate author work through its own grants. Ownership and access administration stay with the host.
+    pub fn author_allows(
+        &self,
+        authors: &[String],
+        kind: ResourceKind,
+        permission: Permission,
+    ) -> bool {
+        matches!(
+            permission,
+            Permission::Read | Permission::Edit | Permission::Publish
+        ) && authors
+            .iter()
+            .any(|org| self.allows(org, kind, &ResourcePolicy::default(), permission))
+    }
+
     pub fn organization(&self, org: &str) -> Option<&OrganizationContext> {
         self.organizations.iter().find(|o| o.org_id == org)
     }
@@ -281,24 +401,7 @@ pub async fn fetch(
     token: &str,
     account: &str,
 ) -> Result<Context, String> {
-    let url = reqwest::Url::parse(base).map_err(|_| "Invalid Organizations URL.")?;
-    if (url.scheme() != "https"
-        && !(url.scheme() == "http"
-            && matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "::1"))))
-        || !url.username().is_empty()
-        || url.password().is_some()
-        || url.query().is_some()
-        || url.fragment().is_some()
-    {
-        return Err("Organizations requires HTTPS (HTTP is allowed only on loopback).".into());
-    }
-    if audience.is_empty()
-        || !audience
-            .bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
-    {
-        return Err("Invalid integration audience.".into());
-    }
+    let base = integration_base(base, audience)?;
     let http = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(10))
@@ -345,6 +448,50 @@ mod tests {
             }],
         }
     }
+    #[test]
+    fn organization_authority_is_live_product_specific_and_bounded() {
+        let mut c = member();
+        let authors = vec!["example".to_string()];
+        let permissions = &mut c.organizations[0].permissions;
+        permissions.insert(ResourceKind::Apps, BTreeSet::from([Permission::Manage]));
+        permissions.insert(ResourceKind::Cells, BTreeSet::from([Permission::Edit]));
+        assert_eq!(c.invitation_targets(ResourceKind::Apps), ["org:example"]);
+        assert!(c.invitation_targets(ResourceKind::Cells).is_empty());
+        for permission in [Permission::Read, Permission::Edit, Permission::Publish] {
+            assert!(c.author_allows(&authors, ResourceKind::Apps, permission));
+        }
+        for permission in [Permission::Create, Permission::Manage] {
+            assert!(!c.author_allows(&authors, ResourceKind::Apps, permission));
+        }
+        assert!(c.author_allows(&authors, ResourceKind::Cells, Permission::Read));
+        assert!(!c.author_allows(&authors, ResourceKind::Cells, Permission::Publish));
+        assert!(!c.author_allows(&authors, ResourceKind::Interfaces, Permission::Read));
+        c.organizations.clear();
+        assert!(c.invitation_targets(ResourceKind::Apps).is_empty());
+        assert!(!c.author_allows(&authors, ResourceKind::Apps, Permission::Read));
+    }
+
+    #[test]
+    fn work_account_publisher_is_stable_even_when_access_is_missing_or_ambiguous() {
+        let mut c = Context::default();
+        assert_eq!(c.default_publisher("c:personal").unwrap(), None);
+        assert_eq!(
+            c.default_publisher("si:helper.studio").unwrap(),
+            Some("studio")
+        );
+        c.organizations = member().organizations;
+        assert_eq!(c.default_publisher("c:legacy").unwrap(), Some("example"));
+        c.organizations.push(OrganizationContext {
+            org_id: "other".into(),
+            ..Default::default()
+        });
+        assert!(c.default_publisher("c:legacy").is_err());
+        assert_eq!(
+            c.default_publisher("c:person.other").unwrap(),
+            Some("other")
+        );
+    }
+
     #[test]
     fn creator_is_not_publisher_and_removal_revokes_resource_grants() {
         let mut c = member();
