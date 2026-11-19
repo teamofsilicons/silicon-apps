@@ -1,13 +1,13 @@
-/* The 404's wall (art-wall.tsx): one centred column on the page's white, at every width: the piece flat (no mat, no
-   shadow), its credit small under it, then 404, the h1 and Go Home. */
+/* The 404's wall (art-wall.tsx): one centred column on the page's white, at every width: the h1 ("404" in it, muted)
+   and Go Home, then the piece with rounded corners and a faint hairline, its credit small under it. */
 .wall { display: grid; flex: 1; align-content: center; justify-items: center; gap: var(--space-block); width: min(100%, 40rem); margin-inline: auto; padding: var(--space-page) var(--gutter); text-align: center; }
 .piece { display: grid; gap: var(--space-related); margin: 0; }
-.piece img { display: block; width: 100%; height: auto; }
+.piece img { display: block; width: 100%; height: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-container); }
 .credit { color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
 .credit a { color: inherit; text-decoration: none; }
 .credit a:hover { color: var(--foreground); }
 .note { display: grid; justify-items: center; gap: var(--space-group); }
-.code { margin: 0; color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--text-sm); }
+.code { color: var(--text-muted); }
 .title { margin: 0; font: var(--h1); letter-spacing: var(--h1-tracking); text-wrap: balance; }
 @media (max-width: 899px) {
   .wall { align-content: start; padding-top: var(--space-block); }
