@@ -1,12 +1,17 @@
 /* The not-found and error pages (status-page.tsx): one centred column a little way down the page, the icon in a soft
-   tile and a caption-role code, or a picture (16:9, the page's radius, cropped to its middle) with the code large in
-   mono, glowing white on it; then the h1, the lede in --text-soft, the buttons in a row that wraps on a phone, and the
+   tile and a caption-role code; then the h1, the lede in --text-soft, the buttons in a row that wraps on a phone, and the
    reference in mono at the end. */
 .status { display: grid; justify-items: center; gap: var(--space-tight); max-width: 34rem; margin: var(--space-page) auto 0; text-align: center; }
 .icon { --sq-r: var(--radius-container); display: grid; width: 56px; height: 56px; place-items: center; margin-bottom: var(--space-related); border: 1px solid var(--border-subtle); border-radius: var(--radius-container); background: var(--surface-muted); color: var(--text-secondary); }
-.picture { --sq-r: var(--radius-container); position: relative; display: grid; width: 100%; aspect-ratio: 16 / 9; margin-bottom: var(--space-block); overflow: hidden; border-radius: var(--radius-container); place-items: center; box-shadow: var(--shadow-hairline); }
-.picture img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.bigCode { position: relative; margin: 0; color: var(--color-white); opacity: 0.92; font-family: var(--font-mono); font-size: clamp(var(--text-4xl), 16vw, calc(var(--text-5xl) * 1.5)); font-weight: var(--weight-medium); letter-spacing: 0.04em; line-height: 1; text-shadow: 0 0 18px var(--color-white), 0 0 48px color-mix(in oklab, var(--color-white) 60%, transparent); }
+/* With a picture (the 404): it covers the whole page panel (the panel's corners clip it), the code large in mono glowing
+   white in the middle, and the words on a frosted card under it (the raised surface, mostly opaque, blurring the
+   clouds behind), so they read on any part of the picture. A phone's panel has no height of its own, so the section
+   takes the screen under the top bar. */
+.full { position: relative; display: grid; flex: 1; min-height: calc(100dvh - var(--shell-top, 56px)); align-content: center; justify-items: center; gap: var(--space-block); padding: var(--space-page) var(--gutter); overflow: hidden; border-radius: inherit; isolation: isolate; text-align: center; }
+@media (min-width: 900px) { .full { min-height: 100%; } }
+.backdrop { position: absolute; z-index: -1; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card { --sq-r: var(--radius-overlay); display: grid; width: min(100%, 34rem); justify-items: center; gap: var(--space-tight); padding: var(--space-block); border: 1px solid color-mix(in oklab, var(--color-white) 60%, transparent); border-radius: var(--radius-overlay); background: color-mix(in oklab, var(--surface-raised) 78%, transparent); box-shadow: var(--shadow-floating); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); }
+.bigCode { position: relative; margin: 0; color: var(--color-white); opacity: 0.92; font-family: var(--font-mono); font-size: clamp(var(--text-5xl), 20vw, calc(var(--text-5xl) * 2.5)); font-weight: var(--weight-medium); letter-spacing: 0.04em; line-height: 1; text-shadow: 0 0 18px var(--color-white), 0 0 48px color-mix(in oklab, var(--color-white) 60%, transparent); }
 .code { margin: 0; color: var(--text-secondary); font: var(--caption); letter-spacing: var(--caption-tracking); }
 .title { margin: 0; font: var(--h2); letter-spacing: var(--h2-tracking); text-wrap: balance; }
 .lede { margin: 0; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); text-wrap: pretty; }
