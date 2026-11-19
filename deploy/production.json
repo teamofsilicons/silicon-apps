@@ -12,9 +12,9 @@
   "DeveloperUrl": "https://developers.teamofsilicons.com",
   "AccountsDeveloperUrl": "https://developers.teamofsilicons.com",
   "Runtime": "native-systemd",
-  "ApiSourceRevision": "af06bd9c2ce3d6a89cb05af0a682b4d4c90b9d4a",
-  "ApiArchiveSha256": "0d5854b7d0f4c4b4cb7a1008d05b1232ec720370ba29f81177aad1e9d9e58047",
-  "ApiBinarySha256": "e7dcadd7a684a06ed1560d4281bca91e2912d5508f524c04ed209144c30938de",
+  "ApiSourceRevision": "ec4dd4cfefacd916d6883d50f88466f99b1f7c40",
+  "ApiArchiveSha256": "2670c98abf22f426769ca10faa310646278a509f75243593995ddab4ae2712bb",
+  "ApiBinarySha256": "b9c5e229541e0e4132c710cdfb84b551810aac644cf5b29b355dba31a2cf8393",
   "ApiVersion": "0.2.0",
   "WorkerSourceRevision": "1d92c9a659420d4754e8f8b5de71ae16cc74a69e",
   "PreviousWorkerSourceRevision": "b2a3db8e575701575dfc283ba8bab0ed51a1cb60",
@@ -80,7 +80,7 @@
     "linux-armv7hf"
   ],
   "ActiveUploadTargetsSince": "2026-10-09T15:43:17Z",
-  "RuntimeSecretVersionId": "266af4f2-991f-4200-9a0b-b29be4a4fc6f",
+  "RuntimeSecretVersionId": "afd95141-d19f-41f5-819e-907e7548c9e7",
   "PreviousRuntimeSecretVersionId": "b54319c7-d928-43f0-85d4-7be83dd4a5f0",
   "UploadTargetsBackupKey": "backups/20261009T154100Z.tar.gz",
   "UploadTargetsBackupVersionId": "S7GR4z5eC92kuam9QLzBQ8QGNZC4zeiO",
@@ -157,9 +157,9 @@
   "SharedDocsPages": 52,
   "SharedDocsPublicHttpVerified": true,
   "SharedDocsPublicBrowserVerified": true,
-  "InstallCommandId": "149e9bf5-992e-44ed-9e7b-1a3c71f7bb64",
-  "VerificationCommandId": "149e9bf5-992e-44ed-9e7b-1a3c71f7bb64",
-  "LatestBackupKey": "backups/20261118T140557Z.tar.gz",
+  "InstallCommandId": "84c62376-fde5-44de-b946-844b2b25f0de",
+  "VerificationCommandId": "84c62376-fde5-44de-b946-844b2b25f0de",
+  "LatestBackupKey": "backups/20261119T190104Z.tar.gz",
   "CliCommand": "silicon-apps",
   "CliGithubVersion": "0.3.0",
   "CatalogInstallVerificationCommandId": "c41ad415-9b82-41dc-b40c-ac6d14c79d0c",
@@ -325,15 +325,19 @@
     "checked_at": "2026-10-08T23:46:25.576Z"
   },
   "StoreAuthorProfileServerTests": 30,
-  "ApiArchiveSize": 96673117,
-  "ApiArchiveFiles": 1419,
-  "ApiArchiveSymlinks": 28,
-  "PreviousApiSourceRevision": "ddd50442e49957538caf5fc6d35c69f8ca0adcc4",
-  "PreviousApiArchiveSha256": "166db9338759e793fc8d22decf32ed2aaedaa860722fceaa5154fdac763f9008",
+  "ApiArchiveSize": 109038079,
+  "ApiArchiveFiles": 1648,
+  "ApiArchiveSymlinks": 38,
+  "PreviousApiSourceRevision": "af06bd9c2ce3d6a89cb05af0a682b4d4c90b9d4a",
+  "PreviousApiArchiveSha256": "0d5854b7d0f4c4b4cb7a1008d05b1232ec720370ba29f81177aad1e9d9e58047",
   "ApiMigrations": [
     "001_catalog",
     "002_events",
-    "003_signing"
+    "003_signing",
+    "004_account_uuid_backfill",
+    "005_retired_identity_events",
+    "006_user_storage",
+    "007_report_screenshots"
   ],
   "CaddyVersion": "2.11.7",
   "StoreRuntime": "nextjs-standalone-systemd",
@@ -439,5 +443,6 @@
   "RequiredTargetsInstallCommandId": "31880e42-4ff7-4f0d-9377-df1c2b9933f0",
   "RequiredTargetsVerifiedAt": "2026-10-18T16:18:06.162202+00:00",
   "RequiredTargetsBackupKey": "backups/20261018T161401Z.tar.gz",
-  "OauthStateVerification": "deploy/verification-oauth-state-2026-11-18.md"
+  "OauthStateVerification": "deploy/verification-oauth-state-2026-11-18.md",
+  "StoreRedesignVerification": "deploy/verification-store-redesign-2026-11-19.md"
 }
