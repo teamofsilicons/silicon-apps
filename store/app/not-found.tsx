@@ -1,9 +1,10 @@
 /**
  * The 404 page, in the shell (an unknown address, an app, author or category that doesn't exist or isn't shared with
- * you): what happened, and the ways on. Answers 404.
+ * you): lost in the clouds (glowing ASCII clouds in pastel skies, from Cosmos, as the home page's feature; its rights
+ * need checking before shipping, as every Cosmos picture here) with 404 over them, what happened, and the ways on.
+ * Answers 404.
  */
 import type { Metadata } from "next";
-import { SearchX } from "lucide-react";
 import { ButtonLink } from "@teamofsilicons/silicon-ui/button-link";
 import { StatusPage } from "@/components/parts/status-page";
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = { title: "Page Not Found", robots: { index: fa
 export default function NotFound() {
   return (
     <StatusPage
-      icon={<SearchX size={24} strokeWidth={1.75} />}
+      picture={{ src: "/home/ascii-clouds.jpg", width: 1448, height: 1086 }}
       code="404"
       title="This page isn’t here"
       actions={<>
