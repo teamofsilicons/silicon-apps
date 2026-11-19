@@ -1,84 +1,110 @@
-/** An app's page: everything its authors set up, its releases and signatures, the install command and its copy button. */
+/**
+ * An app's page (the Sidebar layout): everything its authors set up, its releases and signatures, the install command
+ * and its copy button, compatibility with the reasons for missing builds, and who may see it.
+ */
 import { expect, test } from "@playwright/test";
-import { expectPageBasics, html, jsonLd, mainText, metaOf } from "./helpers";
+import { AUTHORS, expectPageBasics, html, mainText, metaOf, signIn } from "./helpers";
 
 const ORIGIN = "https://apps.teamofsilicons.com";
+const RING_WINDOWS = "Ring places calls through the PulseAudio and Core Audio servers, and Windows has no audio routing service a command-line tool can use without a signed kernel driver. We will ship a Windows build as soon as that changes.";
 
 test("the app page is server-rendered with everything about the app", async ({ request }) => {
   const page = await html(request, "/apps/briefcase");
   const meta = expectPageBasics(page, { canonical: `${ORIGIN}/apps/briefcase` });
   expect(meta.title).toBe("Briefcase · Silicon Apps");
-  expect(meta["og:image"]).toBe(`${ORIGIN}/apps/briefcase/og.png`);
+  expect(meta.description).toContain("Briefcase keeps your files in one place");
   expect(page).toMatch(/<article[^>]*aria-labelledby="app-name"/);
+  expect(page).toMatch(/<h1 id="app-name"[^>]*>Briefcase</);
+  // The install command, the facts and the developer card sit in the sidebar beside the reading column.
+  expect(page).toMatch(/<aside [^>]*aria-label="Get it"/);
   const text = mainText(page);
   for (const expected of [
-    "Briefcase",
-    "Briefcase keeps your files in one place",
+    "Keeps your files in one place for you and your Silicons.",
+    "Open Website",
     "$ silicon-apps install briefcase",
+    "Installs the latest release for your system and keeps it up to date.",
+    "Category Productivity",
+    "Version 3.4.2",
+    "Systems macOS Linux Windows",
+    "Signed by Silicon Apps and developer",
     "Shubham",
+    "c:shubham",
     "Head of Growth",
-    "4.5",
-    "1,840",
-    "3.4.2",
-    "3.5.0",
-    "Signed by Silicon Apps and by c:shubham",
-    "Withdrawn",
-    "3.4.3",
+    "Changelog",
+    "About",
+    "Sync any folder with one command",
+    "What’s new",
+    "Version 3.4.2 with faster startup and clearer errors.",
+    "Withdrawn releases",
+    "3.4.3 · Production",
     "Sync could skip files whose names contain a space",
+    "The development release, 3.5.0, newer than production",
+    "$ silicon-apps install 'briefcase>dev'",
+    "$ silicon-apps install 'briefcase@3.4.2'",
+    "Compatibility",
     "Apple silicon",
     "ARMv7",
-    "Website",
-    "Changelog",
     "Ratings and reviews",
+    "4.5 out of 5 · 4 ratings",
     "Syncing a folder for my Silicon took one command.",
+    "More by these developers",
+    "Remind",
   ]) expect(text, expected).toContain(expected);
-  // Logo, banner and every picture carry alt text.
+  // Every processor is built, so nothing is marked missing and no reason is given.
+  expect(text).not.toContain("Not available");
+  expect(text).not.toMatch(/No [A-Za-z0-9 -]+ build\./);
+  // Who signed it, in full, on the signature fact.
+  expect(page).toContain('title="Signed by Silicon Apps and by c:shubham"');
+  // The developers link to their own pages, by UUID.
+  expect(page).toContain(`href="/authors/${AUTHORS.shubham}"`);
+  expect(page).toContain(`href="/authors/${AUTHORS.growth}"`);
+  // Every picture carries alt text: the screenshots their authors' words, the icon none (the name is beside it).
   for (const img of page.match(/<main[\s\S]*<\/main>/)![0].match(/<img [^>]*>/g) ?? []) expect(img, img).toMatch(/alt="[^"]*"/);
   expect(page).toContain('alt="A terminal running briefcase sync ./reports, which uploads 14 files and reports the folder is in sync."');
-  expect(page).toContain('alt="Briefcase logo"');
-
-  const nodes = jsonLd(page);
-  const app = nodes.find(node => node["@type"] === "SoftwareApplication") as Record<string, unknown> & { aggregateRating: { ratingValue: number; reviewCount: number }; offers: { price: string } };
-  expect(app.name).toBe("Briefcase");
-  expect(app.identifier).toBe("briefcase");
-  expect(app.softwareVersion).toBe("3.4.2");
-  expect(app.operatingSystem).toBe("macOS, Linux, Windows");
-  expect(app.aggregateRating.ratingValue).toBe(4.5);
-  expect(app.aggregateRating.reviewCount).toBe(4);
-  expect(app.offers.price).toBe("0");
-  const crumbs = nodes.find(node => node["@type"] === "BreadcrumbList") as { itemListElement: Array<{ name: string; item: string }> };
-  expect(crumbs.itemListElement.map(item => item.name)).toEqual(["Apps", "Briefcase"]);
-  expect(crumbs.itemListElement[1].item).toBe(`${ORIGIN}/apps/briefcase`);
 });
 
 test("an app with only development releases installs from the development channel", async ({ request }) => {
   const text = mainText(await html(request, "/apps/orbit"));
   expect(text).toContain("$ silicon-apps install 'orbit>dev'");
-  expect(text).toContain("This app has development releases only so far");
-  expect(text).toContain("Not signed yet");
-  expect(text).not.toContain("Signed by Silicon Apps");
+  expect(text).not.toContain("$ silicon-apps install orbit ");
+  expect(text).toContain("Only development releases so far, so this installs the latest one.");
+  expect(text).toContain("The latest development release");
+  expect(text).toContain("Signed Not signed yet");
+  expect(text).not.toContain("Signed by");
+  expect(text).not.toContain("Withdrawn releases");
 });
 
 test("the copy button copies the install command", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/apps/briefcase");
-  const copy = page.getByRole("button", { name: "Copy the install command" });
+  const copy = page.getByRole("complementary", { name: "Get it" }).getByRole("button", { name: "Copy the command that installs Briefcase" });
   await expect(copy).toBeVisible();
   await copy.click();
   // Silicon UI's CopyButton keeps its name and says so in its own status line.
-  await expect(page.getByRole("status").filter({ hasText: "Copy the install command: Copied" })).toBeAttached();
+  await expect(page.getByRole("status").filter({ hasText: "Copy the command that installs Briefcase: Copied" })).toBeAttached();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("silicon-apps install briefcase");
+});
+
+test("new to the CLI, the note under the command links to how to install it", async ({ page }) => {
+  await page.goto("/apps/briefcase");
+  const get = page.getByRole("complementary", { name: "Get it" });
+  await expect(get.getByText("New to it?")).toBeVisible();
+  await expect(get.getByRole("link", { name: "Get the CLI" })).toHaveAttribute("href", "https://developers.teamofsilicons.com/docs/apps/start/install");
 });
 
 test.describe("with JavaScript off", () => {
   test.use({ javaScriptEnabled: false });
 
-  test("the command stays selectable text and the copy button is hidden", async ({ page }) => {
+  test("the command stays selectable text and the copy buttons are hidden", async ({ page }) => {
     await page.goto("/apps/briefcase");
-    await expect(page.locator("#install code").first()).toHaveText("$ silicon-apps install briefcase");
-    await expect(page.getByRole("button", { name: "Copy the install command" })).toBeHidden();
-    // The carousel scrolls by itself; its pictures are there without script.
-    await expect(page.getByRole("img", { name: /briefcase ls --json/ })).toBeAttached();
+    const get = page.getByRole("complementary", { name: "Get it" });
+    await expect(get.locator("code").first()).toHaveText("$ silicon-apps install briefcase");
+    await expect(get.locator("code").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy the command that installs Briefcase" })).toBeHidden();
+    // The screenshots are a strip that scrolls by itself; its pictures are there without script.
+    const shots = page.getByRole("list", { name: "Screenshots of Briefcase" });
+    await expect(shots.getByRole("img")).toHaveCount(3);
+    await expect(shots.getByRole("img", { name: /briefcase ls --json/ })).toBeAttached();
   });
 });
 
@@ -87,9 +113,36 @@ test("private apps and drafts answer 404 the same way to anyone they are not sha
     const response = await request.get(path);
     expect(response.status(), path).toBe(404);
     const page = await response.text();
-    expect(mainText(page)).toContain("We could not find that app");
-    expect(metaOf(page).robots).toContain("noindex");
+    expect(mainText(page), path).toContain("This page isn’t here");
+    expect(page, path).not.toContain("Team Vault");
+    expect(page, path).not.toContain("Draft Thing");
+    expect(metaOf(page).robots, path).toContain("noindex");
   }
+});
+
+test("a private app shows to the accounts it is shared with, marked private, and to no one else", async ({ browser, baseURL }) => {
+  const mira = await browser.newContext({ baseURL });
+  await signIn(mira, baseURL!, "mira");
+  const miraPage = await mira.newPage();
+  const shared = await miraPage.goto("/apps/team-vault");
+  expect(shared?.status()).toBe(200);
+  const heading = miraPage.getByRole("heading", { level: 1 });
+  await expect(heading).toContainText("Team Vault");
+  await expect(heading.getByText("Private", { exact: true })).toBeVisible();
+  // All Apps lists it for them too.
+  await miraPage.goto("/apps");
+  await expect(miraPage.locator("main").getByRole("link", { name: /Team Vault/ })).toBeVisible();
+  await mira.close();
+
+  const nova = await browser.newContext({ baseURL });
+  await signIn(nova, baseURL!, "nova");
+  const novaPage = await nova.newPage();
+  const hidden = await novaPage.goto("/apps/team-vault");
+  expect(hidden?.status()).toBe(404);
+  await expect(novaPage.getByRole("heading", { level: 1 })).toHaveText("This page isn’t here");
+  await novaPage.goto("/apps");
+  await expect(novaPage.locator("main").getByRole("link", { name: /Team Vault/ })).toHaveCount(0);
+  await nova.close();
 });
 
 test("each app has its own Open Graph image", async ({ request }) => {
@@ -102,49 +155,21 @@ test("each app has its own Open Graph image", async ({ request }) => {
   expect(hidden.headers().location).toBe("/og.png");
 });
 
-test("silicon-apps in the install command shows how to install silicon-apps itself, for either system", async ({ page }) => {
-  await page.goto("/apps/briefcase");
-  const name = page.locator("#install").getByRole("link", { name: "silicon-apps" });
-  await name.hover();
-  const card = page.getByRole("tooltip");
-  await expect(card).toContainText("Get silicon-apps first");
-  await card.getByRole("button", { name: "Windows" }).click();
-  await expect(card).toContainText("install.ps1");
-  await card.getByRole("button", { name: "macOS & Linux" }).click();
-  await expect(card).toContainText("install.sh");
-});
-
-test("a required platform the authors left out is greyed out and explains why, on hover and without script", async ({ page, request, browser }) => {
-  const reason = "Ring places calls through the PulseAudio and Core Audio servers, and Windows has no audio routing service a command-line tool can use without a signed kernel driver. We will ship a Windows build as soon as that changes.";
-  // Server-rendered: the reason is in the page itself, tied to the greyed mark.
-  const served = await html(request, "/apps/ring");
-  expect(served).toMatch(/aria-label="Windows not supported"[^>]*aria-describedby="platform-windows-x86_64"|aria-describedby="platform-windows-x86_64"[^>]*aria-label="Windows not supported"/);
-  expect(mainText(served)).toContain(`No Windows x64 build. ${reason}`);
+test("a required platform the authors left out is marked missing, with their reason, without script", async ({ page, request }) => {
+  // Server-rendered: the reason sits under the system's row in Compatibility.
+  const text = mainText(await html(request, "/apps/ring"));
+  expect(text).toContain("Systems macOS Linux Signed");
+  expect(text).toContain(`No Windows x64 build. ${RING_WINDOWS}`);
+  // Only Windows x64 is a required target with a reason; the other missing Windows builds are just marked.
+  expect(text.match(/No [A-Za-z0-9 -]+ build\./g)).toEqual(["No Windows x64 build."]);
 
   await page.goto("/apps/ring");
-  const logos = page.getByRole("list", { name: "Required platforms" });
-  await expect(logos.getByLabel("macOS supported")).toBeVisible();
-  await expect(logos.getByLabel("Linux supported")).toBeVisible();
-  const windows = logos.getByLabel("Windows not supported");
-  const tip = page.locator("#platform-windows-x86_64");
-  await expect(tip).toBeHidden();
-  await windows.hover();
-  await expect(tip).toBeVisible();
-  await expect(tip).toHaveText(`No Windows x64 build. ${reason}`);
-  await page.mouse.move(0, 0);
-  await expect(tip).toBeHidden();
-  await windows.focus();
-  await expect(tip).toBeVisible();
-  await expect(windows).toHaveAccessibleDescription(`No Windows x64 build. ${reason}`);
-
-  // A visitor on Windows reads the reason under the install command.
-  const context = await browser.newContext({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36" });
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, "userAgentData", { get: () => ({ platform: "Windows", mobile: false }) });
-    Object.defineProperty(navigator, "platform", { get: () => "Win32" });
-  });
-  const visitor = await context.newPage();
-  await visitor.goto("/apps/ring");
-  await expect(visitor.getByRole("note")).toContainText(`Not available for Windows. It runs on macOS, Linux. The authors say: ${reason}`);
-  await context.close();
+  const compatibility = page.getByRole("region", { name: "Compatibility" });
+  const windows = compatibility.getByRole("list", { name: "Windows processors" }).getByRole("listitem");
+  await expect(windows).toHaveText(["Not available: x64", "Not available: ARM64", "Not available: x86 32-bit"]);
+  const mac = compatibility.getByRole("list", { name: "macOS processors" }).getByRole("listitem");
+  await expect(mac).toHaveText(["Apple silicon", "Intel"]);
+  const linux = compatibility.getByRole("list", { name: "Linux processors" }).getByRole("listitem");
+  await expect(linux).toHaveText(["x86-64", "ARM64", "x86 32-bit", "ARMv7"]);
+  await expect(compatibility.getByText(`No Windows x64 build. ${RING_WINDOWS}`)).toBeVisible();
 });

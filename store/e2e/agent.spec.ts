@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { AUTHORS } from "./helpers";
 
 const ORIGIN = "https://apps.teamofsilicons.com";
 
@@ -25,7 +26,7 @@ test("sitemap.xml lists the home page, every public app and their authors, with 
   const body = await response.text();
   expect(body.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
   const locations = [...body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
-  for (const path of ["/", "/apps/briefcase", "/apps/dm", "/apps/orbit", "/authors/shubham", "/authors/head_of_growth", "/llms.txt"]) {
+  for (const path of ["/", "/apps/briefcase", "/apps/dm", "/apps/orbit", `/authors/${AUTHORS.shubham}`, `/authors/${AUTHORS.growth}`, "/llms.txt"]) {
     expect(locations).toContain(path === "/" ? `${ORIGIN}/` : `${ORIGIN}${path}`);
   }
   expect(body).not.toContain("team-vault");

@@ -31,10 +31,12 @@ if (!/fixture|e2e|store-dev/.test(dataDir)) {
 const TARGETS = ["linux-x86_64", "linux-i686", "linux-aarch64", "linux-armv7hf", "windows-x86_64", "windows-i686", "windows-aarch64", "macos-x86_64", "macos-aarch64"];
 const day = (n) => new Date(Date.UTC(2026, 9, 9) - n * 86400000).toISOString();
 const sha = (text) => createHash("sha256").update(text).digest("hex");
+// Authors have Accounts UUIDs, as in production, so their pages (/authors/{uuid}) answer; the accounts that sign in
+// keep short ids, which their fixture sessions (dev:{uuid}:{id}) name.
 const people = {
-  saket: { uuid: "saket", id: "c:saket", display_name: "Saket Gupta" },
-  shubham: { uuid: "shubham", id: "c:shubham", display_name: "Shubham" },
-  growth: { uuid: "head_of_growth", id: "si:head_of_growth", display_name: "Head of Growth" },
+  saket: { uuid: "5a4e7c10-0000-4000-8000-000000000001", id: "c:saket", display_name: "Saket Gupta" },
+  shubham: { uuid: "5a4e7c10-0000-4000-8000-000000000002", id: "c:shubham", display_name: "Shubham" },
+  growth: { uuid: "5a4e7c10-0000-4000-8000-000000000003", id: "si:head_of_growth", display_name: "Head of Growth" },
   mira: { uuid: "mira", id: "c:mira", display_name: "Mira Patel" },
   nova: { uuid: "nova", id: "si:nova", display_name: "Nova" },
   ada: { uuid: "ada", id: "c:ada", display_name: "Ada Okafor" },
