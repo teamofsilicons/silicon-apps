@@ -1,6 +1,6 @@
 /**
  * The 404 as a gallery wall (Anil, 2026-11-19, then cut to the least): one centred column on white: the h1 ("404"
- * in its own colour, then the line) and Go Home, then a piece the Team likes (lib/art.ts) whole, with rounded corners
+ * muted on its own line, then the words) and Go Home, then a piece the Team likes (lib/art.ts) whole, with rounded corners
  * and a faint border, its credit under it (a link to the work).
  * Server-rendered.
  */
