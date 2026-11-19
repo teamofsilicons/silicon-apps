@@ -14,14 +14,14 @@ export type Artwork = {
 
 export const ARTWORKS: Artwork[] = [
   {
-    title: "Untitled I",
+    title: "Untitled II",
     artist: "Austin Augie",
-    href: "https://www.austinaugie.nyc/product-page/untitled-i-1126",
+    href: "https://www.austinaugie.nyc/product-page/untitled-ii-1126",
     picture: {
-      src: "/art/austin-augie-untitled-i.jpg",
-      width: 1876,
-      height: 1244,
-      alt: "A black-and-white photograph: two people seen from behind through frosted glass, softened to shapes, a third figure faint between them.",
+      src: "/art/austin-augie-untitled-ii.jpg",
+      width: 1960,
+      height: 1102,
+      alt: "A photograph from Laos: a striped hot-air balloon drifting high in a pale, hazy sky, its top cut off by the frame, over layers of misty blue mountains.",
     },
   },
 ];

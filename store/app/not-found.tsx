@@ -6,5 +6,5 @@ import { ARTWORKS } from "@/lib/art";
 export const metadata: Metadata = { title: "Page Not Found", robots: { index: false } };
 
 export default function NotFound() {
-  return <ArtWall art={ARTWORKS[0]} title="This page stepped out of frame." />;
+  return <ArtWall art={ARTWORKS[0]} title="This page drifted off." />;
 }
