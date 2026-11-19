@@ -20,7 +20,9 @@ test("live catalog changes refresh the page and preserve an unfinished review", 
   try {
     await change("Ring Live");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Ring Live");
-    const review = page.locator("textarea[name=text]");
+    // The review form waits folded under "Write a review" until it is wanted.
+    await page.getByRole("region", { name: "Ratings and reviews" }).locator("summary").filter({ hasText: "Write a review" }).click();
+    const review = page.getByRole("form", { name: "Review Ring Live" }).locator("textarea[name=text]");
     await review.fill("Keep this unfinished review.");
     await change("Ring Changed Again");
     // Wait past the refresh debounce; the event must not replace this form's page.
