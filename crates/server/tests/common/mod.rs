@@ -27,9 +27,11 @@ pub fn config(dir: &std::path::Path) -> Config {
         bind: "127.0.0.1:0".parse().unwrap(),
         data_dir: dir.to_owned(),
         dev_auth: true,
+        organizations_url: None,
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
+        ting_url: None,
         public_url: "http://127.0.0.1:4311".into(),
         allowed_origins: vec!["http://127.0.0.1:4311".into()],
         runner_url: None,
@@ -113,6 +115,9 @@ pub fn mutate(
     prepared: Prepared,
 ) -> Value {
     let identity = Identity {
+        publishing: Default::default(),
+        publishing_error: None,
+        app_audience: String::new(),
         uuid: who.into(),
         id: format!("c:{who}"),
         display_name: who.into(),
@@ -153,7 +158,7 @@ pub fn seed_app(
         "POST",
         "apps",
         &format!("{app_id}-create"),
-        json!({"app_id":app_id,"name":format!("{app_id} app"),"description":"d".repeat(200)}),
+        json!({"app_id":app_id,"name":format!("{app_id} app"),"description":"d".repeat(200),"tagline":format!("The {app_id} app")}),
         Prepared {
             secret: Some("secret".into()),
             ..Default::default()
@@ -165,7 +170,7 @@ pub fn seed_app(
         "PATCH",
         &format!("apps/{app_id}"),
         &format!("{app_id}-tags"),
-        json!({"tags":tags}),
+        json!({"tags":tags,"interface_api_documentation_url":"https://example.com/interface-api"}),
         Prepared::default(),
     );
     let package_id = format!("{app_id}-{target}-pkg");

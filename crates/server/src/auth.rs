@@ -2,7 +2,7 @@ use crate::{
     Shared,
     error::{ApiError, Result},
     integrations::accounts_error,
-    model::{APP_ID, Identity},
+    model::{APP_ID, CATALOG_AUDIENCE, Identity},
 };
 use axum::{
     Json,
@@ -36,15 +36,22 @@ fn session_cookie(s: &Shared, id: &str, max_age: i64) -> String {
         }
     )
 }
-fn state_cookie(s: &Shared, state: &str, max_age: i64) -> String {
+/// One cookie per sign-in attempt, named for its state, so starting sign-in again (another tab, a second click) never
+/// overwrites an attempt still on its way back from Silicon Accounts. `apps_oauth_state` was the single cookie before;
+/// the callback still accepts it until the last such attempt expires.
+const STATE_COOKIE: &str = "apps_oauth_state";
+fn state_cookie(s: &Shared, name: &str, value: &str, max_age: i64) -> String {
     format!(
-        "apps_oauth_state={state}; Path=/v1/auth; HttpOnly; SameSite=Lax; Max-Age={max_age}{}",
+        "{name}={value}; Path=/v1/auth; HttpOnly; SameSite=Lax; Max-Age={max_age}{}",
         if s.config.public_url.starts_with("https:") {
             "; Secure"
         } else {
             ""
         }
     )
+}
+fn attempt_cookie(state: &str) -> String {
+    format!("{STATE_COOKIE}_{state}")
 }
 pub fn check_csrf(s: &Shared, headers: &HeaderMap) -> Result<()> {
     if cookie(headers, "apps_session").is_none() {
@@ -166,7 +173,30 @@ pub async fn bearer(s: &Shared, headers: &HeaderMap) -> Result<Option<String>> {
 }
 
 pub async fn identity(s: &Shared, token: Option<&str>) -> Result<Option<Identity>> {
-    verified_identity(s, token, false).await
+    verified_identity(s, token, false, false).await
+}
+
+/// Revalidate a long-lived stream without starting a rotating token refresh
+/// inside a cancellable response body. Expiry closes the stream; its next HTTP
+/// request performs the normal serialized refresh before opening a new receiver.
+pub(crate) async fn stream_identity(s: &Shared, headers: &HeaderMap) -> Result<Option<Identity>> {
+    let token = if headers.contains_key("Authorization") {
+        bearer(s, headers).await?
+    } else if let Some(id) = cookie(headers, "apps_session") {
+        s.store
+            .lock()
+            .unwrap()
+            .connection
+            .query_row(
+                "SELECT access_token FROM sessions WHERE id=?1 AND expires_at>?2",
+                params![id, chrono::Utc::now().timestamp()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+    } else {
+        None
+    };
+    identity(s, token.as_deref()).await
 }
 
 /// The first-party developer portal acts through its own sealed Accounts session.
@@ -178,16 +208,72 @@ pub async fn authoring_identity(
     method: &Method,
     path: &str,
 ) -> Result<Option<Identity>> {
-    verified_identity(s, token, developer_route(method, path)).await
+    verified_identity(
+        s,
+        token,
+        developer_route(method, path),
+        catalog_route(method, path),
+    )
+    .await
+}
+
+fn catalog_route(method: &Method, path: &str) -> bool {
+    let segments: Vec<_> = path.split('/').collect();
+    method == Method::GET
+        && matches!(
+            segments.as_slice(),
+            ["apps" | "targets"]
+                | ["apps", _]
+                | ["apps", _, "reviews" | "resolve"]
+                | ["apps", _, "media", _]
+                | ["apps", _, "packages", _, "download"]
+        )
+}
+
+#[cfg(test)]
+mod catalog_route_tests {
+    use super::*;
+
+    #[test]
+    fn catalog_tokens_are_limited_to_consumer_reads() {
+        for path in [
+            "apps",
+            "apps/sample",
+            "apps/sample/reviews",
+            "apps/sample/resolve",
+            "apps/sample/media/image",
+            "apps/sample/packages/pkg/download",
+        ] {
+            assert!(catalog_route(&Method::GET, path));
+            assert!(!catalog_route(&Method::DELETE, path));
+            assert!(!catalog_route(&Method::PATCH, path));
+        }
+        for path in [
+            "people",
+            "organizations",
+            "apps/sample/organization-access",
+            "apps/sample/authors",
+            "keys",
+            "events",
+            "apps/sample/webhook",
+            "apps/sample/storage-schema",
+        ] {
+            assert!(!catalog_route(&Method::GET, path));
+        }
+    }
 }
 
 fn developer_route(method: &Method, path: &str) -> bool {
     let p: Vec<_> = path.split('/').collect();
     matches!(
         (method.as_str(), p.as_slice()),
-        ("GET", ["me" | "session" | "targets" | "invites" | "apps"])
-            | ("GET", ["apps", "availability", _])
+        (
+            "GET",
+            ["me" | "session" | "targets" | "invites" | "apps" | "organizations" | "people"]
+        ) | ("GET", ["apps", "availability", _])
             | ("GET", ["apps", _])
+            | ("GET" | "PUT", ["apps", _, "storage-schema"])
+            | ("GET" | "PUT", ["apps", _, "organization-access"])
             | (
                 "GET",
                 [
@@ -206,6 +292,8 @@ fn developer_route(method: &Method, path: &str) -> bool {
             | ("GET", ["apps", _, "packages", _, "download"])
             | ("POST", ["apps"])
             | ("PATCH", ["apps", _])
+            | ("DELETE", ["apps", _])
+            | ("POST", ["apps", _, "restore"])
             | ("POST", ["invites", _, "accept" | "decline"])
             | ("PUT", ["apps", _, "access" | "webhook"])
             | (
@@ -218,7 +306,10 @@ fn developer_route(method: &Method, path: &str) -> bool {
             )
             | ("POST", ["apps", _, "secret" | "webhook", "rotate"])
             | ("POST", ["apps", _, "authors", "leave"])
-            | ("DELETE", ["apps", _, "authors" | "invites", _])
+            | (
+                "DELETE",
+                ["apps", _, "authors" | "invites" | "organization-authors", _]
+            )
             | ("POST", ["apps", _, "packages", _])
             | ("POST", ["apps", _, "releases", _, "promote" | "withdraw"])
     )
@@ -228,6 +319,7 @@ async fn verified_identity(
     s: &Shared,
     token: Option<&str>,
     allow_developer: bool,
+    allow_catalog: bool,
 ) -> Result<Option<Identity>> {
     let Some(token) = token else { return Ok(None) };
     if s.config.dev_auth && token.starts_with("dev:") {
@@ -242,6 +334,9 @@ async fn verified_identity(
             return Err(ApiError::auth());
         }
         return Ok(Some(Identity {
+            publishing: Default::default(),
+            publishing_error: None,
+            app_audience: String::new(),
             uuid: parts[1].into(),
             id: parts[2].into(),
             display_name: parts[2].into(),
@@ -254,6 +349,9 @@ async fn verified_identity(
         VerifyOptions::for_app(APP_ID).with_issuer(s.config.accounts_url.trim_end_matches('/'));
     if allow_developer {
         options.audiences.push("developer".into());
+    }
+    if allow_catalog {
+        options.audiences.push(CATALOG_AUDIENCE.into());
     }
     let claims = verify_access_token(&jwks, token, &options).map_err(|e| {
         ApiError::new(
@@ -268,7 +366,10 @@ async fn verified_identity(
     }
     // First-party reuse is deliberately one exact audience, not a general
     // multi-audience fallback. Existing Apps token validation stays unchanged.
-    if !claims.aud.iter().any(|aud| aud == APP_ID) && claims.aud != ["developer"] {
+    let catalog = claims.aud == [CATALOG_AUDIENCE];
+    if (claims.aud.iter().any(|aud| aud == CATALOG_AUDIENCE) && !(catalog && allow_catalog))
+        || (!catalog && !claims.aud.iter().any(|aud| aud == APP_ID) && claims.aud != ["developer"])
+    {
         return Err(ApiError::auth());
     }
     let secret = s.config.accounts_app_secret.as_deref().unwrap_or("");
@@ -309,7 +410,28 @@ async fn verified_identity(
             }
         })
     };
+    let audience = if catalog {
+        CATALOG_AUDIENCE
+    } else if claims.aud == ["developer"] {
+        "developer"
+    } else {
+        APP_ID
+    };
+    let context = match &s.config.organizations_url {
+        Some(base) if catalog => {
+            silicon_publishing_policy::fetch_service(base, APP_ID, secret, &user.uuid).await
+        }
+        Some(base) => silicon_publishing_policy::fetch(base, audience, token, &user.uuid).await,
+        None => Err("Organization publishing is not configured.".to_owned()),
+    };
+    let (publishing, publishing_error) = match context {
+        Ok(context) => (context, None),
+        Err(message) => (Default::default(), Some(message)),
+    };
     Ok(Some(Identity {
+        publishing,
+        publishing_error,
+        app_audience: audience.into(),
         uuid: user.uuid,
         id: user.id,
         display_name: user.display_name,
@@ -356,7 +478,10 @@ pub async fn handle_auth(
             .scopes(["profile", "email"]);
         let url = s.accounts.authorize_url(&params);
         return Ok((
-            [("Set-Cookie", state_cookie(s, &state, 600))],
+            [(
+                "Set-Cookie",
+                state_cookie(s, &attempt_cookie(&state), "1", 600),
+            )],
             Redirect::to(url.as_str()),
         )
             .into_response());
@@ -365,7 +490,9 @@ pub async fn handle_auth(
         let state = q
             .get("state")
             .ok_or_else(|| ApiError::bad("The sign-in callback is missing state."))?;
-        if cookie(headers, "apps_oauth_state").as_deref() != Some(state) {
+        let this_browser = cookie(headers, &attempt_cookie(state)).as_deref() == Some("1")
+            || cookie(headers, STATE_COOKIE).as_deref() == Some(state);
+        if !this_browser {
             return Err(ApiError::new(
                 axum::http::StatusCode::FORBIDDEN,
                 "oauth_state_mismatch",
@@ -418,9 +545,11 @@ pub async fn handle_auth(
             "Set-Cookie",
             session_cookie(s, &id, 30 * 24 * 3600).parse().unwrap(),
         );
-        response
-            .headers_mut()
-            .append("Set-Cookie", state_cookie(s, "", 0).parse().unwrap());
+        for name in [attempt_cookie(state), STATE_COOKIE.to_owned()] {
+            response
+                .headers_mut()
+                .append("Set-Cookie", state_cookie(s, &name, "", 0).parse().unwrap());
+        }
         return Ok(response);
     }
     if *method != Method::POST {

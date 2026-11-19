@@ -8,7 +8,8 @@
  * (components/app/whats-new.tsx, Store: the version and how long ago, the notes cut to three lines with more, then
  * folds for version history, withdrawn releases and other ways to install; the history from lib/releases.ts) and
  * Compatibility (components/app/compatibility.tsx: a row per system with every processor as a chip, built or not, and
- * the developer's reason for a missing required one) and Developer (components/app/developer.tsx: the authors, the
+ * the developer's reason for a missing required one) and Build an interface (components/app/interface.tsx: the interface
+ * API's docs, use cases and license, where the app publishes them) and Developer (components/app/developer.tsx: the authors, the
  * links and more by them, from lib/developers.ts) and Ratings and reviews (components/app/reviews.tsx, with the review form; its server actions in actions.ts). The
  * page is wide (Anil, 2026-11-18: the overall alignment), so it starts on the same left edge as All Apps and a category. The page before this (cover, Try it, facts, About,
  * details, reviews) is in git at e7748ac, and its styles (components/app/app-page.module.css) and the copy-command
@@ -20,6 +21,7 @@ import { notFound } from "next/navigation";
 import { About } from "@/components/app/about";
 import { SidebarLayout } from "@/components/app/app-layout";
 import { Compatibility } from "@/components/app/compatibility";
+import { Interface } from "@/components/app/interface";
 import { Reviews } from "@/components/app/reviews";
 import { Screenshots } from "@/components/app/screenshots";
 import { WhatsNew } from "@/components/app/whats-new";
@@ -71,6 +73,7 @@ export default async function AppPage({ params, searchParams }: Props) {
           <About app={app} />
           <WhatsNew app={app} history={history} />
           <Compatibility app={app} />
+          <Interface app={app} />
           <Reviews app={app} reviews={reviews} account={account} status={status} />
         </SidebarLayout>
       </Page>

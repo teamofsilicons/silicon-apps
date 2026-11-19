@@ -12,9 +12,11 @@ fn config(dir: &Path, runner: &str) -> Config {
         bind: "127.0.0.1:0".parse().unwrap(),
         data_dir: dir.to_owned(),
         dev_auth: true,
+        organizations_url: None,
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
+        ting_url: None,
         public_url: "http://127.0.0.1:4311".into(),
         allowed_origins: vec!["http://127.0.0.1:4311".into()],
         runner_url: Some(runner.into()),
@@ -152,12 +154,44 @@ async fn authors_sign_and_withdraw_and_installers_verify_in_ci_mode() {
             "ring",
             "--name",
             "Ring",
+            "--tagline",
+            "Voice calls for Carbons and Silicons",
             "--description",
             &description,
         ]),
         &[],
     )
     .await;
+    fs::write(work.path().join("writing.md"), "# Writing\nUse the API.").unwrap();
+    fs::write(work.path().join("license.txt"), "Permission to integrate.").unwrap();
+    fs::write(
+        work.path().join("use-cases.json"),
+        r#"[{"name":"Writing","files":["writing.md"]}]"#,
+    )
+    .unwrap();
+    let (metadata, _) = run_ok(
+        &mut author(&[
+            "setup",
+            "ring",
+            "interface",
+            "--api-docs",
+            "https://example.com/interface",
+            "--use-cases",
+            work.path().join("use-cases.json").to_str().unwrap(),
+            "--license-file",
+            work.path().join("license.txt").to_str().unwrap(),
+        ]),
+        &[],
+    )
+    .await;
+    assert_eq!(
+        metadata["interface_use_cases"][0]["files"][0]["content"],
+        "# Writing\nUse the API."
+    );
+    assert_eq!(
+        metadata["interface_license"]["content"],
+        "Permission to integrate."
+    );
     let mut production = vec![];
     for (version, script) in [
         ("0.1.0", "#!/bin/sh\nexit 0\n"),

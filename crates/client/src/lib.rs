@@ -7,6 +7,7 @@ pub mod install;
 mod network;
 pub mod signing;
 pub mod state;
+pub mod storage;
 pub mod updater;
 pub use silicon_apps_package as package;
 pub use state::{Config, LocalState};
@@ -114,6 +115,31 @@ impl std::fmt::Display for ApiError {
 impl std::error::Error for ApiError {}
 
 impl Client {
+    /// Delete distribution and disable Accounts sign-in; restore is possible for 30 days.
+    pub async fn delete_app(&self, app: &str, key: Option<&str>) -> Result<Value> {
+        self.action("DELETE", app, &[], None, key).await
+    }
+    pub async fn restore_app(&self, app: &str, key: Option<&str>) -> Result<Value> {
+        self.action("POST", app, &["restore"], Some(json!({})), key)
+            .await
+    }
+    pub async fn organization_publishers(&self) -> Result<Value> {
+        self.request("GET", &["v1", "organizations"], &[], None, None)
+            .await
+    }
+    pub async fn organization_access(&self, app: &str) -> Result<Value> {
+        self.action("GET", app, &["organization-access"], None, None)
+            .await
+    }
+    pub async fn set_organization_access(
+        &self,
+        app: &str,
+        policy: Value,
+        key: Option<&str>,
+    ) -> Result<Value> {
+        self.action("PUT", app, &["organization-access"], Some(policy), key)
+            .await
+    }
     pub fn new(base: &str, token: Option<String>) -> Result<Self> {
         let base = Url::parse(base).context("Apps server URL must be an absolute HTTP(S) URL")?;
         ensure!(
@@ -295,7 +321,26 @@ impl Client {
         logo: Option<&str>,
         key: Option<&str>,
     ) -> Result<Value> {
-        self.request("POST", &["v1","apps"], &[], Some(json!({"app_id":id,"name":name,"description":description,"logo":logo.unwrap_or("")})), key).await
+        self.create_with_tagline(id, name, description, None, logo, key)
+            .await
+    }
+    /// Create an app with its one-line store tagline (at most 60 characters), which a new app needs to publish.
+    pub async fn create_with_tagline(
+        &self,
+        id: &str,
+        name: &str,
+        description: &str,
+        tagline: Option<&str>,
+        logo: Option<&str>,
+        key: Option<&str>,
+    ) -> Result<Value> {
+        let mut body =
+            json!({"app_id":id,"name":name,"description":description,"logo":logo.unwrap_or("")});
+        if let Some(tagline) = tagline {
+            body["tagline"] = json!(tagline);
+        }
+        self.request("POST", &["v1", "apps"], &[], Some(body), key)
+            .await
     }
     pub async fn edit(&self, id: &str, changes: Value, key: Option<&str>) -> Result<Value> {
         self.request("PATCH", &["v1", "apps", id], &[], Some(changes), key)
@@ -556,11 +601,24 @@ impl Client {
         last_event_id: Option<&str>,
         types: &[&str],
     ) -> Result<events::EventStream> {
+        self.stream_events_with_transport(feed, last_event_id, types, events::EventTransport::Auto)
+            .await
+    }
+    /// Open an Apps stream with an explicit live transport. Reconnect with the
+    /// returned stream's last_event_id; Ting session IDs are never reusable cursors.
+    pub async fn stream_events_with_transport(
+        &self,
+        feed: &events::Feed,
+        last_event_id: Option<&str>,
+        types: &[&str],
+        transport: events::EventTransport,
+    ) -> Result<events::EventStream> {
         let path = feed.path(true);
         let path: Vec<&str> = path.iter().map(String::as_str).collect();
         let mut url = self.url(&path)?;
         {
             let mut pairs = url.query_pairs_mut();
+            pairs.append_pair("transport", transport.as_str());
             for (k, v) in feed.query() {
                 pairs.append_pair(k, &v);
             }

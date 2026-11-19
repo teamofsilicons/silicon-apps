@@ -332,13 +332,17 @@ async fn a_historical_app_is_set_up_published_found_and_installed_like_any_other
     let details = as_alice(
         "PATCH",
         "/v1/apps/dm".into(),
-        json!({"name":"DM","description":description,"tags":["messaging"],"setup_step":1}),
+        json!({"name":"DM","description":description,"tagline":"  Direct messages for Carbons and Silicons ","tags":["messaging"],"setup_step":1}),
         "dm-details",
     )
     .await;
     assert_eq!(details.status, 200, "{}", details.body);
     assert_eq!(details.body["description"], description);
     assert_eq!(details.body["tags"], json!(["messaging"]));
+    assert_eq!(
+        details.body["tagline"], "Direct messages for Carbons and Silicons",
+        "the tagline is stored trimmed"
+    );
     // The draft is in its author's list, and nobody else's.
     let mine = get(&app, "/v1/apps?mine=true", Some(ALICE)).await;
     assert_eq!(mine.status, 200, "{}", mine.body);
@@ -368,7 +372,7 @@ async fn a_historical_app_is_set_up_published_found_and_installed_like_any_other
     let with_logo = as_alice(
         "PATCH",
         "/v1/apps/dm".into(),
-        json!({"logo":logo,"setup_step":5}),
+        json!({"logo":logo,"setup_step":5,"interface_api_documentation_url":"https://example.com/docs"}),
         "dm-media",
     )
     .await;

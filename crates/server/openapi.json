@@ -4,7 +4,7 @@
     "title": "Silicon Apps API",
     "version": "2026-10-09",
     "summary": "Create, publish, find, install and follow command-line apps for Carbons and Silicons.",
-    "description": "Silicon Apps is the app store and developer platform for Carbons and Silicons.\n\nPublic reads need no token. Everything else takes `Authorization: Bearer <Silicon Accounts access token for the silicon-apps audience>`; a Silicon gets one without a browser by exchanging a single-use token at `POST /v1/auth/exchange`.\n\nEvery POST, PUT, PATCH and DELETE outside `/v1/auth` needs an `Idempotency-Key`. Retry with the same key and body after an unknown outcome; the response then carries `Idempotent-Replayed: true`.\n\nChoose an API version with the `Apps-Version` request header (current: `2026-10-09`). Each response names the version it used. Unknown versions return 400 `unsupported_api_version`.\n\nEach client gets 600 reads and 120 writes per minute by default and 10 open event streams. Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; a 429 carries `Retry-After`.\n\nErrors are always `{\"error\":{\"code\",\"message\",\"hint\",\"details\"}}`.\n\nEvery package Apps serves is signed with Ed25519. `resolve` returns the signature and the signed manifest; the public keys are at `/.well-known/silicon-apps-keys.json`.\n\nThis service speaks REST (this document).\n\nDiscovery: `/v1/capabilities`, `/.well-known/agent.json`, `/llms.txt` and the docs at https://developers.teamofsilicons.com/docs/apps.",
+    "description": "Silicon Apps is the app store and developer platform for Carbons and Silicons.\n\nPublic catalog reads need no token. Runtime user storage uses scoped Accounts proofs as documented on its operations. Authoring and other account operations take `Authorization: Bearer <Silicon Accounts access token for the silicon-apps audience>`; a Silicon gets one without a browser by exchanging a single-use token at `POST /v1/auth/exchange`.\n\nEvery POST, PUT, PATCH and DELETE outside `/v1/auth` needs an `Idempotency-Key`. Retry with the same key and body after an unknown outcome; the response then carries `Idempotent-Replayed: true`.\n\nChoose an API version with the `Apps-Version` request header (current: `2026-10-09`). Each response names the version it used. Unknown versions return 400 `unsupported_api_version`.\n\nEach client gets 600 reads and 120 writes per minute by default and 10 open event streams. Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; a 429 carries `Retry-After`.\n\nErrors are always `{\"error\":{\"code\",\"message\",\"hint\",\"details\"}}`.\n\nEvery package Apps serves is signed with Ed25519. `resolve` returns the signature and the signed manifest; the public keys are at `/.well-known/silicon-apps-keys.json`.\n\nThis service speaks REST (this document).\n\nDiscovery: `/v1/capabilities`, `/.well-known/agent.json`, `/llms.txt` and the docs at https://developers.teamofsilicons.com/docs/apps.",
     "contact": {
       "name": "Team of Silicons",
       "url": "https://teamofsilicons.com",
@@ -672,6 +672,42 @@
               "minimum": 0,
               "default": 0
             }
+          },
+          {
+            "name": "deleted",
+            "in": "query",
+            "required": false,
+            "description": "Use with mine=true to list deleted apps.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "description": "Filter by organization publisher.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "shared_with_me",
+            "in": "query",
+            "required": false,
+            "description": "Only managed resources created by somebody else.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "shared_by",
+            "in": "query",
+            "required": false,
+            "description": "Filter by an accepted author UUID.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -713,7 +749,7 @@
       "post": {
         "operationId": "createApp",
         "summary": "Create an app",
-        "description": "Creates an unpublished app with you as its first author and returns its `app_secret` once. Registers the app with Silicon Accounts.",
+        "description": "Creates an unpublished app. Personal creation returns app_secret once. Organization creation requires Create, grants the creator Read/Edit and omits server secrets; a manager rotates the secret explicitly. Registers the app with Silicon Accounts.",
         "tags": [
           "Authoring"
         ],
@@ -751,8 +787,30 @@
                     "type": "string",
                     "maxLength": 600
                   },
+                  "tagline": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "description": "One line of plain text for store cards, at most 60 characters after surrounding whitespace is trimmed. Line breaks, tabs and other control characters are refused. Required to publish an app that is not yet published; apps published before taglines existed stay published without one. Send an empty string to clear it."
+                  },
                   "logo": {
                     "type": "string"
+                  },
+                  "user_storage": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/StorageSchema"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "organization_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "An organization in GET /v1/organizations where you can create apps. Immutable. Work accounts default to their organization. Explicit null selects a personal publisher. Organization drafts start private and creator receives read/edit only."
                   }
                 },
                 "required": [
@@ -780,8 +838,7 @@
                     }
                   },
                   "required": [
-                    "app",
-                    "app_secret"
+                    "app"
                   ]
                 }
               }
@@ -987,6 +1044,11 @@
                     "type": "string",
                     "maxLength": 600
                   },
+                  "tagline": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "description": "One line of plain text for store cards, at most 60 characters after surrounding whitespace is trimmed. Line breaks, tabs and other control characters are refused. Required to publish an app that is not yet published; apps published before taglines existed stay published without one. Send an empty string to clear it."
+                  },
                   "tags": {
                     "type": "array",
                     "maxItems": 20,
@@ -1028,6 +1090,80 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/App"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteApp",
+        "summary": "Delete an app",
+        "description": "Requires personal admin or organization manage. Hides discovery, packages, media and user storage, cancels pending invites and disables Accounts sign-in. Retains the record and reserves the ID. Core platform apps cannot be deleted.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -1259,7 +1395,7 @@
       "post": {
         "operationId": "publishApp",
         "summary": "Publish an app",
-        "description": "Publishes immediately when ready. There is no review.",
+        "description": "Publishes immediately when ready: a name, a 200 to 600 character description, a tagline (unless the app is already published) and a release covering the required targets. There is no review.",
         "tags": [
           "Authoring"
         ],
@@ -1441,7 +1577,7 @@
       "get": {
         "operationId": "listAuthors",
         "summary": "List authors",
-        "description": "Every accepted author.",
+        "description": "Accepted account authors and organization IDs.",
         "tags": [
           "Authors"
         ],
@@ -1471,6 +1607,12 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/Author"
+                      }
+                    },
+                    "organizations": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
                       }
                     }
                   },
@@ -1877,7 +2019,7 @@
       "post": {
         "operationId": "inviteAuthor",
         "summary": "Invite an author",
-        "description": "Invite a Carbon or Silicon by c:id, si:id or email. They become an author when they accept.",
+        "description": "Invite an account by ID or email, or an organization by org:ID. An organization manager accepts for the organization.",
         "tags": [
           "Authors"
         ],
@@ -4277,7 +4419,7 @@
       "get": {
         "operationId": "streamAppEvents",
         "summary": "Stream an app's events",
-        "description": "Live events for an app's authors. Server-sent events. Each event has `id` (its seq), `event` (its type) and `data` (the Event as JSON). The stream starts with a `: ready cursor=N` comment and sends a `: heartbeat` comment every 15 seconds. Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue.",
+        "description": "Live events for an app's authors. Server-sent events. Each event has `id` (its seq), `event` (its type) and `data` (the Event as JSON). The stream starts with a `: ready cursor=N transport=MODE` comment and sends a `: heartbeat` comment every 15 seconds. Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue. A Ting receiver is owned by this connection and carries only an empty reconciliation hint; event contents and permission checks remain in Apps. X-Apps-Event-Transport identifies the initial mode, with X-Apps-Ting-Session when applicable. Auto mode reports an in-stream downgrade with a transport=direct comment. Explicit ting returns 503 when unavailable at open and closes on later failure without losing saved events.",
         "tags": [
           "Events"
         ],
@@ -4301,6 +4443,9 @@
           },
           {
             "$ref": "#/components/parameters/LastEventIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/EventTransport"
           }
         ],
         "responses": {
@@ -4343,6 +4488,9 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         }
       }
@@ -4430,7 +4578,7 @@
       "get": {
         "operationId": "streamMyEvents",
         "summary": "Stream your account's events",
-        "description": "Live events for the signed-in account. With `subscription`, the subscription's events; without Last-Event-ID it resumes where that subscription's stream last stopped. Server-sent events. Each event has `id` (its seq), `event` (its type) and `data` (the Event as JSON). The stream starts with a `: ready cursor=N` comment and sends a `: heartbeat` comment every 15 seconds. Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue.",
+        "description": "Live events for the signed-in account. With `subscription`, the subscription's events; without Last-Event-ID it resumes where that subscription's stream last stopped. Server-sent events. Each event has `id` (its seq), `event` (its type) and `data` (the Event as JSON). The stream starts with a `: ready cursor=N transport=MODE` comment and sends a `: heartbeat` comment every 15 seconds. Without Last-Event-ID it starts at the newest event. It closes after 30 minutes; reconnect with Last-Event-ID to continue. A Ting receiver is owned by this connection and carries only an empty reconciliation hint; event contents and permission checks remain in Apps. X-Apps-Event-Transport identifies the initial mode, with X-Apps-Ting-Session when applicable. Auto mode reports an in-stream downgrade with a transport=direct comment. Explicit ting returns 503 when unavailable at open and closes on later failure without losing saved events.",
         "tags": [
           "Events"
         ],
@@ -4451,6 +4599,9 @@
           },
           {
             "$ref": "#/components/parameters/LastEventIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/EventTransport"
           },
           {
             "name": "subscription",
@@ -4502,6 +4653,9 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         }
       }
@@ -5513,7 +5667,7 @@
       "post": {
         "operationId": "reportBug",
         "summary": "Report a bug",
-        "description": "Mails a bug report to the maintainers, with an optional pull request link.",
+        "description": "Mails a bug report to the maintainers, with an optional pull request link and screenshot. Unknown fields are refused with 400. The request body may be up to 8 MiB.",
         "tags": [
           "Accounts"
         ],
@@ -5545,11 +5699,42 @@
                   },
                   "pr": {
                     "type": "string"
+                  },
+                  "screenshot": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "File name. Surrounding whitespace and control characters are removed and it is cut to 120 characters; an empty name becomes `screenshot`."
+                      },
+                      "content_type": {
+                        "type": "string",
+                        "enum": [
+                          "image/png",
+                          "image/jpeg",
+                          "image/webp"
+                        ],
+                        "description": "The image type. The decoded bytes must start with that format's signature."
+                      },
+                      "data": {
+                        "type": "string",
+                        "contentEncoding": "base64",
+                        "description": "The image as standard base64 with padding, at most 5 MiB (5,242,880 bytes) once decoded."
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "content_type",
+                      "data"
+                    ],
+                    "additionalProperties": false,
+                    "description": "An optional screenshot. The report mail links to it at GET /v1/reports/{report_id}/screenshot with a random key only the recipients receive; mail is plain text, so it is not attached."
                   }
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
@@ -5609,6 +5794,84 @@
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/reports/{report_id}/screenshot": {
+      "get": {
+        "operationId": "getReportScreenshot",
+        "summary": "Get a report's screenshot",
+        "description": "The screenshot sent with a bug report, for the maintainers who received the report mail. The `key` from the mailed link is the only credential; a missing report, missing screenshot or wrong key is 404.",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "description": "The report ID returned by POST /v1/reports.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "description": "The secret key from the mailed link.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The screenshot.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
           }
         }
       }
@@ -5936,6 +6199,940 @@
           }
         }
       }
+    },
+    "/v1/apps/{app_id}/storage-schema": {
+      "get": {
+        "operationId": "getStorageSchema",
+        "summary": "Read storage definition",
+        "description": "Authors only. Optional during creation or later. Existing keys, types and defaults cannot be changed or removed.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageDefinition"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "putStorageSchema",
+        "summary": "Define storage or add keys",
+        "description": "Authors only. Optional during creation or later. Existing keys, types and defaults cannot be changed or removed.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StorageSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageDefinition"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/apps/{app_id}/storage/users/{user_uuid}": {
+      "get": {
+        "operationId": "readStorage",
+        "summary": "Read user settings",
+        "description": "Always verified live with Silicon Accounts; responses are no-store. For a UUID, Authorization: Proof <user proof> must name that UUID and silicon-apps as recipient with storage:{app_id}:read (read only) or storage:{app_id}:write. Writes additionally require X-App-Verification proving the owning app with storage:write; both proofs must be issued by that app. Other apps can read with the scoped user proof. For anon, Authorization contains the owning app's App verification with storage:read or storage:write; writes require storage:write. App authors' sessions cannot access values. PATCH merges defined keys; reset restores selected keys or all when omitted. Each user's values total at most 1 MiB. if_revision detects stale writes (409). Idempotency replays still require valid proofs.",
+        "tags": [
+          "User storage"
+        ],
+        "security": [
+          {
+            "storageProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "name": "user_uuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The permanent UUID in the User verification, or anon for the owning app's shared anonymous record."
+          },
+          {
+            "name": "X-App-Verification",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Owning app's App verification with storage:write, addressed to silicon-apps. Required for signed-in writes and resets."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageRecord"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "writeStorage",
+        "summary": "Write user settings",
+        "description": "Always verified live with Silicon Accounts; responses are no-store. For a UUID, Authorization: Proof <user proof> must name that UUID and silicon-apps as recipient with storage:{app_id}:read (read only) or storage:{app_id}:write. Writes additionally require X-App-Verification proving the owning app with storage:write; both proofs must be issued by that app. Other apps can read with the scoped user proof. For anon, Authorization contains the owning app's App verification with storage:read or storage:write; writes require storage:write. App authors' sessions cannot access values. PATCH merges defined keys; reset restores selected keys or all when omitted. Each user's values total at most 1 MiB. if_revision detects stale writes (409). Idempotency replays still require valid proofs.",
+        "tags": [
+          "User storage"
+        ],
+        "security": [
+          {
+            "storageProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "name": "user_uuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The permanent UUID in the User verification, or anon for the owning app's shared anonymous record."
+          },
+          {
+            "name": "X-App-Verification",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Owning app's App verification with storage:write, addressed to silicon-apps. Required for signed-in writes and resets."
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "if_revision": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "values"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageRecord"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/apps/{app_id}/storage/users/{user_uuid}/reset": {
+      "post": {
+        "operationId": "resetStorage",
+        "summary": "Reset user settings",
+        "description": "Always verified live with Silicon Accounts; responses are no-store. For a UUID, Authorization: Proof <user proof> must name that UUID and silicon-apps as recipient with storage:{app_id}:read (read only) or storage:{app_id}:write. Writes additionally require X-App-Verification proving the owning app with storage:write; both proofs must be issued by that app. Other apps can read with the scoped user proof. For anon, Authorization contains the owning app's App verification with storage:read or storage:write; writes require storage:write. App authors' sessions cannot access values. PATCH merges defined keys; reset restores selected keys or all when omitted. Each user's values total at most 1 MiB. if_revision detects stale writes (409). Idempotency replays still require valid proofs.",
+        "tags": [
+          "User storage"
+        ],
+        "security": [
+          {
+            "storageProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "name": "user_uuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The permanent UUID in the User verification, or anon for the owning app's shared anonymous record."
+          },
+          {
+            "name": "X-App-Verification",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Owning app's App verification with storage:write, addressed to silicon-apps. Required for signed-in writes and resets."
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "keys": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "if_revision": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageRecord"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/organizations": {
+      "get": {
+        "operationId": "listOrganizationPublishers",
+        "summary": "List organization publishers",
+        "description": "Live organization memberships, teams and publishing permissions. An outage never grants access.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingContext"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/people": {
+      "get": {
+        "operationId": "listPeopleSignals",
+        "summary": "List invitation suggestions",
+        "description": "Only your interaction history, aggregated across committed invitations. Rank by 2*sent+received, then latest invitation; overlay your connected Contacts names/photos and use trust to rank contact-only suggestions. Retries do not increase counts.",
+        "tags": [
+          "Authors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PersonSignal"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/apps/{app_id}/organization-authors/{org_id}": {
+      "delete": {
+        "operationId": "removeOrganizationAuthor",
+        "summary": "Remove an organization author",
+        "description": "Requires host management permission. Revokes the organization's author access.",
+        "tags": [
+          "Authors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "removed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "removed"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/apps/{app_id}/organization-access": {
+      "get": {
+        "operationId": "getOrganizationAccess",
+        "summary": "Read organization access",
+        "description": "Current organization resource grants and private audience. Requires manage.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceAccess"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setOrganizationAccess",
+        "summary": "Update organization access",
+        "description": "Replace per-app team/member grants and private audience. Requires manage; every target is checked against current organization membership. Ownership remains with the organization after members leave.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceAccess"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/App"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/apps/{app_id}/restore": {
+      "post": {
+        "operationId": "restoreApp",
+        "summary": "Restore a deleted app",
+        "description": "Requires current management permission and a deletion less than 30 days ago. Restores previous publication/access and Accounts status. Cancelled invitations stay cancelled. IDs remain reserved after recovery expires.",
+        "tags": [
+          "Authoring"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AppId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/App"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/IdempotentReplayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
     }
   },
   "webhooks": {
@@ -6029,6 +7226,12 @@
   },
   "components": {
     "securitySchemes": {
+      "storageProof": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Proof sap_…; scoped User verification for signed-in users, owning App verification for anon. Never an author bearer token."
+      },
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
@@ -6862,6 +8065,11 @@
           "description": {
             "type": "string"
           },
+          "tagline": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "The authors' one-line summary for store cards, or an empty string when they have not written one."
+          },
           "logo": {
             "type": "string"
           },
@@ -7029,12 +8237,116 @@
           "is_admin": {
             "type": "boolean",
             "description": "Whether the caller is the admin. The admin is never marked to others."
+          },
+          "user_storage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StorageSchema"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only returned to authors. Null when storage is not defined."
+          },
+          "author_organizations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shared_with_me": {
+            "type": "boolean"
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "organization_access": {
+            "$ref": "#/components/schemas/ResourceAccess"
+          },
+          "publisher": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "personal",
+                  "organization"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "logo_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "permissions": {
+            "type": "object",
+            "properties": {
+              "read": {
+                "type": "boolean"
+              },
+              "edit": {
+                "type": "boolean"
+              },
+              "publish": {
+                "type": "boolean"
+              },
+              "manage": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "read",
+              "edit",
+              "publish",
+              "manage"
+            ]
+          },
+          "deleted_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "restore_until": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "app_id",
           "name",
           "description",
+          "tagline",
           "tags",
           "visibility",
           "published",
@@ -7132,7 +8444,7 @@
           },
           "to": {
             "type": "string",
-            "description": "c:id, si:id or email address."
+            "description": "c:id, si:id, email address or org:organization-id."
           },
           "account_uuid": {
             "type": [
@@ -7473,6 +8785,8 @@
           "type": {
             "type": "string",
             "enum": [
+              "app.deleted",
+              "app.restored",
               "app.created",
               "app.imported_from_accounts",
               "app.id_migrated",
@@ -8201,9 +9515,304 @@
         ],
         "additionalProperties": true,
         "description": "A2A agent card."
+      },
+      "StorageField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array"
+            ]
+          },
+          "default": {
+            "description": "Initial value matching type, at most 64 KiB of JSON."
+          }
+        },
+        "required": [
+          "type",
+          "default"
+        ],
+        "additionalProperties": false
+      },
+      "StorageSchema": {
+        "type": "object",
+        "maxProperties": 128,
+        "additionalProperties": {
+          "$ref": "#/components/schemas/StorageField"
+        },
+        "description": "Keys are 1-128 ASCII letters, digits, underscores, dots or hyphens. Prototype names are reserved. Defaults total at most 1 MiB. Existing fields are immutable; keys can be added."
+      },
+      "StorageDefinition": {
+        "type": "object",
+        "properties": {
+          "app_id": {
+            "type": "string"
+          },
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StorageSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "app_id",
+          "schema"
+        ]
+      },
+      "StorageRecord": {
+        "type": "object",
+        "properties": {
+          "app_id": {
+            "type": "string"
+          },
+          "user_uuid": {
+            "type": "string"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "app_id",
+          "user_uuid",
+          "values",
+          "revision",
+          "updated_at"
+        ]
+      },
+      "PublishingSubject": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "account",
+              "team"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "PublishingGrant": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "$ref": "#/components/schemas/PublishingSubject"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "apps",
+                "interfaces",
+                "cells"
+              ]
+            }
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "create",
+                "read",
+                "edit",
+                "publish",
+                "manage"
+              ]
+            }
+          }
+        },
+        "required": [
+          "subject",
+          "permissions"
+        ],
+        "additionalProperties": false
+      },
+      "ResourceAccess": {
+        "type": "object",
+        "properties": {
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublishingGrant"
+            }
+          },
+          "audience": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "restricted"
+                ],
+                "default": "organization"
+              },
+              "include": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PublishingSubject"
+                }
+              },
+              "exclude": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PublishingSubject"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "description": "Resource grants cannot contain create or nonempty resources. Current membership and product access are always required. Exclusions win for ordinary private audience access; draft read/edit/publish/manage grants still allow management access."
+      },
+      "PublishingContext": {
+        "type": "object",
+        "properties": {
+          "account_uuid": {
+            "type": "string"
+          },
+          "organizations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "org_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "logo_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "admin": {
+                  "type": "boolean"
+                },
+                "teams": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "permissions": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "org_id",
+                "name",
+                "admin",
+                "teams",
+                "permissions"
+              ]
+            }
+          }
+        },
+        "required": [
+          "account_uuid",
+          "organizations"
+        ]
+      },
+      "PersonSignal": {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pfp_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sent": {
+            "type": "integer"
+          },
+          "received": {
+            "type": "integer"
+          },
+          "last_invited_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "sent",
+          "received",
+          "last_invited_at"
+        ]
       }
     },
     "parameters": {
+      "EventTransport": {
+        "name": "transport",
+        "in": "query",
+        "required": false,
+        "description": "auto uses a Ting 0.4 receiver session when configured and falls back to direct Apps delivery; ting requires Ting; direct bypasses Ting. Resume with an Apps event seq, never a Ting session ID.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ting",
+            "direct"
+          ],
+          "default": "auto"
+        }
+      },
       "AppId": {
         "name": "app_id",
         "in": "path",

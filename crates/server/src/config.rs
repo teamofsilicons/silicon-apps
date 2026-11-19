@@ -110,8 +110,11 @@ pub struct Config {
     pub data_dir: PathBuf,
     pub dev_auth: bool,
     pub accounts_url: String,
+    pub organizations_url: Option<String>,
     pub accounts_app_secret: Option<String>,
     pub accounts_service_token: Option<String>,
+    /// Optional Ting 0.4 origin for live, session-scoped event hints.
+    pub ting_url: Option<String>,
     pub public_url: String,
     pub allowed_origins: Vec<String>,
     pub runner_url: Option<String>,
@@ -235,8 +238,11 @@ impl Config {
             dev_auth,
             accounts_url: get("APPS_ACCOUNTS_URL")
                 .unwrap_or_else(|| "https://accounts.teamofsilicons.com".into()),
+            organizations_url: get("APPS_ORGANIZATIONS_URL")
+                .or_else(|| Some("https://organizations.teamofsilicons.com".into())),
             accounts_app_secret: get("APPS_ACCOUNTS_APP_SECRET"),
             accounts_service_token: get("APPS_ACCOUNTS_SERVICE_TOKEN"),
+            ting_url: get("APPS_TING_URL"),
             public_url: public_url.trim_end_matches('/').into(),
             runner_url: get("APPS_RUNNER_URL"),
             runner_token: get("APPS_RUNNER_TOKEN"),
@@ -275,6 +281,9 @@ mod tests {
 
     fn account(uuid: &str) -> Identity {
         Identity {
+            publishing: Default::default(),
+            publishing_error: None,
+            app_audience: String::new(),
             uuid: uuid.into(),
             id: format!("c:{uuid}"),
             display_name: uuid.into(),

@@ -1,0 +1,94 @@
+{
+  "site": "https://apps.teamofsilicons.com",
+  "verified_at": "2026-11-17T22:09:49Z",
+  "api_source_revision": "ed1a023eb57e3d01297754c762afc96575fce3ea",
+  "previous_api_revision": "dc350609a5406efc2746f41ac5887406861ede12",
+  "artifact_sha256": "c5434fef412287965be1319e4be83de584cc91269d1b0874a5193725e6fb6a50",
+  "api_sha256": "ad3b1e8ba26661961fc4dd91a54619ba7cf54fb80b3ceda1dbf17aba66282665",
+  "store_build_id": "3NSvkYIAajzuNICDNcjQb",
+  "asset_source": "silicon-app-logos.zip",
+  "icons": {
+    "briefcase": {
+      "zip_entry": "icons/briefcase/web/icon-512-maskable.png",
+      "sha256": "ec9e6627b9350da05990921613eceb7d2fdffe3314aabba8e03f496b53479731",
+      "url": "https://apps.teamofsilicons.com/app-logos/briefcase-ec9e6627b9350da0.png"
+    },
+    "dm": {
+      "zip_entry": "icons/dm/web/icon-512-maskable.png",
+      "sha256": "b9533442d56f27e7ec1fd86db953693debccdebf750ed89ec7f09c69ae99a0a6",
+      "url": "https://apps.teamofsilicons.com/app-logos/dm-b9533442d56f27e7.png"
+    },
+    "write": {
+      "zip_entry": "icons/write/web/icon-512-maskable.png",
+      "sha256": "6eb8cb38a03e2f661d36907b8a036ae5a8b7470aaabe20106908f8646ef03f32",
+      "url": "https://apps.teamofsilicons.com/app-logos/write-6eb8cb38a03e2f66.png"
+    },
+    "silicon-writings": {
+      "zip_entry": "icons/writings/web/icon-512-maskable.png",
+      "sha256": "9fd8bde301bf2e87cdd5ab9c916e75fbbb2aa1209b7b422b50d7ceead2ab44bc",
+      "url": "https://apps.teamofsilicons.com/app-logos/silicon-writings-9fd8bde301bf2e87.png"
+    },
+    "ring": {
+      "zip_entry": "icons/ting/web/icon-512-maskable.png",
+      "sha256": "5225b27b72f790fcd8b8f73f1e2f56867d62485b91cef750fdf8ed2914b70f12",
+      "url": "https://apps.teamofsilicons.com/app-logos/ring-5225b27b72f790fc.png"
+    }
+  },
+  "ting": {
+    "logo": "",
+    "display": "Default monogram"
+  },
+  "checks": {
+    "original_zip_bytes_match_public_pngs": 5,
+    "confirmed_opaque_corners": 5,
+    "public_catalog_list_and_detail_records": 6,
+    "live_accounts_logo_values": 6,
+    "original_taglines_verified": 30,
+    "private_catalog_copy": {
+      "upgrade": {
+        "logos": 6,
+        "revision": "2026-11-18-maskable-icons",
+        "taglines": 0
+      },
+      "fresh": {
+        "logos": 5,
+        "revision": "2026-11-18-maskable-icons",
+        "taglines": 30
+      },
+      "unrelated_fields_preserved": true,
+      "syncs": 6,
+      "replay_stable": true
+    },
+    "live_catalog_changes": {
+      "logos": 6,
+      "revision": "2026-11-18-maskable-icons",
+      "taglines": 0
+    },
+    "public_store_browser_ids": [
+      "briefcase",
+      "dm",
+      "write",
+      "silicon-writings",
+      "ring",
+      "ting"
+    ],
+    "developer_browser_fixture_ids": [
+      "briefcase",
+      "dm",
+      "write",
+      "silicon-writings",
+      "ring",
+      "ting"
+    ],
+    "developer_browser_scope": "Deployed UI and real image assets with a fixture session and the production Accounts logo URLs."
+  },
+  "operator_command": "8f1e7b7e-85bc-4bf2-94f0-f6d932d00a1c",
+  "accounts_verification_command": "066e00ba-dfe5-4bb8-9cf5-388384bd6648",
+  "registry_startup": {
+    "accounts_api_revision": "f958508f796d9f5655e1f151bbbff8fbcde34d98",
+    "catalog_entries": 40,
+    "completed_normal_import": true,
+    "temporary_override_removed": true,
+    "verification_command": "4aa6af51-e174-4011-b944-ad2124dd40f9"
+  }
+}

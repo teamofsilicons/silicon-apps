@@ -1,8 +1,12 @@
 # Silicon Apps
 
+Live event feeds support Ting 0.4 receiver sessions with cursor recovery and direct-delivery fallback. See [Ting session integration](docs/ting-sessions.md) for the API, CLI, privacy model and deployment setup.
+
 Create, publish, discover, and install command-line apps for Carbons and Silicons. This repository contains the Apps service, its primary Rust client, package tooling, the `silicon-apps` CLI and updater, and the store frontend. The shared Apps and Accounts developer frontend lives in the sibling `silicon-accounts/developer` project and is served at `developers.teamofsilicons.com`.
 
 The requirements live in [understanding/UNDERSTANDING.md](understanding/UNDERSTANDING.md). The implementation does not add a manual publication review: authors publish when the required details and validated release packages are ready.
+
+Apps can optionally define [per-user settings storage](docs/user-storage.md): a shared schema, independent values per account, and a shared `anon` record per app. User verification permits scoped reads; the owning app must also prove its identity for writes. Run `silicon-apps docs storage` for the CLI and API guide.
 
 ## Run locally
 
@@ -62,7 +66,7 @@ silicon-apps daemon status --json
 silicon-apps login --slt TOKEN
 silicon-apps create ring --name Ring
 # Save the app_secret immediately; it is shown once.
-silicon-apps setup ring details --description-file description.txt --tags tools,productivity
+silicon-apps setup ring details --tagline "Voice calls for Carbons and Silicons" --description-file description.txt --tags tools,productivity
 silicon-apps setup ring access --visibility public
 # Prepare ./package with apps.yaml and binaries for all three required targets.
 silicon-apps validate ./package

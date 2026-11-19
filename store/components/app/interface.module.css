@@ -1,0 +1,27 @@
+/* An app page's Build an interface (interface.tsx), at the reading width (70ch) like Compatibility: the title (h2), a
+   quiet line, the documentation link in the accent, then What's new's folds between hairlines; each file a mono block on
+   the quiet ground (its own scroll when long), its name and Download over it. */
+.section { display: grid; min-width: 0; max-width: 70ch; gap: var(--space-related); margin-top: var(--space-page); }
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.lede { margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+.docs { margin: 0; font: var(--label); letter-spacing: var(--label-tracking); }
+.docs a, .download { display: inline-flex; align-items: center; gap: var(--space-hair); color: var(--accent); text-decoration: none; }
+.docs a:hover, .download:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.folds { display: grid; margin-top: var(--space-related); border-top: 1px solid var(--border-subtle); }
+.fold { border-bottom: 1px solid var(--border-subtle); }
+.fold > summary { display: flex; align-items: center; gap: var(--space-related); padding-block: var(--space-group); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); list-style: none; cursor: pointer; }
+.fold > summary::-webkit-details-marker { display: none; }
+.triangle { flex: none; color: var(--text-muted); transform: rotate(90deg); transition: transform 150ms ease; }
+.fold[open] > summary .triangle { transform: rotate(180deg); }
+.fold > summary:hover .triangle { color: var(--foreground); }
+.count { color: var(--text-muted); font-weight: var(--weight-regular); }
+.foldBody { display: grid; gap: var(--space-group); padding-bottom: var(--space-block); }
+@media (prefers-reduced-motion: reduce) { .triangle { transition: none; } }
+
+.text { margin: 0; color: var(--foreground); font: var(--body); line-height: var(--leading-read); letter-spacing: var(--body-tracking); }
+.scope { margin: 0; color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); }
+.file { display: grid; min-width: 0; gap: var(--space-tight); }
+.fileHead { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--space-group); font: var(--small); letter-spacing: var(--small-tracking); }
+.fileName { overflow: hidden; color: var(--foreground); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.content { max-height: 24rem; margin: 0; padding: var(--space-group); overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-muted); color: var(--foreground); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-read); white-space: pre-wrap; overflow-wrap: anywhere; }

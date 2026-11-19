@@ -54,6 +54,8 @@ export type Links = {
 };
 
 export type App = {
+  organization_id?:string|null;
+  publisher?:{type:"organization"|"personal";id?:string;name?:string|null;logo_url?:string|null;uuid?:string};
   app_id: string;
   name: string;
   description: string;
@@ -66,11 +68,15 @@ export type App = {
   tags: string[];
   visibility: "public" | "private";
   links: Links | null;
+  interface_api_documentation_url?: string | null;
+  interface_use_cases?: { name: string; files: { name: string; content: string }[] }[] | null;
+  interface_license?: { kind: "preset"; preset: "free" | "attribution" | "attribution_unless_paid" | "permission_required" } | { kind: "link"; url: string } | { kind: "file"; name: string; content: string } | null;
   carousel: Media[];
   published: boolean;
   created_at: string;
   updated_at: string;
   authors: Author[];
+  author_organizations?: string[];
   targets: string[];
   /** The authors' public reason for each required target (linux-x86_64, windows-x86_64, macos-aarch64) the current
    * release leaves out. */

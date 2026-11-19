@@ -408,13 +408,21 @@ class MainTests(unittest.TestCase):
                        'APPS_SIGNING_KEYS': 'test-2026:' + SEED}
         self.events = []
         self.states = {'silicon-apps-api': ('enabled', True), 'caddy': ('enabled', True),
-                       'silicon-apps-backup.timer': ('enabled', True), 'silicon-apps-store': ('', False)}
+                       'silicon-apps-backup.timer': ('enabled', True), 'silicon-apps-store': ('disabled', False)}
+        self.fail_prefix = None
+        self.backup_state = 'inactive'
 
     def systemctl(self, command, **kwargs):
-        self.events.append(' '.join(str(c) for c in command))
+        event = ' '.join(str(c) for c in command)
+        self.events.append(event)
+        if self.fail_prefix and event.startswith(self.fail_prefix):
+            self.fail_prefix = None
+            raise subprocess.CalledProcessError(1, command)
         if command[0] != 'systemctl':
             return subprocess.CompletedProcess(command, 0)
         action, service = command[1], command[-1]
+        if action == 'show' and 'silicon-apps-backup.service' in command:
+            return subprocess.CompletedProcess(command, 0, self.backup_state + '\n')
         enabled, active = self.states.get(service, ('', False))
         if action == 'is-enabled':
             return subprocess.CompletedProcess(command, 0 if enabled == 'enabled' else 1, enabled + '\n')
@@ -422,16 +430,25 @@ class MainTests(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0 if active else 3)
         if action in ('start', 'restart', 'stop'):
             for name in command[2:]:
-                self.states[name] = (self.states.get(name, ('', False))[0], action != 'stop')
+                active_now = action != 'stop'
+                unit = self.etc / 'systemd/system' / (name + '.service')
+                if name == 'caddy' and active_now and unit.exists() and 'ConditionPathExists=!/opt/silicon-apps/cutover-recovery.json' in unit.read_text() and (self.root / 'cutover-recovery.json').exists():
+                    active_now = False
+                self.states[name] = (self.states.get(name, ('', False))[0], active_now)
         if action in ('enable', 'disable'):
             for name in command[2:]:
                 self.states[name] = ('enabled' if action == 'enable' else 'disabled', self.states.get(name, ('', False))[1])
         return subprocess.CompletedProcess(command, 0)
 
-    def install(self, store_ready=None):
+    def install(self, store_ready=None, secret_version=None, secret_stages=None):
         record = lambda name: (lambda *args, **kwargs: self.events.append(name + ' ' + ' '.join(str(a) for a in args)))
         argv = ['install.py', '--archive', 'release.tar.gz', '--sha256', '0' * 64, '--revision', REVISION, '--role', 'api',
                 '--secret', 'arn:aws:secretsmanager:us-east-2:1:secret:apps', '--bucket', 'apps-artifacts']
+        if secret_version:
+            argv += ['--secret-version-id', secret_version]
+        response = {'SecretString': json.dumps(self.secret), 'VersionId': secret_version,
+                    'VersionStages': secret_stages if secret_stages is not None else ['AWSCURRENT']}
+        self.secret_capture = unittest.mock.Mock(return_value=json.dumps(response))
         def ready(service, role, timeout=60):
             self.events.append('ready ' + service)
             if service == 'silicon-apps-store' and store_ready:
@@ -440,7 +457,7 @@ class MainTests(unittest.TestCase):
                             account=record('account'), directory=record('directory'),
                             preflight_store=record('preflight'), verify_signing=record('signing'),
                             wait_ready=ready, prepare_release=unittest.mock.Mock(return_value=self.release),
-                            capture=unittest.mock.Mock(return_value=json.dumps({'SecretString': json.dumps(self.secret)}))), \
+                            capture=self.secret_capture), \
                 patch.dict(installer.PINNED_SIGNING_KEYS, {'test-2026': PUBLIC}, clear=True), \
                 patch.object(installer.os, 'geteuid', return_value=0), patch.object(installer.os, 'chown'), \
                 patch.object(installer.subprocess, 'run', side_effect=self.systemctl), \
@@ -465,9 +482,12 @@ class MainTests(unittest.TestCase):
 
     def test_cutover_order(self):
         self.install()
-        order = ['preflight', 'systemctl stop silicon-apps-api', 'python3 ' + str(self.release / 'deploy/backup.py'),
-                 'systemctl daemon-reload', 'systemctl restart silicon-apps-api', 'ready silicon-apps-api', 'signing test-2026',
-                 'systemctl enable silicon-apps-store', 'systemctl restart silicon-apps-store', 'ready silicon-apps-store',
+        order = ['preflight', 'systemctl stop silicon-apps-backup.timer', 'systemctl disable silicon-apps-backup.timer',
+                 'systemctl show silicon-apps-backup.service', 'systemctl stop caddy', 'systemctl disable caddy', 'systemctl stop silicon-apps-api',
+                 'systemctl disable silicon-apps-api', 'python3 ' + str(self.release / 'deploy/backup.py'),
+                 'systemctl daemon-reload', 'systemctl start silicon-apps-api', 'ready silicon-apps-api', 'signing test-2026',
+                 'systemctl start silicon-apps-store', 'ready silicon-apps-store',
+                 'systemctl enable silicon-apps-api silicon-apps-store caddy silicon-apps-backup.timer',
                  'systemctl restart caddy silicon-apps-backup.timer']
         self.assertEqual([self.position(p) for p in order], sorted(self.position(p) for p in order))
         self.assertLess(self.position('account silicon-apps-store'), self.position('preflight'))
@@ -476,19 +496,74 @@ class MainTests(unittest.TestCase):
         self.assertIn('User=silicon-apps-store', unit)
         self.assertIn('APPS_SIGNING_KEYS=', (self.etc / 'silicon-apps/api.env').read_text())
         self.assertEqual(json.loads((self.root / 'deployment.json').read_text())['revision'], REVISION)
+        self.assertFalse((self.root / 'cutover-recovery.json').exists())
 
-    def test_store_that_never_renders_rolls_everything_back(self):
-        def fail():
-            raise RuntimeError('silicon-apps-store readiness timed out')
-        with self.assertRaisesRegex(RuntimeError, 'readiness'):
-            self.install(store_ready=fail)
-        self.assertEqual((self.root / 'current').resolve(), self.previous)
-        self.assertFalse((self.etc / 'systemd/system/silicon-apps-store.service').exists())
-        self.assertFalse((self.root / 'deployment.json').exists())
-        self.assertEqual(self.states['silicon-apps-store'][1], False)
-        self.assertTrue(self.states['silicon-apps-api'][1] and self.states['caddy'][1])
-        self.assertLess(self.position('ready silicon-apps-store'), len(self.events) - 1)
+    def assert_recovery_fenced(self):
+        self.assertEqual((self.root / 'current').resolve(), self.release)
+        receipt=json.loads((self.root / 'cutover-recovery.json').read_text())
+        self.assertIn('ConditionPathExists=!/opt/silicon-apps/cutover-recovery.json',
+                      (self.etc / 'systemd/system/caddy.service').read_text())
+        self.assertEqual(receipt['phase'],'operator-recovery-required')
+        self.assertEqual(receipt['previous_release'],str(self.previous))
+        self.assertNotIn('APPS_RUNNER_TOKEN',json.dumps(receipt))
+        for unit in ('silicon-apps-api','silicon-apps-store','caddy'):
+            self.assertEqual(self.states[unit],('disabled',False))
+        self.assertNotIn('systemctl start silicon-apps-api', self.events[self.position('systemctl start silicon-apps-api')+1:])
+
+    def test_store_failure_after_candidate_start_fences_without_old_restart(self):
+        def fail(): raise RuntimeError('silicon-apps-store readiness timed out')
+        with self.assertRaisesRegex(RuntimeError, 'readiness'): self.install(store_ready=fail)
+        self.assert_recovery_fenced()
         self.assertNotIn('systemctl restart caddy silicon-apps-backup.timer', self.events)
+
+    def test_reviewed_secret_version_is_pinned_and_must_still_be_current(self):
+        version = '954b17a2-0ab1-4c19-af2a-3eb3a46fc66d'
+        self.install(secret_version=version)
+        command = self.secret_capture.call_args.args[0]
+        self.assertEqual(command[command.index('--version-id') + 1], version)
+
+    def test_retired_secret_version_fails_before_preflight(self):
+        version = '954b17a2-0ab1-4c19-af2a-3eb3a46fc66d'
+        with self.assertRaisesRegex(ValueError, 'no longer current'):
+            self.install(secret_version=version, secret_stages=['AWSPREVIOUS'])
+        self.assertFalse(any(e.startswith('preflight') or e.startswith('systemctl stop') for e in self.events))
+
+    def test_active_scheduled_backup_refuses_before_stopping_public_ingress(self):
+        self.backup_state='active'
+        with self.assertRaisesRegex(ValueError, 'backup is still running'):self.install()
+        self.assertEqual((self.root / 'current').resolve(),self.previous)
+        self.assertTrue(self.states['silicon-apps-api'][1] and self.states['caddy'][1])
+        self.assertTrue(self.states['silicon-apps-backup.timer'][1])
+        self.assertFalse((self.root / 'cutover-recovery.json').exists())
+        self.assertNotIn('systemctl stop caddy',self.events)
+
+    def test_backup_failure_before_candidate_start_restores_old_services(self):
+        old_caddy=self.etc / 'systemd/system/caddy.service'
+        old_caddy.parent.mkdir(parents=True)
+        old_caddy.write_text('[Unit]\nConditionPathExists=!/opt/silicon-apps/cutover-recovery.json\n')
+        self.fail_prefix='python3 ' + str(self.release / 'deploy/backup.py')
+        with self.assertRaises(subprocess.CalledProcessError):self.install()
+        self.assertEqual((self.root / 'current').resolve(),self.previous)
+        self.assertFalse((self.root / 'cutover-recovery.json').exists())
+        self.assertTrue(self.states['silicon-apps-api'][1] and self.states['caddy'][1])
+        self.assertFalse(any(e.startswith('ready silicon-apps-api') for e in self.events))
+
+    def test_failed_candidate_start_is_treated_as_possible_write(self):
+        self.fail_prefix='systemctl start silicon-apps-api'
+        with self.assertRaises(subprocess.CalledProcessError):self.install()
+        self.assert_recovery_fenced()
+
+    def test_public_proxy_start_failure_fences_candidate_without_rollback(self):
+        self.fail_prefix='systemctl restart caddy silicon-apps-backup.timer'
+        with self.assertRaises(subprocess.CalledProcessError):self.install()
+        self.assert_recovery_fenced()
+
+    def test_existing_recovery_receipt_blocks_reinstall(self):
+        (self.root / 'cutover-recovery.json').write_text('{}')
+        with self.assertRaisesRegex(ValueError,'needs recovery'):self.install()
+        self.assertEqual((self.root / 'current').resolve(),self.previous)
+        self.assertFalse(any(e.startswith('systemctl stop') for e in self.events))
+        self.assertFalse(any(e.startswith('preflight') for e in self.events))
 
 
 LINUX_TARGETS = {'linux-x86_64', 'linux-i686', 'linux-aarch64', 'linux-armv7hf'}

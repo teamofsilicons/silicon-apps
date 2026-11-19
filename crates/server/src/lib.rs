@@ -1,4 +1,5 @@
 mod auth;
+pub mod catalog_presentation;
 pub mod config;
 pub mod discovery;
 pub mod error;
@@ -7,10 +8,13 @@ mod integrations;
 pub mod model;
 mod objects;
 pub mod ratelimit;
+pub mod reports;
 pub mod routes;
 pub mod signing;
 pub mod store;
 pub mod subscriptions;
+pub mod ting;
+pub mod user_storage;
 
 use axum::{
     Extension, Json, Router,
@@ -43,11 +47,13 @@ pub struct AppState {
     pub signer: Arc<signing::Keyring>,
     /// Last isolated-runner reachability check: when, result, RFC 3339 time.
     pub runner_probe: Mutex<Option<(std::time::Instant, bool, String)>>,
+    pub ting: Option<ting::Publisher>,
 }
 pub type Shared = Arc<AppState>;
 impl AppState {
     pub fn new(config: Config) -> Result<Shared> {
         config.validate_dev_boundary()?;
+        let ting = ting::Publisher::configured(&config)?;
         std::fs::create_dir_all(config.data_dir.join("packages"))
             .map_err(|_| ApiError::unavailable("Cannot create Apps data directory."))?;
         let mut store = Store::open(&config.data_dir.join("apps.sqlite"))?;
@@ -121,6 +127,7 @@ impl AppState {
             limiter,
             signer,
             runner_probe: Mutex::new(None),
+            ting,
             config,
             identity_cache: Mutex::new(BTreeMap::new()),
             store: Mutex::new(store),
@@ -252,16 +259,93 @@ async fn dispatch(
         }
         return auth::handle_auth(&s, path, &method, &q, &headers, &raw).await;
     }
-    if raw.len() > 2 * 1024 * 1024 && !path.contains("/packages/") && !path.ends_with("/media") {
+    if path == "reports" && method == Method::POST {
+        if raw.len() > reports::MAX_REQUEST_BYTES {
+            return Err(ApiError::bad(
+                "A report with its screenshot is limited to 8 MiB.",
+            ));
+        }
+    } else if raw.len() > 2 * 1024 * 1024
+        && !path.contains("/packages/")
+        && !path.ends_with("/media")
+    {
         return Err(ApiError::bad("JSON requests are limited to 2 MiB."));
     }
+    if let ["reports", report_id, "screenshot"] = path.split('/').collect::<Vec<_>>().as_slice() {
+        // The maintainers' mailed link; its key is the only credential.
+        let key = q.get("key").map(String::as_str).unwrap_or_default();
+        let (content_type, name, bytes) = s
+            .store
+            .lock()
+            .unwrap()
+            .report_screenshot(report_id, key)?
+            .ok_or_else(ApiError::missing)?;
+        let file: String = name
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || ".-_ ".contains(c) {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        return Ok((
+            [
+                ("Content-Type", content_type),
+                (
+                    "Content-Disposition",
+                    format!("inline; filename=\"{file}\""),
+                ),
+                ("X-Content-Type-Options", "nosniff".into()),
+                (
+                    "Content-Security-Policy",
+                    "default-src 'none'; sandbox".into(),
+                ),
+                ("Referrer-Policy", "no-referrer".into()),
+                ("Cache-Control", "private, no-store".into()),
+            ],
+            bytes,
+        )
+            .into_response());
+    }
+    let storage_path: Vec<_> = path.split('/').collect();
+    if let ["apps", app, "storage", "users", user, ..] = storage_path.as_slice() {
+        let result = user_storage::handle(
+            &s,
+            &method,
+            app,
+            user,
+            storage_path.last() == Some(&"reset"),
+            &headers,
+            &raw,
+        )
+        .await;
+        let mut response = match result {
+            Ok(response) => response,
+            Err(error) => error.into_response(),
+        };
+        response
+            .headers_mut()
+            .insert("Cache-Control", "no-store".parse().unwrap());
+        return Ok(response);
+    }
     let token = auth::bearer(&s, &headers).await?;
-    let who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;
-    if let Some(who) = &who {
+    let mut who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;
+    if let Some(who) = &who
+        && who.app_audience != model::CATALOG_AUDIENCE
+    {
         integrations::refresh_identity(&s, who)?;
     }
     if path == "session" && method == Method::GET {
         return Ok(Json(json!({"authenticated":who.is_some(),"account":who})).into_response());
+    }
+    if path == "organizations" {
+        let actor = who.as_ref().ok_or_else(ApiError::auth)?;
+        if let Some(error) = &actor.publishing_error {
+            return Err(ApiError::unavailable(error));
+        }
+        return Ok(Json(json!(actor.publishing)).into_response());
     }
     let p: Vec<_> = path.trim_matches('/').split('/').collect();
     if p[0] == "keys" {
@@ -284,7 +368,7 @@ async fn dispatch(
         let reader = events::authorize(&s, who.as_ref(), &feed)?;
         if p.last() == Some(&"stream") {
             let guard = s.limiter.open_stream(&client)?;
-            return events::stream(&s, reader, feed, &q, &headers, guard);
+            return events::stream(&s, reader, feed, &q, &headers, guard).await;
         }
         return Ok(Json(events::list(&s, &reader, feed, &q)?).into_response());
     }
@@ -394,7 +478,10 @@ async fn dispatch(
         }
         if p.len() == 3 && p[0] == "apps" && p[2] == "webhook" {
             let app = s.store.lock().unwrap().app(p[1])?;
-            if !app.is_author(who.as_ref()) {
+            if app.deleted_at.is_some() {
+                return Err(ApiError::missing());
+            }
+            if !app.permits(who.as_ref(), silicon_publishing_policy::Permission::Manage) {
                 return Err(ApiError::forbidden());
             }
             let t = token.as_deref().ok_or_else(ApiError::auth)?;
@@ -420,7 +507,11 @@ async fn dispatch(
     auth::check_csrf(&s, &headers)?;
     let key = idempotency_key(&headers)?;
     let _guard = s.mutation_gate.lock().await;
-    let actor = who.as_ref().map(|i| i.uuid.as_str()).unwrap_or("anonymous");
+    let actor_uuid = who
+        .as_ref()
+        .map(|i| i.uuid.clone())
+        .unwrap_or_else(|| "anonymous".into());
+    let actor = actor_uuid.as_str();
     let digest = hash(&raw);
     let upload = p.len() == 4 && p[0] == "apps" && p[2] == "packages";
     let author_signature = if upload {
@@ -455,16 +546,120 @@ async fn dispatch(
         .lock()
         .unwrap()
         .pending_secret(actor, key, &fingerprint)?;
-    if let Some(v) = s.store.lock().unwrap().replay(actor, key, &fingerprint)? {
-        return Ok(([("Idempotent-Replayed", "true")], Json(v)).into_response());
-    }
     let media = p.len() == 3 && p[0] == "apps" && p[2] == "media";
-    let body: Value = if upload || media || raw.is_empty() {
+    let mut body: Value = if upload || media || raw.is_empty() {
         json!({})
     } else {
         serde_json::from_slice(&raw)
             .map_err(|e| ApiError::bad(format!("Request JSON is invalid: {e}")))?
     };
+    if p == ["apps"] && body.get("organization_id").is_none() {
+        let identity = who.as_ref().ok_or_else(ApiError::auth)?;
+        if let Some(id) = identity
+            .publishing
+            .default_publisher(&identity.id)
+            .map_err(ApiError::bad)?
+        {
+            body["organization_id"] = json!(id);
+        }
+    }
+    // Receipts do not retain permissions after an organization or team change.
+    if p.len() >= 2 && p[0] == "apps" && !matches!(p.get(2), Some(&"installs" | &"review")) {
+        let app = s.store.lock().unwrap().app(p[1])?;
+        store::authorize_retry(&app, who.as_ref(), method.as_str(), &p)?;
+        if app.uses_organization_permissions(who.as_ref()) {
+            if let Some(error) = who.as_ref().and_then(|w| w.publishing_error.as_deref()) {
+                return Err(ApiError::unavailable(error));
+            }
+            if !app.permits(
+                who.as_ref(),
+                store::mutation_permission(method.as_str(), &p),
+            ) {
+                return Err(ApiError::forbidden());
+            }
+        }
+    }
+    if p == ["apps"]
+        && let Some(org) = body.get("organization_id").and_then(Value::as_str)
+    {
+        let w = who.as_ref().ok_or_else(ApiError::auth)?;
+        if let Some(error) = &w.publishing_error {
+            return Err(ApiError::unavailable(error));
+        }
+        if !w.publishing.allows(
+            org,
+            silicon_publishing_policy::ResourceKind::Apps,
+            &Default::default(),
+            silicon_publishing_policy::Permission::Create,
+        ) {
+            return Err(ApiError::forbidden());
+        }
+    }
+    if p.len() == 3 && p[0] == "invites" {
+        s.store
+            .lock()
+            .unwrap()
+            .authorize_invitation(p[1], who.as_ref().ok_or_else(ApiError::auth)?)?;
+    }
+    let replay = s.store.lock().unwrap().replay(actor, key, &fingerprint)?;
+    if let Some(mut v) = replay {
+        if p == ["apps"]
+            && let Some(id) = v["app"]["app_id"].as_str()
+        {
+            let app = s.store.lock().unwrap().app(id)?;
+            if app.deleted_at.is_some() {
+                return Err(ApiError::missing());
+            }
+            if !app.is_author(who.as_ref()) {
+                return Err(ApiError::forbidden());
+            }
+            if app.organization_id.is_some() {
+                if let Some(object) = v.as_object_mut() {
+                    object.remove("app_secret");
+                }
+            }
+        }
+        return Ok(([("Idempotent-Replayed", "true")], Json(v)).into_response());
+    }
+    if p.len() == 3 && p[0] == "apps" && p[2] == "organization-access" {
+        let app = s.store.lock().unwrap().app(p[1])?;
+        let org = app
+            .organization_id
+            .as_deref()
+            .ok_or_else(|| ApiError::bad("This app has a personal publisher."))?;
+        let w = who.as_ref().ok_or_else(ApiError::auth)?;
+        let policy: silicon_publishing_policy::ResourcePolicy =
+            serde_json::from_value(body.clone())
+                .map_err(|_| ApiError::bad("Supply a valid organization resource policy."))?;
+        policy.validate().map_err(ApiError::bad)?;
+        if !s.config.dev_auth {
+            let base = s
+                .config
+                .organizations_url
+                .as_deref()
+                .ok_or_else(|| ApiError::unavailable("Organizations is not configured."))?;
+            let response = s
+                .http
+                .post(format!(
+                    "{}/v1/integrations/{}/orgs/{org}/publishing-policy/validate",
+                    base.trim_end_matches('/'),
+                    w.app_audience
+                ))
+                .timeout(std::time::Duration::from_secs(10))
+                .bearer_auth(token.as_deref().ok_or_else(ApiError::auth)?)
+                .json(&policy)
+                .send()
+                .await
+                .map_err(|_| {
+                    ApiError::unavailable("Organizations could not validate these grants.")
+                })?;
+            if !response.status().is_success() {
+                return Err(ApiError::bad(
+                    "Choose current members and teams in this organization.",
+                ));
+            }
+        }
+    }
     // Check app authorization before contacting runners, Accounts or mail providers.
     if p.len() >= 3 && p[0] == "apps" && !matches!(p[2], "installs" | "review") {
         let app = s.store.lock().unwrap().app(p[1])?;
@@ -480,6 +675,9 @@ async fn dispatch(
     }
 
     let mut prepared = Prepared::default();
+    if p == ["reports"] {
+        prepared.report_screenshot = reports::take_screenshot(&mut body, &s.config.public_url)?;
+    }
     if p == ["apps"] && method == Method::POST
         || p.len() == 4 && p[2] == "secret" && p[3] == "rotate"
     {
@@ -553,8 +751,25 @@ async fn dispatch(
         }
     }
     if p.len() == 3 && p[0] == "apps" && p[2] == "invites" && method == Method::POST {
-        let to = str_field(&body, "to")?;
-        if !to.contains('@') {
+        let to = str_field(&body, "to")?.trim();
+        if let Some(org) = to.strip_prefix("org:") {
+            let w = who.as_ref().ok_or_else(ApiError::auth)?;
+            let base = s
+                .config
+                .organizations_url
+                .as_deref()
+                .ok_or_else(|| ApiError::unavailable("Organizations is not configured."))?;
+            let publisher = silicon_publishing_policy::lookup_publisher(
+                base,
+                &w.app_audience,
+                token.as_deref().ok_or_else(ApiError::auth)?,
+                org,
+            )
+            .await
+            .map_err(ApiError::unavailable)?
+            .ok_or_else(|| ApiError::bad("Choose an existing organization ID."))?;
+            prepared.resolved_organization = Some(publisher.org_id);
+        } else if !to.contains('@') {
             prepared
                 .identities
                 .push(integrations::resolve(&s, to).await?);
@@ -568,10 +783,7 @@ async fn dispatch(
             ));
         }
     }
-    if path == "reports"
-        && s.config.mail_url.is_none()
-        && s.config.accounts_service_token.is_none()
-        && s.config.accounts_service_token.is_none()
+    if path == "reports" && s.config.mail_url.is_none() && s.config.accounts_service_token.is_none()
     {
         return Err(ApiError::unavailable(
             "Bug report email delivery is not configured (APPS_MAIL_URL).",
@@ -604,6 +816,7 @@ async fn dispatch(
                 return Err(error);
             }
         }
+        who = auth::authoring_identity(&s, token.as_deref(), &method, path).await?;
     }
     if p.len() >= 3 && p[0] == "apps" && p[2] == "webhook" {
         let t = token.as_deref().ok_or_else(ApiError::auth)?;
@@ -643,6 +856,9 @@ async fn dispatch(
     }
     // Synchronize ownership before acknowledging it, so a removed author immediately loses Accounts configuration rights.
     let sync_change = p.len() == 2 && p[0] == "apps" && method == Method::PATCH
+        || p.len() == 2 && p[0] == "apps" && method == Method::DELETE
+        || p.len() == 3 && p[0] == "apps" && p[2] == "restore"
+        || p.len() == 3 && p[0] == "apps" && p[2] == "organization-access"
         || p.len() >= 3 && p[0] == "apps" && matches!(p[2], "authors" | "admin")
         || p.len() == 3 && p[0] == "invites" && p[2] == "accept";
     if sync_change {

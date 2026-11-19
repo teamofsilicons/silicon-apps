@@ -32,7 +32,7 @@ async fn malformed_arguments_return_actionable_json_and_nonzero_status() {
 async fn docs_are_bundled_machine_readable_and_include_the_traversable_command_tree() {
     let home = tempfile::tempdir().unwrap();
     for topic in [
-        "start", "publish", "manifest", "install", "auth", "why", "tree",
+        "start", "publish", "manifest", "install", "auth", "storage", "why", "tree",
     ] {
         let output = apps(home.path())
             .args(["docs", topic])

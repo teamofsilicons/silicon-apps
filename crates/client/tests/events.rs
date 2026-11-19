@@ -23,9 +23,11 @@ fn config(dir: &std::path::Path) -> Config {
         bind: "127.0.0.1:0".parse().unwrap(),
         data_dir: dir.to_owned(),
         dev_auth: true,
+        organizations_url: None,
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
+        ting_url: None,
         public_url: "http://127.0.0.1:4311".into(),
         allowed_origins: vec!["http://127.0.0.1:4311".into()],
         runner_url: None,
@@ -76,17 +78,30 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     );
 
     // A published app with one development release.
-    alice
-        .create(
+    let created = alice
+        .create_with_tagline(
             "demo-app",
             "Demo",
             &"d".repeat(200),
+            Some("A demo app"),
             None,
             Some("client-create"),
         )
         .await
         .unwrap();
+    alice
+        .edit(
+            "demo-app",
+            json!({"interface_api_documentation_url":"https://example.com/interface-api"}),
+            Some("client-interface-docs"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(created["app"]["tagline"], "A demo app");
     let who = Identity {
+        publishing: Default::default(),
+        publishing_error: None,
+        app_audience: String::new(),
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "alice".into(),
@@ -305,5 +320,34 @@ async fn client_reads_capabilities_streams_events_and_manages_subscriptions() {
     let error = alice.subscription(&id).await.unwrap_err();
     assert!(format!("{error:#}").contains("subscription_not_found"));
     hook.abort();
+    server.abort();
+}
+
+#[tokio::test]
+async fn stream_preserves_the_ready_cursor_when_disconnected_before_any_event() {
+    use axum::{extract::Query, routing::get};
+    use silicon_apps_client::events::EventTransport;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let app = Router::new().route(
+        "/v1/events/stream",
+        get(
+            |Query(query): Query<std::collections::BTreeMap<String, String>>| async move {
+                assert_eq!(query.get("transport").map(String::as_str), Some("ting"));
+                (
+                    [("content-type", "text/event-stream")],
+                    ": ready cursor=42 transport=ting\n\n",
+                )
+            },
+        ),
+    );
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = Client::new(&base, None).unwrap();
+    let mut stream = client
+        .stream_events_with_transport(&Feed::Account, None, &[], EventTransport::Ting)
+        .await
+        .unwrap();
+    assert!(stream.next().await.unwrap().is_none());
+    assert_eq!(stream.last_event_id(), Some("42"));
     server.abort();
 }

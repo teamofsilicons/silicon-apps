@@ -16,9 +16,11 @@ fn server_config(dir: &std::path::Path) -> ServerConfig {
         bind: "127.0.0.1:0".parse().unwrap(),
         data_dir: dir.to_owned(),
         dev_auth: true,
+        organizations_url: None,
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
+        ting_url: None,
         public_url: "http://127.0.0.1:4311".into(),
         allowed_origins: vec!["http://127.0.0.1:4311".into()],
         runner_url: None,
@@ -62,10 +64,28 @@ async fn signed_installs_show_scripts_and_leave_withdrawn_releases() {
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let alice = Client::new(&base, Some("dev:alice:c:alice".into())).unwrap();
     alice
-        .create("fixture", "Fixture", &"d".repeat(200), None, None)
+        .create_with_tagline(
+            "fixture",
+            "Fixture",
+            &"d".repeat(200),
+            Some("A fixture"),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    alice
+        .edit(
+            "fixture",
+            json!({"interface_api_documentation_url":"https://example.com/interface-api"}),
+            Some("fixture-interface-docs"),
+        )
         .await
         .unwrap();
     let who = Identity {
+        publishing: Default::default(),
+        publishing_error: None,
+        app_audience: String::new(),
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "alice".into(),

@@ -12,9 +12,9 @@
   "DeveloperUrl": "https://developers.teamofsilicons.com",
   "AccountsDeveloperUrl": "https://developers.teamofsilicons.com",
   "Runtime": "native-systemd",
-  "ApiSourceRevision": "78b52c0d8ad42d7bd6a4b59112f221464da29f81",
-  "ApiArchiveSha256": "4ea5c209bf53079ebe598209461943c4263681a6d05216fde36a501d5f3e016c",
-  "ApiBinarySha256": "25c7d911a02b65145dfde1d47747a2101fb91a651915a71ade52cd726ee741dd",
+  "ApiSourceRevision": "af06bd9c2ce3d6a89cb05af0a682b4d4c90b9d4a",
+  "ApiArchiveSha256": "0d5854b7d0f4c4b4cb7a1008d05b1232ec720370ba29f81177aad1e9d9e58047",
+  "ApiBinarySha256": "e7dcadd7a684a06ed1560d4281bca91e2912d5508f524c04ed209144c30938de",
   "ApiVersion": "0.2.0",
   "WorkerSourceRevision": "1d92c9a659420d4754e8f8b5de71ae16cc74a69e",
   "PreviousWorkerSourceRevision": "b2a3db8e575701575dfc283ba8bab0ed51a1cb60",
@@ -157,9 +157,9 @@
   "SharedDocsPages": 52,
   "SharedDocsPublicHttpVerified": true,
   "SharedDocsPublicBrowserVerified": true,
-  "InstallCommandId": "a78bc1fe-b16c-403b-a384-a3c1a5f52355",
-  "VerificationCommandId": "a0ed68f6-9123-41fa-8d17-508f65406204",
-  "LatestBackupKey": "backups/20261009T212315Z.tar.gz",
+  "InstallCommandId": "149e9bf5-992e-44ed-9e7b-1a3c71f7bb64",
+  "VerificationCommandId": "149e9bf5-992e-44ed-9e7b-1a3c71f7bb64",
+  "LatestBackupKey": "backups/20261118T140557Z.tar.gz",
   "CliCommand": "silicon-apps",
   "CliGithubVersion": "0.3.0",
   "CatalogInstallVerificationCommandId": "c41ad415-9b82-41dc-b40c-ac6d14c79d0c",
@@ -328,7 +328,7 @@
   "ApiArchiveSize": 96673117,
   "ApiArchiveFiles": 1419,
   "ApiArchiveSymlinks": 28,
-  "PreviousApiSourceRevision": "94c2a403d2600584d901308f90dde59436ee9f1c",
+  "PreviousApiSourceRevision": "ddd50442e49957538caf5fc6d35c69f8ca0adcc4",
   "PreviousApiArchiveSha256": "166db9338759e793fc8d22decf32ed2aaedaa860722fceaa5154fdac763f9008",
   "ApiMigrations": [
     "001_catalog",
@@ -438,5 +438,6 @@
   ],
   "RequiredTargetsInstallCommandId": "31880e42-4ff7-4f0d-9377-df1c2b9933f0",
   "RequiredTargetsVerifiedAt": "2026-10-18T16:18:06.162202+00:00",
-  "RequiredTargetsBackupKey": "backups/20261018T161401Z.tar.gz"
+  "RequiredTargetsBackupKey": "backups/20261018T161401Z.tar.gz",
+  "OauthStateVerification": "deploy/verification-oauth-state-2026-11-18.md"
 }

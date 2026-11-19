@@ -5,6 +5,7 @@ use crate::{
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use silicon_publishing_policy::{Permission, ResourceKind, ResourcePolicy};
 use std::{collections::BTreeMap, path::Path};
 
 pub struct Store {
@@ -24,22 +25,27 @@ pub const SORTS: [&str; 6] = [
     "updated",
     "newest",
 ];
-const MIGRATIONS: [&str; 5] = [
+const MIGRATIONS: [&str; 7] = [
     include_str!("../../../migrations/001_catalog.sql"),
     include_str!("../../../migrations/002_events.sql"),
     include_str!("../../../migrations/003_signing.sql"),
     include_str!("../../../migrations/004_account_uuid_backfill.sql"),
     include_str!("../../../migrations/005_retired_identity_events.sql"),
+    include_str!("../../../migrations/006_user_storage.sql"),
+    include_str!("../../../migrations/007_report_screenshots.sql"),
 ];
 #[derive(Default)]
 pub struct Prepared {
     pub identities: Vec<Identity>,
+    pub resolved_organization: Option<String>,
     pub package: Option<Package>,
     pub secret: Option<String>,
     pub webhook: Option<Value>,
     /// The API found that this create request's author is the configured
     /// owner of its 1–2 character historical app ID (`APPS_HISTORICAL_APP_IDS`).
     pub historical_app_id: bool,
+    /// A bug report's decoded screenshot, already validated.
+    pub report_screenshot: Option<crate::reports::Screenshot>,
 }
 pub struct Mutation<'a> {
     pub method: &'a str,
@@ -109,10 +115,78 @@ fn unsupported_targets(b: &Value) -> Result<BTreeMap<String, String>> {
 fn need(who: Option<&Identity>) -> Result<&Identity> {
     who.ok_or_else(ApiError::auth)
 }
+pub fn mutation_permission(method: &str, path: &[&str]) -> Permission {
+    match (method, path) {
+        ("DELETE", ["apps", _]) | ("POST", ["apps", _, "restore"]) => Permission::Manage,
+        ("POST", ["apps", _, "authors", "leave"]) => Permission::Read,
+        (
+            _,
+            [
+                "apps",
+                _,
+                "access"
+                | "organization-access"
+                | "organization-authors"
+                | "admin"
+                | "secret"
+                | "webhook"
+                | "authors"
+                | "invites",
+                ..,
+            ],
+        ) => Permission::Manage,
+        ("POST", ["apps", _, "releases"])
+        | (_, ["apps", _, "publish"])
+        | (_, ["apps", _, "releases", _, "promote" | "withdraw"]) => Permission::Publish,
+        _ => Permission::Edit,
+    }
+}
 fn author(app: &App, who: Option<&Identity>) -> Result<()> {
     need(who)?;
+    if app.organization_id.is_some()
+        && let Some(error) = who.and_then(|w| w.publishing_error.as_deref())
+    {
+        return Err(ApiError::unavailable(error));
+    }
     if !app.is_author(who) {
         return Err(ApiError::forbidden());
+    }
+    Ok(())
+}
+/// A stored receipt never preserves access after deletion or a permission change.
+pub fn authorize_retry(
+    app: &App,
+    who: Option<&Identity>,
+    method: &str,
+    path: &[&str],
+) -> Result<()> {
+    let lifecycle = (method == "DELETE" && path.len() == 2)
+        || (method == "POST" && path.len() == 3 && path[2] == "restore");
+    if app.deleted_at.is_some() && !lifecycle {
+        return Err(ApiError::missing());
+    }
+    if lifecycle {
+        return admin(app, who);
+    }
+    if matches!(path.get(2), Some(&"installs" | &"review")) {
+        if method == "DELETE" && path.get(2) == Some(&"review") {
+            need(who)?;
+            return Ok(());
+        }
+        return if app.visible(who) {
+            Ok(())
+        } else {
+            Err(ApiError::missing())
+        };
+    }
+    author(app, who)?;
+    if app.uses_organization_permissions(who)
+        && !app.permits(who, mutation_permission(method, path))
+    {
+        return Err(ApiError::forbidden());
+    }
+    if matches!(path.get(2), Some(&"access" | &"admin")) {
+        admin(app, who)?;
     }
     Ok(())
 }
@@ -129,6 +203,11 @@ fn admin(app: &App, who: Option<&Identity>) -> Result<()> {
     Ok(())
 }
 fn invite_matches(i: &Invite, w: &Identity) -> bool {
+    if let Some(org) = i.to.strip_prefix("org:") {
+        return w
+            .publishing
+            .can_answer(org, silicon_publishing_policy::ResourceKind::Apps);
+    }
     i.account_uuid.as_deref() == Some(&w.uuid)
         || i.to.contains('@')
             && w.verified_emails
@@ -269,6 +348,22 @@ impl Store {
         tx.commit()?;
         Ok(true)
     }
+    pub fn authorize_invitation(&self, id: &str, who: &Identity) -> Result<()> {
+        let catalog = self.catalog()?;
+        let invite = catalog
+            .invites
+            .iter()
+            .find(|i| i.id == id && invite_matches(i, who))
+            .ok_or_else(ApiError::missing)?;
+        if !catalog
+            .apps
+            .get(&invite.app_id)
+            .is_some_and(|app| app.deleted_at.is_none())
+        {
+            return Err(ApiError::missing());
+        }
+        Ok(())
+    }
     pub fn app(&self, id: &str) -> Result<App> {
         self.catalog()?
             .apps
@@ -383,6 +478,59 @@ impl Store {
         if p == ["me"] {
             return Ok(json!(need(who)?));
         }
+        if p == ["people"] {
+            let w = need(who)?;
+            let mut stats: BTreeMap<String, (u64, u64, String)> = BTreeMap::new();
+            for app in c.apps.values() {
+                for event in &app.history {
+                    if event.kind != "author.invited" {
+                        continue;
+                    }
+                    let target = event.data["account_uuid"].as_str().or_else(|| {
+                        c.invites
+                            .iter()
+                            .find(|i| Some(i.id.as_str()) == event.data["id"].as_str())
+                            .and_then(|i| i.account_uuid.as_deref())
+                    });
+                    let Some(target) = target else { continue };
+                    let peer = if event.actor_uuid == w.uuid {
+                        target
+                    } else if target == w.uuid {
+                        &event.actor_uuid
+                    } else {
+                        continue;
+                    };
+                    if peer == w.uuid {
+                        continue;
+                    }
+                    let entry = stats.entry(peer.into()).or_default();
+                    if event.actor_uuid == w.uuid {
+                        entry.0 += 1
+                    } else {
+                        entry.1 += 1
+                    }
+                    entry.2 = entry.2.clone().max(event.at.clone());
+                }
+            }
+            let mut items:Vec<_>=stats.into_iter().map(|(uuid,(sent,received,at))|{
+                let author=c.apps.values().flat_map(|a|&a.authors).find(|a|a.uuid==uuid);
+                json!({"uuid":uuid,"id":author.map(|a|&a.id),"display_name":author.map(|a|&a.display_name),"pfp_url":author.and_then(|a|a.pfp_url.as_deref()),"sent":sent,"received":received,"last_invited_at":at})
+            }).collect();
+            items.sort_by(|a, b| {
+                (2 * b["sent"].as_u64().unwrap_or(0) + b["received"].as_u64().unwrap_or(0))
+                    .cmp(
+                        &(2 * a["sent"].as_u64().unwrap_or(0)
+                            + a["received"].as_u64().unwrap_or(0)),
+                    )
+                    .then_with(|| {
+                        b["last_invited_at"]
+                            .as_str()
+                            .cmp(&a["last_invited_at"].as_str())
+                    })
+            });
+            items.truncate(1000);
+            return Ok(json!({"items":items}));
+        }
         if p == ["invites"] {
             let w = need(who)?;
             return Ok(
@@ -456,6 +604,10 @@ impl Store {
                 .apps
                 .values()
                 .filter(|a| {
+                    a.deleted_at.is_some()
+                        == (mine && q.get("deleted").is_some_and(|v| v == "true"))
+                })
+                .filter(|a| {
                     if mine {
                         a.is_author(who)
                     } else {
@@ -463,6 +615,21 @@ impl Store {
                     }
                 })
                 .filter(|a| visibility.is_none_or(|v| v == &a.visibility))
+                .filter(|a| {
+                    q.get("organization_id")
+                        .is_none_or(|org| a.organization_id.as_ref() == Some(org))
+                })
+                .filter(|a| {
+                    q.get("shared_with_me").is_none_or(|v| v != "true")
+                        || who.is_some_and(|w| {
+                            a.is_author(Some(w))
+                                && a.history.first().is_none_or(|h| h.actor_uuid != w.uuid)
+                        })
+                })
+                .filter(|a| {
+                    q.get("shared_by")
+                        .is_none_or(|uuid| a.authors.iter().any(|author| &author.uuid == uuid))
+                })
                 .filter(|a| target.is_none_or(|t| a.targets().contains(t)))
                 .filter_map(|a| search_score(a, &query).map(|s| (s, a)))
                 .collect();
@@ -498,6 +665,9 @@ impl Store {
             return Err(ApiError::missing());
         }
         let app = c.apps.get(p[1]).ok_or_else(ApiError::missing)?;
+        if app.deleted_at.is_some() && p.len() == 2 && app.is_admin(who) {
+            return Ok(app.view(who));
+        }
         if !app.visible(who) {
             return Err(ApiError::missing());
         }
@@ -508,7 +678,15 @@ impl Store {
             return Err(ApiError::missing());
         }
         match p[2] {
-            "authors" => Ok(json!({"items":app.authors})),
+            "organization-access" => {
+                admin(app, who)?;
+                Ok(json!(app.organization_access))
+            }
+            "storage-schema" => {
+                author(app, who)?;
+                Ok(json!({"app_id":app.app_id,"schema":app.user_storage}))
+            }
+            "authors" => Ok(json!({"items":app.authors,"organizations":app.author_organizations})),
             "readiness" => {
                 author(app, who)?;
                 Ok(app.readiness())
@@ -633,7 +811,36 @@ impl Store {
         self.expire_secret_replays()?;
         let actor = m.who.map(|i| i.uuid.as_str()).unwrap_or("anonymous");
         let fingerprint = format!("{}:{}:{}", m.method, m.path, m.digest);
-        if let Some(v) = self.replay(actor, m.key, &fingerprint)? {
+        if let Some(mut v) = self.replay(actor, m.key, &fingerprint)? {
+            let parts: Vec<_> = m.path.split('/').collect();
+            if parts.len() == 3 && parts[0] == "invites" {
+                self.authorize_invitation(parts[1], need(m.who)?)?;
+            }
+            if parts.len() >= 2 && parts[0] == "apps" {
+                let app = self.app(parts[1])?;
+                authorize_retry(&app, m.who, m.method, &parts)?;
+            } else if parts == ["apps"]
+                && let Some(id) = v["app"]["app_id"].as_str()
+            {
+                let app = self.app(id)?;
+                author(&app, m.who)?;
+                if app.deleted_at.is_some() {
+                    return Err(ApiError::missing());
+                }
+                if let Some(org) = &app.organization_id {
+                    if !need(m.who)?.publishing.allows(
+                        org,
+                        silicon_publishing_policy::ResourceKind::Apps,
+                        &app.organization_access,
+                        silicon_publishing_policy::Permission::Create,
+                    ) {
+                        return Err(ApiError::forbidden());
+                    }
+                    if let Some(object) = v.as_object_mut() {
+                        object.remove("app_secret");
+                    }
+                }
+            }
             return Ok((v, true));
         }
         let tx = self
@@ -646,6 +853,14 @@ impl Store {
         let before = crate::events::marks(&c);
         let mut outbox = vec![];
         let mut response = apply(&mut c, &m, &mut outbox)?;
+        let path: Vec<_> = m.path.split('/').collect();
+        if let ["apps", app, "storage-schema"] = path.as_slice() {
+            crate::user_storage::check_existing_records(
+                &tx,
+                app,
+                c.apps[*app].user_storage.as_ref().unwrap(),
+            )?;
+        }
         if let Some(signer) = &self.signer
             && crate::signing::sign_catalog(&mut c, signer) > 0
         {
@@ -678,11 +893,45 @@ impl Store {
                 params![new_id(), kind, body.to_string(), now()],
             )?;
         }
+        if let (Some(shot), Some(report_id)) =
+            (&m.prepared.report_screenshot, response["id"].as_str())
+        {
+            tx.execute(
+                "INSERT INTO report_screenshots(report_id,key_hash,name,content_type,data,created_at) VALUES(?1,?2,?3,?4,?5,?6)",
+                params![report_id, hash(shot.key.as_bytes()), shot.name, shot.content_type, shot.bytes, now()],
+            )?;
+        }
         tx.commit()?;
         if appended > 0 {
             self.notify_events();
         }
         Ok((response, false))
+    }
+    /// A report's screenshot as `(content_type, name, bytes)` when `key` is
+    /// the one mailed to the maintainers.
+    pub fn report_screenshot(
+        &self,
+        report_id: &str,
+        key: &str,
+    ) -> Result<Option<(String, String, Vec<u8>)>> {
+        let row: Option<(String, String, String, Vec<u8>)> = self
+            .connection
+            .query_row(
+                "SELECT key_hash,content_type,name,data FROM report_screenshots WHERE report_id=?1",
+                [report_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .optional()?;
+        Ok(row.and_then(|(stored, content_type, name, data)| {
+            let given = hash(key.as_bytes());
+            let same = stored.len() == given.len()
+                && stored
+                    .bytes()
+                    .zip(given.bytes())
+                    .fold(0u8, |d, (a, b)| d | (a ^ b))
+                    == 0;
+            (!key.is_empty() && same).then_some((content_type, name, data))
+        }))
     }
     pub fn validation_failure(
         &mut self,
@@ -732,6 +981,129 @@ fn strict_page(
             }),
     }
 }
+
+/// Validate uploaded integration material without fetching remote URLs or interpreting Markdown.
+fn validate_interface_url(value: &str) -> Result<()> {
+    if value.len() > 2048 || value.trim() != value {
+        return Err(ApiError::bad(
+            "URL must be at most 2048 bytes with no surrounding whitespace.",
+        ));
+    }
+    let url = url::Url::parse(value).map_err(|_| ApiError::bad("Enter a valid HTTPS URL."))?;
+    if url.scheme() != "https"
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err(ApiError::bad(
+            "URL must use HTTPS and must not contain credentials.",
+        ));
+    }
+    Ok(())
+}
+fn validate_interface_name(value: &Value, field: &str, max: usize) -> Result<()> {
+    let name = value
+        .as_str()
+        .ok_or_else(|| ApiError::bad(format!("{field} must be a string.")))?;
+    if name.trim().is_empty() || name.len() > max || name.chars().any(char::is_control) {
+        return Err(ApiError::bad(format!(
+            "{field} must be nonempty, at most {max} bytes, and have no control characters."
+        )));
+    }
+    Ok(())
+}
+fn validate_interface_file(value: &Value, markdown: bool) -> Result<usize> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| ApiError::bad("A file must have name and content."))?;
+    if obj.len() != 2 || !obj.contains_key("name") || !obj.contains_key("content") {
+        return Err(ApiError::bad("A file must contain only name and content."));
+    }
+    validate_interface_name(&obj["name"], "file name", 255)?;
+    let name = obj["name"].as_str().unwrap();
+    if name.contains(['/', '\\']) || (markdown && !name.to_ascii_lowercase().ends_with(".md")) {
+        return Err(ApiError::bad(
+            "Use a plain file name; use case files must end in .md.",
+        ));
+    }
+    let content = obj["content"]
+        .as_str()
+        .ok_or_else(|| ApiError::bad("File content must be UTF-8 text."))?;
+    if content.trim().is_empty() || content.len() > 100 * 1024 {
+        return Err(ApiError::bad(
+            "File content must be nonempty and at most 100 KiB.",
+        ));
+    }
+    Ok(content.len())
+}
+fn validate_interface_use_cases(value: &Value) -> Result<Vec<Value>> {
+    let cases = value
+        .as_array()
+        .ok_or_else(|| ApiError::bad("interface_use_cases must be an array or null."))?;
+    if cases.len() > 20 {
+        return Err(ApiError::bad("At most 20 interface use cases are allowed."));
+    }
+    let mut total = 0usize;
+    for case in cases {
+        let obj = case
+            .as_object()
+            .ok_or_else(|| ApiError::bad("Each use case must contain name and files."))?;
+        if obj.len() != 2 || !obj.contains_key("name") || !obj.contains_key("files") {
+            return Err(ApiError::bad(
+                "Each use case must contain only name and files.",
+            ));
+        }
+        validate_interface_name(&obj["name"], "use case name", 120)?;
+        let files = obj["files"]
+            .as_array()
+            .ok_or_else(|| ApiError::bad("Use case files must be an array."))?;
+        if !(1..=10).contains(&files.len()) {
+            return Err(ApiError::bad("Each use case needs 1–10 Markdown files."));
+        }
+        for file in files {
+            total += validate_interface_file(file, true)?;
+        }
+    }
+    if total > 1024 * 1024 {
+        return Err(ApiError::bad(
+            "Use case files may contain at most 1 MiB in total.",
+        ));
+    }
+    Ok(cases.clone())
+}
+fn validate_interface_license(value: &Value) -> Result<()> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| ApiError::bad("interface_license must be an object or null."))?;
+    match obj.get("kind").and_then(Value::as_str) {
+        Some("preset")
+            if obj.len() == 2
+                && [
+                    "free",
+                    "attribution",
+                    "attribution_unless_paid",
+                    "permission_required",
+                ]
+                .contains(&obj.get("preset").and_then(Value::as_str).unwrap_or("")) =>
+        {
+            Ok(())
+        }
+        Some("link") if obj.len() == 2 => validate_interface_url(
+            obj.get("url")
+                .and_then(Value::as_str)
+                .ok_or_else(|| ApiError::bad("License link needs an HTTPS URL."))?,
+        ),
+        Some("file") if obj.len() == 3 => {
+            let file = json!({"name":obj.get("name"),"content":obj.get("content")});
+            validate_interface_file(&file, false)?;
+            Ok(())
+        }
+        _ => Err(ApiError::bad(
+            "Choose a supported license preset, HTTPS link, or text file.",
+        )),
+    }
+}
+
 fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -> Result<Value> {
     let p: Vec<_> = m.path.trim_matches('/').split('/').collect();
     if !mutation_route_exists(m.method, &p) {
@@ -757,9 +1129,21 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         if message.trim().is_empty() || message.len() > 20000 {
             return Err(ApiError::bad("message must contain 1–20,000 bytes."));
         }
-        let report = json!({"id":new_id(),"message":message,"pr":b.get("pr"),"actor_uuid":actor,"created_at":now(),"recipients":["saketdev12@gmail.com","shubhastro2@gmail.com","bugs@teamofsilicons.com"]});
+        let mut report = json!({"id":new_id(),"message":message,"pr":b.get("pr"),"actor_uuid":actor,"created_at":now(),"recipients":["saketdev12@gmail.com","shubhastro2@gmail.com","bugs@teamofsilicons.com"]});
+        let mut mail = report.clone();
+        if let Some(shot) = &m.prepared.report_screenshot {
+            let about =
+                json!({"name":shot.name,"content_type":shot.content_type,"size":shot.bytes.len()});
+            report["screenshot"] = about.clone();
+            // The mail bridge renders only `message` and `pr`, so the link
+            // also goes into the mailed message. The catalog keeps no link.
+            let url = shot.url(report["id"].as_str().unwrap());
+            mail["message"] = json!(crate::reports::message_with_link(message, &url));
+            mail["screenshot"] = about;
+            mail["screenshot"]["url"] = json!(url);
+        }
         c.reports.push(report.clone());
-        outbox.push(("mail.report".into(), report.clone()));
+        outbox.push(("mail.report".into(), mail));
         return Ok(json!({"id":report["id"],"status":"queued"}));
     }
     if p == ["apps"] && m.method == "POST" {
@@ -793,20 +1177,76 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             m.prepared.secret.as_ref().ok_or_else(|| {
                 ApiError::unavailable("Accounts app registration did not complete.")
             })?;
+        let organization_id = b
+            .get("organization_id")
+            .filter(|v| !v.is_null())
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| ApiError::bad("organization_id must be a string."))
+            })
+            .transpose()?;
+        if organization_id.is_some()
+            && let Some(error) = &w.publishing_error
+        {
+            return Err(ApiError::unavailable(error));
+        }
+        let organization = organization_id
+            .map(|id| {
+                w.publishing
+                    .organization(id)
+                    .filter(|_| {
+                        w.publishing.allows(
+                            id,
+                            ResourceKind::Apps,
+                            &ResourcePolicy::default(),
+                            Permission::Create,
+                        )
+                    })
+                    .ok_or_else(ApiError::forbidden)
+            })
+            .transpose()?;
         let mut app = App {
+            deleted_at: None,
+            author_organizations: Vec::new(),
+            organization_id: organization.map(|o| o.org_id.clone()),
+            organization_name: organization.map(|o| o.name.clone()),
+            organization_logo_url: organization.and_then(|o| o.logo_url.clone()),
+            organization_access: if organization.is_some() {
+                ResourcePolicy::for_creator(&w.uuid)
+            } else {
+                ResourcePolicy::default()
+            },
+            user_storage: b
+                .get("user_storage")
+                .filter(|v| !v.is_null())
+                .map(crate::user_storage::schema)
+                .transpose()?,
             app_id: id.into(),
             name: name.into(),
             description: b["description"].as_str().unwrap_or_default().into(),
+            tagline: match b.get("tagline") {
+                Some(_) => str_field(b, "tagline")?.trim().into(),
+                None => String::new(),
+            },
             logo: b["logo"].as_str().unwrap_or_default().into(),
             logo_alt: String::new(),
             banner: String::new(),
             banner_alt: String::new(),
             tags: vec![],
-            visibility: "public".into(),
+            visibility: if organization.is_some() {
+                "private"
+            } else {
+                "public"
+            }
+            .into(),
             domains: vec![],
             account_ids: vec![],
             access_uuids: vec![],
             links: json!({}),
+            interface_documentation_required: true,
+            interface_api_documentation_url: None,
+            interface_use_cases: None,
+            interface_license: None,
             carousel: vec![],
             published: false,
             setup_step: 1,
@@ -828,8 +1268,13 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         }
         app.event(actor, "app.created", created);
         let view = app.view(who);
+        let response = if app.organization_id.is_some() {
+            json!({"app":view})
+        } else {
+            json!({"app":view,"app_secret":secret})
+        };
         c.apps.insert(id.into(), app);
-        return Ok(json!({"app":view,"app_secret":secret}));
+        return Ok(response);
     }
     if p.len() == 3 && p[0] == "invites" && m.method == "POST" {
         let w = need(who)?;
@@ -848,9 +1293,32 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             .apps
             .get_mut(&invite.app_id)
             .ok_or_else(ApiError::missing)?;
+        if app.deleted_at.is_some() {
+            return Err(ApiError::missing());
+        }
         match p[2] {
+            "accept" if invite.to.starts_with("org:") => {
+                let org = invite.to.trim_start_matches("org:").to_owned();
+                if !app.author_organizations.contains(&org) {
+                    app.author_organizations.push(org.clone());
+                }
+                invite.status = "accepted".into();
+                app.event(
+                    actor,
+                    "author.joined",
+                    json!({"invite_id":invite.id,"organization_id":org}),
+                );
+            }
             "accept" => {
-                if !app.is_author(who) {
+                if let Some(org) = &app.organization_id {
+                    if w.publishing.organization(org).is_none() {
+                        return Err(ApiError::forbidden());
+                    }
+                    app.organization_access
+                        .grants
+                        .extend(ResourcePolicy::for_creator(&w.uuid).grants);
+                }
+                if !app.authors.iter().any(|a| a.uuid == w.uuid) {
                     app.authors.push(Author::from_identity(w));
                 }
                 invite.status = "accepted".into();
@@ -878,6 +1346,51 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         return Err(ApiError::missing());
     }
     let app = c.apps.get_mut(p[1]).ok_or_else(ApiError::missing)?;
+    if m.method == "DELETE" && p.len() == 2 {
+        admin(app, who)?;
+        if matches!(
+            app.app_id.as_str(),
+            "silicon-apps" | "silicon-accounts" | "developer"
+        ) {
+            return Err(ApiError::bad(
+                "Core platform apps cannot be deleted through this API.",
+            ));
+        }
+        if app.deleted_at.is_none() {
+            app.deleted_at = Some(now());
+            app.event(actor, "app.deleted", json!({"restore_days":30}));
+            for invite in c
+                .invites
+                .iter_mut()
+                .filter(|i| i.app_id == app.app_id && i.status == "pending")
+            {
+                invite.status = "cancelled".into();
+            }
+            outbox.push(("accounts.sync".into(), json!({"app_id":app.app_id})));
+        }
+        return Ok(app.view(who));
+    }
+    if m.method == "POST" && p.len() == 3 && p[2] == "restore" {
+        admin(app, who)?;
+        let at = app
+            .deleted_at
+            .as_deref()
+            .ok_or_else(|| ApiError::conflict("This app is not deleted."))?;
+        let at = chrono::DateTime::parse_from_rfc3339(at)
+            .map_err(|_| ApiError::unavailable("The deletion timestamp is invalid."))?;
+        if chrono::Utc::now() >= at + chrono::Duration::days(30) {
+            return Err(ApiError::conflict(
+                "The 30-day app recovery period has ended. Its ID remains reserved.",
+            ));
+        }
+        app.deleted_at = None;
+        app.event(actor, "app.restored", json!({}));
+        outbox.push(("accounts.sync".into(), json!({"app_id":app.app_id})));
+        return Ok(app.view(who));
+    }
+    if app.deleted_at.is_some() {
+        return Err(ApiError::missing());
+    }
     if p.len() == 3 && p[2] == "installs" && m.method == "POST" {
         if !app.published || !app.visible(who) {
             return Err(ApiError::missing());
@@ -947,6 +1460,39 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         return Ok(json!(review));
     }
     author(app, who)?;
+    if app.uses_organization_permissions(who)
+        && !app.permits(who, mutation_permission(m.method, &p))
+    {
+        return Err(ApiError::forbidden());
+    }
+    if p.len() == 3 && p[2] == "organization-access" && m.method == "PUT" {
+        if app.organization_id.is_none() {
+            return Err(ApiError::bad(
+                "This app is published from a personal account.",
+            ));
+        }
+        let policy: ResourcePolicy = serde_json::from_value(b.clone())
+            .map_err(|_| ApiError::bad("Supply a valid organization resource policy."))?;
+        policy.validate().map_err(ApiError::bad)?;
+        app.organization_access = policy;
+        app.event(
+            actor,
+            "app.access_changed",
+            json!({"organization_access":app.organization_access}),
+        );
+        return Ok(app.view(who));
+    }
+    if p.len() == 3 && p[2] == "storage-schema" && m.method == "PUT" {
+        let next = crate::user_storage::schema(b)?;
+        crate::user_storage::extend_schema(app.user_storage.as_ref(), &next)?;
+        app.event(
+            actor,
+            "app.details_changed",
+            json!({"storage_keys":next.keys().collect::<Vec<_>>()}),
+        );
+        app.user_storage = Some(next);
+        return Ok(json!({"app_id":app.app_id,"schema":app.user_storage}));
+    }
     if p.len() == 2 && m.method == "PATCH" {
         let obj = b
             .as_object()
@@ -955,6 +1501,7 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             if ![
                 "name",
                 "description",
+                "tagline",
                 "tags",
                 "logo",
                 "logo_alt",
@@ -962,6 +1509,9 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                 "banner_alt",
                 "carousel",
                 "links",
+                "interface_api_documentation_url",
+                "interface_use_cases",
+                "interface_license",
                 "setup_step",
             ]
             .contains(&key.as_str())
@@ -970,6 +1520,40 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     "Field `{key}` cannot be changed here."
                 )));
             }
+        }
+        if let Some(value) = b.get("interface_api_documentation_url") {
+            app.interface_api_documentation_url = if value.is_null() {
+                None
+            } else {
+                let url = value.as_str().ok_or_else(|| {
+                    ApiError::bad("interface_api_documentation_url must be an HTTPS URL or null.")
+                })?;
+                validate_interface_url(url)?;
+                Some(url.to_owned())
+            };
+            if app.published
+                && app.interface_documentation_required
+                && app.interface_api_documentation_url.is_none()
+            {
+                return Err(ApiError::bad(
+                    "Published apps must retain their interface API documentation URL.",
+                ));
+            }
+        }
+        if let Some(value) = b.get("interface_use_cases") {
+            app.interface_use_cases = if value.is_null() {
+                None
+            } else {
+                Some(validate_interface_use_cases(value)?)
+            };
+        }
+        if let Some(value) = b.get("interface_license") {
+            app.interface_license = if value.is_null() {
+                None
+            } else {
+                validate_interface_license(value)?;
+                Some(value.clone())
+            };
         }
         for (key, dest) in [
             ("name", &mut app.name),
@@ -982,6 +1566,9 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             if b.get(key).is_some() {
                 *dest = str_field(b, key)?.to_owned();
             }
+        }
+        if b.get("tagline").is_some() {
+            app.tagline = str_field(b, "tagline")?.trim().to_owned();
         }
         if b.get("tags").is_some() {
             app.tags = strings(b, "tags")?;
@@ -1002,7 +1589,18 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     .ok_or_else(|| ApiError::bad("setup_step must be 1–7."))? as u8;
         }
         validate_details(app)?;
-        app.event(actor, "app.details_changed", b.clone());
+        // Keep an audit of changed fields without copying uploaded documents into
+        // every historical event (the current files live in the catalog).
+        let mut audit = b.clone();
+        if let Some(obj) = audit.as_object_mut() {
+            if obj.contains_key("interface_use_cases") {
+                obj.insert("interface_use_cases".into(), json!("updated"));
+            }
+            if obj.contains_key("interface_license") {
+                obj.insert("interface_license".into(), json!("updated"));
+            }
+        }
+        app.event(actor, "app.details_changed", audit);
         outbox.push(("accounts.sync".into(), json!({"app_id":app.app_id})));
         return Ok(app.view(who));
     }
@@ -1079,6 +1677,11 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         }
         "admin" if m.method == "POST" => {
             admin(app, who)?;
+            if app.organization_id.is_some() {
+                return Err(ApiError::bad(
+                    "Organization ownership is permanent. Change resource permissions instead of transferring personal adminship.",
+                ));
+            }
             let uuid = str_field(b, "uuid")?;
             if !app.authors.iter().any(|a| a.uuid == uuid) {
                 return Err(ApiError::bad(
@@ -1089,15 +1692,30 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             app.event(actor, "author.admin_transferred", b.clone());
             Ok(json!({"status":"transferred"}))
         }
+        "organization-authors" if p.len() == 4 && m.method == "DELETE" => {
+            admin(app, who)?;
+            let Some(index) = app.author_organizations.iter().position(|org| org == p[3]) else {
+                return Ok(json!({"removed":false}));
+            };
+            let org = app.author_organizations.remove(index);
+            app.event(actor, "author.removed", json!({"organization_id":org}));
+            Ok(json!({"removed":true}))
+        }
         "authors" if p.len() == 4 => {
             if p[3] == "leave" && m.method == "POST" {
-                if app.authors.len() == 1 {
+                if !app.authors.iter().any(|a| a.uuid == actor) {
+                    return Err(ApiError::forbidden());
+                }
+                if app.organization_id.is_none() && app.authors.len() == 1 {
                     return Err(ApiError::conflict(
                         "The last author cannot leave. Invite another author and wait for acceptance first.",
                     ));
                 }
                 app.authors.retain(|a| a.uuid != actor);
-                if app.admin_uuid == actor {
+                app.organization_access.grants.retain(|g| {
+                    g.subject != Some(silicon_publishing_policy::Subject::Account(actor.into()))
+                });
+                if app.organization_id.is_none() && app.admin_uuid == actor {
                     app.admin_uuid = app
                         .authors
                         .iter()
@@ -1118,6 +1736,9 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
                     return Err(ApiError::missing());
                 }
                 app.authors.retain(|a| a.uuid != p[3]);
+                app.organization_access.grants.retain(|g| {
+                    g.subject != Some(silicon_publishing_policy::Subject::Account(p[3].into()))
+                });
                 app.event(actor, "author.removed", json!({"uuid":p[3]}));
                 outbox.push(("accounts.sync".into(), json!({"app_id":app.app_id})));
                 Ok(json!({"status":"removed"}))
@@ -1129,7 +1750,18 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
             if p.len() == 3 && m.method == "POST" {
                 let to = str_field(b, "to")?.trim();
                 let resolved = m.prepared.identities.first();
-                if !to.contains('@') && resolved.is_none() {
+                if let Some(org) = to.strip_prefix("org:") {
+                    if m.prepared.resolved_organization.as_deref() != Some(org) {
+                        return Err(ApiError::bad("Choose an existing organization ID."));
+                    }
+                    if app.organization_id.as_deref() == Some(org)
+                        || app.author_organizations.iter().any(|id| id == org)
+                    {
+                        return Err(ApiError::conflict(
+                            "This organization already owns or authors this app.",
+                        ));
+                    }
+                } else if !to.contains('@') && resolved.is_none() {
                     return Err(ApiError::bad("Invitee must resolve to a c:id or si:id."));
                 }
                 if to.len() > 254 || to.is_empty() || to.contains('@') && !valid_email(to) {
@@ -1386,9 +2018,18 @@ pub(crate) fn mutation_route_exists(method: &str, p: &[&str]) -> bool {
     matches!(
         (method, p),
         ("POST", ["apps" | "platforms" | "reports"])
+            | ("DELETE", ["apps", _])
+            | ("POST", ["apps", _, "restore"])
             | ("PATCH", ["apps", _])
             | ("POST", ["invites", _, "accept" | "decline"])
-            | ("PUT", ["apps", _, "access" | "webhook" | "review"])
+            | (
+                "PUT",
+                [
+                    "apps",
+                    _,
+                    "access" | "webhook" | "review" | "storage-schema" | "organization-access"
+                ]
+            )
             | ("DELETE", ["apps", _, "review"])
             | (
                 "POST",
@@ -1400,7 +2041,10 @@ pub(crate) fn mutation_route_exists(method: &str, p: &[&str]) -> bool {
             )
             | ("POST", ["apps", _, "secret" | "webhook", "rotate"])
             | ("POST", ["apps", _, "authors", "leave"])
-            | ("DELETE", ["apps", _, "authors" | "invites", _])
+            | (
+                "DELETE",
+                ["apps", _, "authors" | "invites" | "organization-authors", _]
+            )
             | ("POST", ["apps", _, "packages", _])
             | ("POST", ["apps", _, "releases", _, "promote" | "withdraw"])
     )
@@ -1460,6 +2104,16 @@ fn validate_details(a: &App) -> Result<()> {
     if a.published && a.description.chars().count() < 200 {
         return Err(ApiError::bad(
             "Published apps need at least 200 description characters.",
+        ));
+    }
+    if a.tagline.chars().count() > TAGLINE_MAX_CHARS {
+        return Err(ApiError::bad(format!(
+            "tagline is limited to {TAGLINE_MAX_CHARS} characters."
+        )));
+    }
+    if a.tagline.chars().any(char::is_control) {
+        return Err(ApiError::bad(
+            "tagline must be one line of plain text without line breaks or tabs.",
         ));
     }
     if a.logo_alt.chars().count() > 10000 || a.banner_alt.chars().count() > 10000 {
@@ -1545,7 +2199,8 @@ fn search_score(a: &App, q: &str) -> Option<u32> {
     if a.tags.iter().any(|t| t.eq_ignore_ascii_case(q)) {
         return Some(600);
     }
-    if a.description.to_lowercase().contains(q)
+    if a.tagline.to_lowercase().contains(q)
+        || a.description.to_lowercase().contains(q)
         || a.tags.iter().any(|t| t.to_lowercase().contains(q))
     {
         return Some(400);

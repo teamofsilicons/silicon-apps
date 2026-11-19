@@ -8,12 +8,28 @@ on:
       - Cargo.lock
       - .github/workflows/server-artifact.yml
   workflow_dispatch:
+    inputs:
+      stage_bundle:
+        description: Package a verified API and the production store (skip API build)
+        required: false
+        type: boolean
+        default: false
+      source_commit:
+        description: Exact source revision to package
+        required: false
+        type: string
+      server_run:
+        description: Successful native API build run for that revision
+        required: false
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   server:
+    if: ${{ !inputs.stage_bundle }}
     name: API for production Linux ARM64
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 35
@@ -112,3 +128,62 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+  bundle:
+    if: ${{ inputs.stage_bundle }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      SERVER_RUN: ${{ inputs.server_run }}
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: store/package.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check native API build provenance
+        run: |
+          gh run view "$SERVER_RUN" --json conclusion,headSha,workflowName > /tmp/api-run.json
+          python - <<'PYCODE'
+          import json,os
+          r=json.load(open('/tmp/api-run.json'))
+          assert r['conclusion']=='success' and r['headSha']==os.environ['SOURCE_COMMIT']
+          assert r['workflowName']=='Build native API artifact'
+          PYCODE
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.server_run }}
+          name: apps-server-linux-aarch64-${{ inputs.source_commit }}
+          path: .dev/native-api
+      - name: Verify API and package the production store
+        run: |
+          python - <<'PYCODE'
+          import hashlib,json,os,pathlib
+          p=pathlib.Path('.dev/native-api');r=json.loads((p/'build.json').read_text())
+          assert r['source_commit']==os.environ['SOURCE_COMMIT']
+          assert r['sha256']==hashlib.sha256((p/'apps-server').read_bytes()).hexdigest()
+          assert r['runtime']['native'] is True and r['runtime']['machine']=='aarch64'
+          (p/'apps-server').chmod(0o755)
+          PYCODE
+          curl -fL --retry 3 https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_arm64.tar.gz -o .dev/caddy.tar.gz
+          python3 deploy/package.py --caddy .dev/caddy.tar.gz --api .dev/native-api/apps-server
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apps-production-${{ inputs.source_commit }}
+          path: |
+            .dev/production/${{ inputs.source_commit }}.tar.gz
+            .dev/production/${{ inputs.source_commit }}.json
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30

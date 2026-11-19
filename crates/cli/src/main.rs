@@ -3,7 +3,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use serde_json::{Value, json};
 use silicon_apps_client::{self as apps, Client, LocalState, auth, install, package, updater};
 use std::{
-    io::{self, IsTerminal, Write},
+    io::{self, IsTerminal, Read, Write},
     path::PathBuf,
 };
 
@@ -11,7 +11,7 @@ const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TELEMETRY_REMOVED: &str =
     "Telemetry was removed from Silicon Apps; there is nothing to turn on or off.";
 
-const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login --slt TOKEN\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target linux-x86_64 ring.tar.gz\n  silicon-apps upload ring --target windows-x86_64 --confirm-platform-checks ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 --confirm-platform-checks ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package LINUX_PACKAGE_ID --package WINDOWS_PACKAGE_ID --package MACOS_PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Linux validation runs in isolated server runners. Windows and macOS uploads require\n--confirm-platform-checks after checking the required commands on that platform. Bundled install scripts run automatically during installation and updates.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
+const HELP: &str = "Silicon Apps is the developer platform, app store and sole app updater.\n\nQUICK START\n  silicon-apps search terminal\n  silicon-apps install briefcase\n  silicon-apps login --slt TOKEN\n  silicon-apps create ring --name Ring\n  silicon-apps setup ring details --tagline \"Voice calls for Carbons and Silicons\" --description-file description.txt\n  silicon-apps validate ./package\n  silicon-apps pack ./package --output ring.tar.gz\n  silicon-apps upload ring --target linux-x86_64 ring.tar.gz\n  silicon-apps upload ring --target windows-x86_64 --confirm-platform-checks ring.tar.gz\n  silicon-apps upload ring --target macos-aarch64 --confirm-platform-checks ring.tar.gz\n  silicon-apps release ring --version 0.1.0 --package LINUX_PACKAGE_ID --package WINDOWS_PACKAGE_ID --package MACOS_PACKAGE_ID\n  silicon-apps promote ring RELEASE_ID --version 1.0.0\n  silicon-apps publish ring\n\nTraverse every branch with --help. `silicon-apps docs` includes the complete guide;\n`silicon-apps docs tree` prints every command and flag. Public browsing and installs need no login.\nUse --json for machine output and --idempotency-key KEY to safely retry a mutation.\n\nState: $SILICON_HOME/.apps or ~/.apps. Every published package must implement\n--help, accounts --json, and login status --json. Linux validation runs in isolated server runners. Windows and macOS uploads require\n--confirm-platform-checks after checking the required commands on that platform. Bundled install scripts run automatically during installation and updates.\n\nSource: https://github.com/teamofsilicons/silicon-apps\nDocs: https://developers.teamofsilicons.com/docs\nRust: https://docs.rs/silicon-apps-client";
 
 #[derive(Parser)]
 #[command(name="silicon-apps",version,about="Create, publish, discover and install Silicon Apps",long_about=HELP,subcommand_required=true,arg_required_else_help=true)]
@@ -47,6 +47,9 @@ enum Command {
     },
     /// List public, shared private, or your authored apps (including Continue setup drafts).
     List {
+        /// Recoverable deleted apps; requires --mine.
+        #[arg(long, requires = "mine")]
+        deleted: bool,
         #[arg(long)]
         private: bool,
         #[arg(long)]
@@ -70,6 +73,19 @@ enum Command {
     /// A 1–2 character historical Silicon Accounts ID is sent to the server as well:
     /// it is available only to the signed-in account the operator reserved it for.
     Availability { app: String },
+    /// Recoverably delete an app and disable distribution/sign-in. Manager only.
+    Delete { app: String },
+    /// Restore an app within 30 days of deletion.
+    Restore { app: String },
+    /// List organizations and current publishing permissions.
+    Organizations,
+    /// Read resource grants, or replace them with a JSON policy.
+    OrganizationAccess {
+        app: String,
+        #[arg(long)]
+        file: Option<PathBuf>,
+    },
+
     /// Create an app and show its secret once. Next: setup, upload, release, publish.
     Create {
         /// Permanent app ID: 3–30 of a-z, 0-9, - and _. A 1–2 character historical
@@ -80,8 +96,23 @@ enum Command {
         name: String,
         #[arg(long, default_value = "")]
         description: String,
+        /// One plain line of at most 60 characters that store cards show; required to publish.
+        #[arg(long)]
+        tagline: Option<String>,
         #[arg(long)]
         logo: Option<String>,
+        /// Optional JSON map of keys to {"type": "string", "default": "value"}.
+        #[arg(long)]
+        storage_schema: Option<PathBuf>,
+        /// Permanent organization publisher; requires create permission.
+        #[arg(long)]
+        organization: Option<String>,
+    },
+    /// Define optional settings, or read/write one user's guarded values with proofs.
+    Storage {
+        app: String,
+        #[command(subcommand)]
+        action: Storage,
     },
     /// Save publishing setup one step at a time. Resume any step at any time.
     Setup {
@@ -271,6 +302,9 @@ enum Command {
         /// Keep the stream open and print each event as one JSON line as it happens.
         #[arg(long)]
         follow: bool,
+        /// Live delivery: auto prefers Ting sessions and falls back to direct Apps events.
+        #[arg(long, requires = "follow", value_parser = ["auto", "ting", "direct"])]
+        transport: Option<String>,
         /// Start after this event seq (sent as Last-Event-ID with --follow).
         #[arg(long)]
         after: Option<i64>,
@@ -292,16 +326,19 @@ enum Command {
     },
     /// Read bundled instructive/informative docs or the complete command tree.
     Docs {
-        #[arg(default_value="start",value_parser=["start","publish","manifest","install","auth","why","tree","links"])]
+        #[arg(default_value="start",value_parser=["start","publish","manifest","install","auth","storage","organizations","why","tree","links"])]
         topic: String,
     },
 }
 #[derive(Subcommand)]
 enum Setup {
-    /// Save required details; description must be 200–600 characters to publish.
+    /// Save required details; publishing needs a 200–600 character description and a tagline.
     Details {
         #[arg(long)]
         name: Option<String>,
+        /// One plain line of at most 60 characters that store cards show. An empty value clears it.
+        #[arg(long)]
+        tagline: Option<String>,
         #[arg(long, conflicts_with = "description_file")]
         description: Option<String>,
         #[arg(long)]
@@ -320,6 +357,26 @@ enum Setup {
     },
     /// Save optional links as JSON: website, developer_docs, android, ios, custom[].
     Links { file: PathBuf },
+    /// Configure interface API docs, use-case Markdown files and interface license.
+    /// --use-cases reads JSON [{"name":"...","files":["path/to/file.md"]}].
+    Interface {
+        #[arg(long, conflicts_with = "clear_api_docs")]
+        api_docs: Option<String>,
+        #[arg(long)]
+        clear_api_docs: bool,
+        #[arg(long, conflicts_with = "clear_use_cases")]
+        use_cases: Option<PathBuf>,
+        #[arg(long)]
+        clear_use_cases: bool,
+        #[arg(long, value_parser=["free","attribution","attribution_unless_paid","permission_required"], conflicts_with_all=["license_url","license_file","clear_license"])]
+        license_preset: Option<String>,
+        #[arg(long, conflicts_with_all=["license_file","clear_license"])]
+        license_url: Option<String>,
+        #[arg(long, conflicts_with = "clear_license")]
+        license_file: Option<PathBuf>,
+        #[arg(long)]
+        clear_license: bool,
+    },
     /// Save optional media JSON: logo, banner, carousel[{url,kind,alt}].
     Media { file: PathBuf },
     /// Save your resume position (1 details through 7 review and publish).
@@ -329,6 +386,70 @@ enum Setup {
     },
     /// Show the entire saved draft and its Continue setup position.
     Show,
+}
+#[derive(clap::Args)]
+struct StorageProofs {
+    /// Permanent user UUID, or anon for the app's shared anonymous record.
+    user: String,
+    /// File containing a User verification (App verification for anon). Use - for stdin.
+    #[arg(long)]
+    proof_file: PathBuf,
+    /// File containing the owning app's App verification; required for signed-in writes.
+    #[arg(long)]
+    app_proof_file: Option<PathBuf>,
+}
+#[derive(Subcommand)]
+enum Storage {
+    /// Read the schema as an app author.
+    Schema,
+    /// Define storage or add keys from a JSON schema file. Existing definitions are immutable.
+    Define { file: PathBuf },
+    /// Read every key and value for one user. Does not require a saved CLI sign-in.
+    Read {
+        #[command(flatten)]
+        proofs: StorageProofs,
+    },
+    /// Patch values from a JSON object file. Other keys remain unchanged.
+    Write {
+        #[command(flatten)]
+        proofs: StorageProofs,
+        #[arg(long)]
+        values_file: PathBuf,
+        #[arg(long)]
+        if_revision: Option<u64>,
+    },
+    /// Reset selected keys (or all keys when omitted) to their initial values.
+    Reset {
+        #[command(flatten)]
+        proofs: StorageProofs,
+        #[arg(long = "key")]
+        keys: Vec<String>,
+        #[arg(long)]
+        if_revision: Option<u64>,
+    },
+}
+impl StorageProofs {
+    fn read(&self) -> Result<(String, Option<String>)> {
+        ensure!(
+            self.app_proof_file
+                .as_ref()
+                .is_none_or(|p| p != &self.proof_file),
+            "User and App verification need separate proof files"
+        );
+        let read = |p: &PathBuf| -> Result<String> {
+            let bytes = read_input(p)?;
+            ensure!(
+                bytes.len() <= 512,
+                "Proof files must contain only a proof token"
+            );
+            let text = String::from_utf8(bytes).context("Proof file must contain UTF-8 text")?;
+            Ok(text.trim().to_owned())
+        };
+        Ok((
+            read(&self.proof_file)?,
+            self.app_proof_file.as_ref().map(read).transpose()?,
+        ))
+    }
 }
 #[derive(Subcommand)]
 enum Authors {
@@ -628,6 +749,10 @@ async fn execute(cli: &Cli) -> Result<Value> {
             }
             | Command::Logout
             | Command::Login { action: None, .. }
+            | Command::Storage {
+                action: Storage::Read { .. } | Storage::Write { .. } | Storage::Reset { .. },
+                ..
+            }
     );
     let token = std::env::var("APPS_TOKEN").ok();
     let client = if local {
@@ -648,7 +773,36 @@ async fn execute(cli: &Cli) -> Result<Value> {
             private,
             mine,
         } => client.search(query, *private, *mine).await?,
-        Command::List { private, mine } => client.search("", *private, *mine).await?,
+        Command::List {
+            private,
+            mine,
+            deleted,
+        } => {
+            if *deleted {
+                client
+                    .request(
+                        "GET",
+                        &["v1", "apps"],
+                        &[("mine", "true".into()), ("deleted", "true".into())],
+                        None,
+                        None,
+                    )
+                    .await?
+            } else {
+                client.search("", *private, *mine).await?
+            }
+        }
+        Command::Delete { app } => client.delete_app(app, key).await?,
+        Command::Restore { app } => client.restore_app(app, key).await?,
+        Command::Organizations => client.organization_publishers().await?,
+        Command::OrganizationAccess { app, file } => match file {
+            Some(file) => {
+                client
+                    .set_organization_access(app, read_json(file)?, key)
+                    .await?
+            }
+            None => client.organization_access(app).await?,
+        },
         Command::Show {
             app,
             install_script,
@@ -677,15 +831,102 @@ async fn execute(cli: &Cli) -> Result<Value> {
             app,
             name,
             description,
+            tagline,
             logo,
+            storage_schema,
+            organization,
         } => {
+            let schema: Option<apps::storage::StorageSchema> = storage_schema
+                .as_ref()
+                .map(read_json)
+                .transpose()?
+                .map(serde_json::from_value)
+                .transpose()?;
             client
-                .create(app, name, description, logo.as_deref(), key)
+                .create_with_publisher(
+                    app,
+                    name,
+                    description,
+                    tagline.as_deref(),
+                    logo.as_deref(),
+                    schema.as_ref(),
+                    organization.as_deref(),
+                    key,
+                )
                 .await?
         }
+        Command::Storage { app, action } => match action {
+            Storage::Schema => client.storage_schema(app).await?,
+            Storage::Define { file } => {
+                client
+                    .define_storage(app, &serde_json::from_value(read_json(file)?)?, key)
+                    .await?
+            }
+            Storage::Read { proofs }
+            | Storage::Write { proofs, .. }
+            | Storage::Reset { proofs, .. } => {
+                let (proof, app_proof) = proofs.read()?;
+                let authorization = apps::storage::StorageAuthorization {
+                    proof: &proof,
+                    app_verification: app_proof.as_deref(),
+                };
+                let result = match action {
+                    Storage::Read { .. } => {
+                        client
+                            .read_storage(app, &proofs.user, &authorization)
+                            .await?
+                    }
+                    Storage::Write {
+                        values_file,
+                        if_revision,
+                        ..
+                    } => {
+                        ensure!(
+                            values_file.to_str() != Some("-")
+                                || (proofs.proof_file.to_str() != Some("-")
+                                    && proofs
+                                        .app_proof_file
+                                        .as_ref()
+                                        .is_none_or(|p| p.to_str() != Some("-"))),
+                            "Only one input can use stdin"
+                        );
+                        let values = read_json(values_file)?;
+                        client
+                            .write_storage(
+                                app,
+                                &proofs.user,
+                                &authorization,
+                                values
+                                    .as_object()
+                                    .context("Values file must contain a JSON object")?,
+                                *if_revision,
+                                key,
+                            )
+                            .await?
+                    }
+                    Storage::Reset {
+                        keys, if_revision, ..
+                    } => {
+                        client
+                            .reset_storage(
+                                app,
+                                &proofs.user,
+                                &authorization,
+                                (!keys.is_empty()).then_some(keys.as_slice()),
+                                *if_revision,
+                                key,
+                            )
+                            .await?
+                    }
+                    _ => unreachable!(),
+                };
+                serde_json::to_value(result)?
+            }
+        },
         Command::Setup { app, step } => match step {
             Setup::Details {
                 name,
+                tagline,
                 description,
                 description_file,
                 tags,
@@ -693,6 +934,9 @@ async fn execute(cli: &Cli) -> Result<Value> {
                 let mut body = json!({"setup_step":1});
                 if let Some(name) = name {
                     body["name"] = json!(name);
+                }
+                if let Some(tagline) = tagline {
+                    body["tagline"] = json!(tagline);
                 }
                 if let Some(description) = description {
                     body["description"] = json!(description);
@@ -722,6 +966,80 @@ async fn execute(cli: &Cli) -> Result<Value> {
                 client
                     .edit(app, json!({"links":read_json(file)?,"setup_step":4}), key)
                     .await?
+            }
+            Setup::Interface {
+                api_docs,
+                clear_api_docs,
+                use_cases,
+                clear_use_cases,
+                license_preset,
+                license_url,
+                license_file,
+                clear_license,
+            } => {
+                let mut body = json!({});
+                if let Some(url) = api_docs {
+                    body["interface_api_documentation_url"] = json!(url);
+                }
+                if *clear_api_docs {
+                    body["interface_api_documentation_url"] = Value::Null;
+                }
+                if let Some(manifest) = use_cases {
+                    let mut cases = read_json(manifest)?;
+                    for case in cases
+                        .as_array_mut()
+                        .context("use-cases file must contain an array")?
+                    {
+                        let files = case
+                            .get_mut("files")
+                            .and_then(Value::as_array_mut)
+                            .context("each use case must have a files array")?;
+                        for file in files.iter_mut() {
+                            if let Some(path) = file.as_str() {
+                                let path = PathBuf::from(path);
+                                let path = if path.is_absolute() {
+                                    path
+                                } else {
+                                    manifest
+                                        .parent()
+                                        .unwrap_or(std::path::Path::new("."))
+                                        .join(path)
+                                };
+                                let name = path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .context("Markdown path needs a UTF-8 file name")?;
+                                *file = json!({"name":name,"content":std::fs::read_to_string(&path).with_context(|| format!("Cannot read {}",path.display()))?});
+                            }
+                        }
+                    }
+                    body["interface_use_cases"] = cases;
+                }
+                if *clear_use_cases {
+                    body["interface_use_cases"] = Value::Null;
+                }
+                if let Some(preset) = license_preset {
+                    body["interface_license"] = json!({"kind":"preset","preset":preset});
+                }
+                if let Some(url) = license_url {
+                    body["interface_license"] = json!({"kind":"link","url":url});
+                }
+                if let Some(path) = license_file {
+                    let name = path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .context("License path needs a UTF-8 file name")?;
+                    body["interface_license"] =
+                        json!({"kind":"file","name":name,"content":std::fs::read_to_string(path)?});
+                }
+                if *clear_license {
+                    body["interface_license"] = Value::Null;
+                }
+                ensure!(
+                    !body.as_object().unwrap().is_empty(),
+                    "Choose an interface setting to change. See setup APP interface --help."
+                );
+                client.edit(app, body, key).await?
             }
             Setup::Media { file } => {
                 let mut data = read_json(file)?;
@@ -1268,6 +1586,7 @@ async fn execute(cli: &Cli) -> Result<Value> {
             subscription,
             types,
             follow,
+            transport,
             after,
             limit,
         } => {
@@ -1278,20 +1597,77 @@ async fn execute(cli: &Cli) -> Result<Value> {
             };
             let types: Vec<&str> = types.iter().map(String::as_str).collect();
             if *follow {
-                let after = after.map(|seq| seq.to_string());
-                let mut stream = client
-                    .stream_events(&feed, after.as_deref(), &types)
-                    .await?;
+                let mut after = after.map(|seq| seq.to_string());
+                let transport = match transport.as_deref() {
+                    Some("ting") => apps::events::EventTransport::Ting,
+                    Some("direct") => apps::events::EventTransport::Direct,
+                    _ => apps::events::EventTransport::Auto,
+                };
                 let mut printed = 0;
-                while let Some(event) = stream.next().await? {
-                    println!("{}", event.data);
-                    io::stdout().flush()?;
-                    printed += 1;
-                    if limit.is_some_and(|limit| printed >= limit) {
-                        break;
+                let mut failures = 0u32;
+                loop {
+                    let opened = client
+                        .stream_events_with_transport(&feed, after.as_deref(), &types, transport)
+                        .await;
+                    match opened {
+                        Ok(mut stream) => {
+                            let connected = std::time::Instant::now();
+                            loop {
+                                let event = tokio::select! {
+                                    event = stream.next() => event,
+                                    _ = tokio::signal::ctrl_c() => return Ok(Value::Null),
+                                };
+                                match event {
+                                    Ok(Some(event)) => {
+                                        println!("{}", event.data);
+                                        io::stdout().flush()?;
+                                        after = stream.last_event_id().map(str::to_owned).or(after);
+                                        printed += 1;
+                                        if limit.is_some_and(|limit| printed >= limit) {
+                                            return Ok(Value::Null);
+                                        }
+                                    }
+                                    Ok(None) | Err(_) => {
+                                        after = stream.last_event_id().map(str::to_owned).or(after);
+                                        break;
+                                    }
+                                }
+                            }
+                            if connected.elapsed().as_secs() >= 60 {
+                                failures = 0;
+                            }
+                        }
+                        Err(error) => {
+                            if let Some(api) = error.downcast_ref::<apps::ApiError>()
+                                && api.status != 429
+                                && api.status < 500
+                            {
+                                return Err(error);
+                            }
+                            if after.is_none() {
+                                return Err(error);
+                            }
+                        }
+                    }
+                    // A cursor exists even before the first event (the ready
+                    // comment). Every new connection gets a new Ting session.
+                    if after.is_none() {
+                        anyhow::bail!(
+                            "The stream closed before providing a resume cursor; reconnect with --after."
+                        );
+                    }
+                    let delay = (1u64 << failures.min(5)).min(30);
+                    failures = failures.saturating_add(1);
+                    let jitter = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .subsec_millis() as u64
+                        % 250;
+                    tokio::select! {
+                        _ = tokio::time::sleep(std::time::Duration::from_millis((delay * 1000 + jitter).min(30_000))) => {},
+                        _ = tokio::signal::ctrl_c() => return Ok(Value::Null),
                     }
                 }
-                return Ok(Value::Null);
             }
             client.events(&feed, *after, &types, *limit).await?
         }
@@ -1370,8 +1746,22 @@ async fn execute(cli: &Cli) -> Result<Value> {
     Ok(result)
 }
 fn read_json(path: &PathBuf) -> Result<Value> {
-    serde_json::from_slice(&std::fs::read(path)?)
+    serde_json::from_slice(&read_input(path)?)
         .with_context(|| format!("{} must contain valid JSON", path.display()))
+}
+fn read_input(path: &PathBuf) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let reader: Box<dyn Read> = if path.to_str() == Some("-") {
+        Box::new(io::stdin())
+    } else {
+        Box::new(std::fs::File::open(path)?)
+    };
+    reader.take(2 * 1024 * 1024 + 1).read_to_end(&mut bytes)?;
+    ensure!(
+        bytes.len() <= 2 * 1024 * 1024,
+        "Input must fit within 2 MiB"
+    );
+    Ok(bytes)
 }
 fn confirm(message: &str) -> Result<bool> {
     ensure!(

@@ -44,6 +44,15 @@ export function linksOf(app: App): AppLink[] {
   });
 }
 
+/** The organizations behind the app (main's organization publishing): the publisher first, then the other author
+ * organizations, each once. They have no page in the store yet, so they aren't links. */
+export function organizationsOf(app: App): { id: string; name: string; logo?: string | null; publisher: boolean }[] {
+  const out: { id: string; name: string; logo?: string | null; publisher: boolean }[] = [];
+  const publisher = app.publisher?.type === "organization" ? app.publisher : undefined;
+  if (publisher) out.push({ id: publisher.id || publisher.name || "organization", name: publisher.name || publisher.id || "Organization", logo: publisher.logo_url, publisher: true });
+  for (const org of app.author_organizations ?? []) if (!out.some(o => o.id === org)) out.push({ id: org, name: org, publisher: false });
+  return out;
+}
 export const nameOf = (author: App["authors"][number]) => author.display_name || author.id;
 export const appsCount = (count: number) => `${count} ${count === 1 ? "app" : "apps"}`;
 
@@ -60,10 +69,22 @@ export type CardStyle = (typeof CARD_STYLES)[number];
 /** Who made it and where to find them: the people, then under a hairline the links, on the card's ground. */
 export function DeveloperCard({ app, work, card = "glow" }: { app: App; work: DeveloperWork; card?: CardStyle }) {
   const links = linksOf(app);
-  if (!app.authors.length && !links.length) return null;
+  const orgs = organizationsOf(app);
+  if (!app.authors.length && !orgs.length && !links.length) return null;
   return (
     <div className={styles.card} data-card={card}>
       <ul className={styles.cardPeople}>
+        {orgs.map(org => (
+          <li key={`org:${org.id}`}>
+            <span className={styles.cardPerson}>
+              <Avatar name={org.name} src={safeImage(org.logo)} size="md" aria-hidden="true" />
+              <span className={styles.who}>
+                <span className={styles.whoName}>{org.name}</span>
+                <span className={styles.whoId}>{org.publisher ? "Organization · publisher" : "Organization"}</span>
+              </span>
+            </span>
+          </li>
+        ))}
         {app.authors.map(author => (
           <li key={author.uuid}>
             <a href={authorPath(author.uuid)} className={styles.cardPerson}>
@@ -121,7 +142,7 @@ export function MoreBy({ app, work }: { app: App; work: DeveloperWork }) {
 }
 
 export function Developer({ app, work, card = "glow" }: { app: App; work: DeveloperWork; card?: CardStyle }) {
-  if (!app.authors.length && !linksOf(app).length) return null;
+  if (!app.authors.length && !organizationsOf(app).length && !linksOf(app).length) return null;
   return (
     <section className={styles.section} aria-labelledby="developer-title">
       <h2 id="developer-title" className={styles.title}>{app.authors.length > 1 ? "Developers" : "Developer"}</h2>

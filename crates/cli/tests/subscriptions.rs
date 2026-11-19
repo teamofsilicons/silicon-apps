@@ -16,9 +16,11 @@ fn config(dir: &std::path::Path) -> Config {
         bind: "127.0.0.1:0".parse().unwrap(),
         data_dir: dir.to_owned(),
         dev_auth: true,
+        organizations_url: None,
         accounts_url: "http://127.0.0.1:1".into(),
         accounts_app_secret: None,
         accounts_service_token: None,
+        ting_url: None,
         public_url: "http://127.0.0.1:4311".into(),
         allowed_origins: vec!["http://127.0.0.1:4311".into()],
         runner_url: None,
@@ -82,6 +84,9 @@ async fn cli_subscribes_follows_events_and_negotiates_capabilities() {
 
     // A published app with a development release.
     let who = Identity {
+        publishing: Default::default(),
+        publishing_error: None,
+        app_audience: String::new(),
         uuid: "alice".into(),
         id: "c:alice".into(),
         display_name: "alice".into(),
@@ -94,7 +99,7 @@ async fn cli_subscribes_follows_events_and_negotiates_capabilities() {
         (
             "POST",
             "apps",
-            json!({"app_id":"demo-app","name":"Demo","description":"d".repeat(200)}),
+            json!({"app_id":"demo-app","name":"Demo","description":"d".repeat(200),"tagline":"A demo app"}),
             Prepared {
                 secret: Some("s".into()),
                 ..Default::default()
@@ -164,6 +169,12 @@ async fn cli_subscribes_follows_events_and_negotiates_capabilities() {
             "POST",
             "apps/demo-app/releases",
             json!({"version":"0.1.0","package_ids":["pkg-1", "pkg-windows-x86_64", "pkg-macos-aarch64"]}),
+            Prepared::default(),
+        ),
+        (
+            "PATCH",
+            "apps/demo-app",
+            json!({"interface_api_documentation_url":"https://example.com/interface"}),
             Prepared::default(),
         ),
         (
@@ -352,4 +363,47 @@ async fn reqwest_free_post(base: &str, token: &str, path: &str, body: &str) -> S
     let mut response = String::new();
     socket.read_to_string(&mut response).await.unwrap();
     response
+}
+
+#[tokio::test]
+async fn follow_reconnects_from_ready_cursor_before_first_event() {
+    use axum::{Router, extract::Query, http::HeaderMap, routing::get};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let calls = Arc::new(AtomicUsize::new(0));
+    let observed = calls.clone();
+    let app = Router::new().route("/v1/events/stream", get(move |headers: HeaderMap, Query(query): Query<std::collections::BTreeMap<String, String>>| {
+        let observed = observed.clone();
+        async move {
+            assert_eq!(query["transport"], "ting");
+            let body = if observed.fetch_add(1, Ordering::SeqCst) == 0 {
+                assert!(headers.get("Last-Event-ID").is_none());
+                ": ready cursor=42 transport=ting\n\n"
+            } else {
+                assert_eq!(headers["Last-Event-ID"], "42");
+                ": ready cursor=42 transport=ting\n\nid: 43\nevent: release.created\ndata: {\"seq\":43,\"type\":\"release.created\"}\n\n"
+            };
+            ([("content-type", "text/event-stream")], body)
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let home = tempfile::tempdir().unwrap();
+    let result = tokio::time::timeout(
+        Duration::from_secs(6),
+        run(
+            home.path(),
+            &base,
+            "dev:alice:c:alice",
+            &["events", "--follow", "--transport", "ting", "--limit", "1"],
+        ),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result["seq"], 43);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    server.abort();
 }

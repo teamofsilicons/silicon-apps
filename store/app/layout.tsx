@@ -14,6 +14,7 @@ import Script from "next/script";
 import type { ReactNode } from "react";
 import { DevTools } from "@/components/dev/dev-tools";
 import { labFontVariables, siteFontVariable } from "./fonts";
+import { LiveEvents } from "@/components/shell/live-events";
 import { Shell } from "@/components/shell/shell";
 import { JsonLd, organizationLd, websiteLd } from "@/lib/seo";
 import { getAccount } from "@/lib/session";
@@ -62,6 +63,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <Shell path={path} account={account}>{children}</Shell>
         {/* The account site's dev tools (type lab, text edits, inspectors, density), in `next dev` only. */}
         {process.env.NODE_ENV === "development" ? <DevTools /> : null}
+        {/* Live catalog changes for a signed-in visitor (Ting through the Apps API): the page refreshes in place. */}
+        {account ? <LiveEvents accountId={account.uuid} /> : null}
         <JsonLd nonce={nonce} graph={[organizationLd(), websiteLd()]} />
       </body>
     </html>

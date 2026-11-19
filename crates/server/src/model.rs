@@ -3,6 +3,8 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 pub const APP_ID: &str = "silicon-apps";
+/// Read-only Accounts audience for catalog use through a Silicon Interface.
+pub const CATALOG_AUDIENCE: &str = "silicon-apps-catalog";
 
 pub use silicon_apps_package::{REQUIRED_RELEASE_TARGETS, TARGETS, missing_required_targets};
 /// A required target left out of a release needs a public reason of this many characters.
@@ -17,6 +19,13 @@ pub fn new_id() -> String {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Identity {
+    /// Live server-derived membership, never read from caller JSON or persisted.
+    #[serde(skip)]
+    pub publishing: silicon_publishing_policy::Context,
+    #[serde(skip)]
+    pub publishing_error: Option<String>,
+    #[serde(skip)]
+    pub app_audience: String,
     pub uuid: String,
     pub id: String,
     #[serde(default)]
@@ -170,9 +179,28 @@ pub struct History {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct App {
+    /// Deletion hides distribution immediately; restore is available for 30 days.
+    #[serde(default)]
+    pub deleted_at: Option<String>,
+    #[serde(default)]
+    pub organization_id: Option<String>,
+    #[serde(default)]
+    pub author_organizations: Vec<String>,
+    #[serde(default)]
+    pub organization_name: Option<String>,
+    #[serde(default)]
+    pub organization_logo_url: Option<String>,
+    #[serde(default)]
+    pub organization_access: silicon_publishing_policy::ResourcePolicy,
+    /// Author-defined defaults; never include them in public catalog views.
+    #[serde(default)]
+    pub user_storage: Option<crate::user_storage::Schema>,
     pub app_id: String,
     pub name: String,
     pub description: String,
+    /// One plain-text line for store cards. Apps published before taglines existed have none.
+    #[serde(default)]
+    pub tagline: String,
     pub logo: String,
     #[serde(default)]
     pub logo_alt: String,
@@ -185,6 +213,15 @@ pub struct App {
     pub account_ids: Vec<String>,
     pub access_uuids: Vec<String>,
     pub links: Value,
+    /// Existing catalog entries predate interface metadata and remain grandfathered.
+    #[serde(default)]
+    pub interface_documentation_required: bool,
+    #[serde(default)]
+    pub interface_api_documentation_url: Option<String>,
+    #[serde(default)]
+    pub interface_use_cases: Option<Vec<Value>>,
+    #[serde(default)]
+    pub interface_license: Option<Value>,
     pub carousel: Vec<Value>,
     pub published: bool,
     pub setup_step: u8,
@@ -200,13 +237,55 @@ pub struct App {
     pub secret_hash: String,
 }
 impl App {
+    pub fn permits(
+        &self,
+        who: Option<&Identity>,
+        permission: silicon_publishing_policy::Permission,
+    ) -> bool {
+        if who.is_some_and(|identity| identity.app_audience == CATALOG_AUDIENCE) {
+            return false;
+        }
+        if who.is_some_and(|i| {
+            i.publishing.author_allows(
+                &self.author_organizations,
+                silicon_publishing_policy::ResourceKind::Apps,
+                permission,
+            )
+        }) {
+            return true;
+        }
+        match &self.organization_id {
+            Some(org) => who.is_some_and(|i| {
+                i.publishing.allows(
+                    org,
+                    silicon_publishing_policy::ResourceKind::Apps,
+                    &self.organization_access,
+                    permission,
+                )
+            }),
+            None => match permission {
+                silicon_publishing_policy::Permission::Manage => {
+                    who.is_some_and(|i| i.uuid == self.admin_uuid)
+                }
+                _ => who.is_some_and(|i| self.authors.iter().any(|a| a.uuid == i.uuid)),
+            },
+        }
+    }
+    pub fn uses_organization_permissions(&self, who: Option<&Identity>) -> bool {
+        self.organization_id.is_some()
+            || (!self.author_organizations.is_empty()
+                && !who.is_some_and(|i| self.authors.iter().any(|a| a.uuid == i.uuid)))
+    }
     pub fn is_author(&self, who: Option<&Identity>) -> bool {
-        who.is_some_and(|i| self.authors.iter().any(|a| a.uuid == i.uuid))
+        self.permits(who, silicon_publishing_policy::Permission::Read)
     }
     pub fn is_admin(&self, who: Option<&Identity>) -> bool {
-        who.is_some_and(|i| i.uuid == self.admin_uuid)
+        self.permits(who, silicon_publishing_policy::Permission::Manage)
     }
     pub fn visible(&self, who: Option<&Identity>) -> bool {
+        if self.deleted_at.is_some() {
+            return false;
+        }
         if self.is_author(who) {
             return true;
         }
@@ -215,6 +294,15 @@ impl App {
         }
         if self.visibility == "public" {
             return true;
+        }
+        if let Some(org) = &self.organization_id {
+            return who.is_some_and(|i| {
+                i.publishing.audience_allows(
+                    org,
+                    silicon_publishing_policy::ResourceKind::Apps,
+                    &self.organization_access,
+                )
+            });
         }
         who.is_some_and(|i| {
             self.access_uuids.contains(&i.uuid)
@@ -301,11 +389,42 @@ impl App {
             .unwrap_or_default();
         signed_by.sort();
         signed_by.dedup();
-        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"unsupported_targets":latest.map(|r| r.unsupported_targets.clone()).unwrap_or_default(),"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
+        let mut v = json!({"app_id":self.app_id,"name":self.name,"description":self.description,"tagline":self.tagline,"logo":self.logo,"banner":self.banner,"logo_alt":self.logo_alt,"banner_alt":self.banner_alt,"tags":self.tags,"visibility":self.visibility,"links":self.links,"interface_api_documentation_url":self.interface_api_documentation_url,"interface_use_cases":self.interface_use_cases,"interface_license":self.interface_license,"carousel":self.carousel,"published":self.published,"setup_step":self.setup_step,"created_at":self.created_at,"updated_at":self.updated_at,"authors":self.authors,"targets":targets,"unsupported_targets":latest.map(|r| r.unsupported_targets.clone()).unwrap_or_default(),"latest_production":self.latest("production"),"latest_development":self.latest("development"),"signed":latest.is_some_and(|r| r.package_ids.iter().all(|id| r.signatures.contains_key(id))),"signed_by_author":latest.is_some_and(|r| r.signed_by_author),"signed_by":signed_by,"withdrawn_releases":self.withdrawn(None),"rating":self.rating(),"review_count":self.reviews.len(),"installs":self.installs,"is_author":self.is_author(who),"is_admin":self.is_admin(who)});
         if self.is_author(who) {
+            v["organization_access"] = json!(self.organization_access);
             v["domains"] = json!(self.domains);
+            v["user_storage"] = json!(self.user_storage);
             v["account_ids"] = json!(self.account_ids);
         }
+        v["created_by"] = json!(
+            self.history
+                .iter()
+                .find(|h| h.kind == "app.created")
+                .map(|h| h.actor_uuid.as_str())
+                .or_else(|| self.authors.first().map(|a| a.uuid.as_str()))
+        );
+        v["shared_with_me"] = json!(who.is_some_and(|w| {
+            self.is_author(Some(w))
+                && v["created_by"]
+                    .as_str()
+                    .is_some_and(|creator| creator != w.uuid)
+        }));
+        v["author_organizations"] = json!(self.author_organizations);
+        v["organization_id"] = json!(self.organization_id);
+        v["deleted_at"] = json!(self.deleted_at);
+        v["restore_until"] = self
+            .deleted_at
+            .as_ref()
+            .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+            .map(|at| json!((at + chrono::Duration::days(30)).to_rfc3339()))
+            .unwrap_or(Value::Null);
+        v["publisher"] = match &self.organization_id {
+            Some(org) => {
+                json!({"type":"organization","id":org,"name":self.organization_name,"logo_url":self.organization_logo_url})
+            }
+            None => json!({"type":"personal","uuid":self.admin_uuid}),
+        };
+        v["permissions"] = json!({"read":self.is_author(who),"edit":self.permits(who, silicon_publishing_policy::Permission::Edit),"publish":self.permits(who, silicon_publishing_policy::Permission::Publish),"manage":self.is_admin(who)});
         v
     }
     pub fn event(&mut self, who: &str, kind: &str, data: Value) {
@@ -321,11 +440,18 @@ impl App {
     }
     pub fn readiness(&self) -> Value {
         let mut errors = vec![];
+        if self.interface_documentation_required && self.interface_api_documentation_url.is_none() {
+            errors.push(json!({"field":"interface_api_documentation_url","message":"Add an HTTPS link to your interface API documentation."}));
+        }
         if self.name.trim().is_empty() {
             errors.push(json!({"field":"name","message":"App name is required."}));
         }
         if !(200..=600).contains(&self.description.chars().count()) {
             errors.push(json!({"field":"description","message":"Description must contain 200 to 600 characters."}));
+        }
+        // Apps published before taglines existed stay valid without one.
+        if !self.published && self.tagline.is_empty() {
+            errors.push(json!({"field":"tagline","message":format!("Tagline must contain 1 to {TAGLINE_MAX_CHARS} characters.")}));
         }
         if self.releases.iter().all(Release::is_withdrawn) {
             errors.push(json!({"field":"packages","message":"Create a development release with validated packages for linux-x86_64, windows-x86_64 and macos-aarch64, or a reason for each one it leaves out.","missing_targets":REQUIRED_RELEASE_TARGETS}));
@@ -355,13 +481,18 @@ pub struct Catalog {
     #[serde(default)]
     pub platforms: BTreeMap<String, Vec<String>>,
 }
+/// The longest tagline, in characters, that a store card shows on one line.
+pub const TAGLINE_MAX_CHARS: usize = 60;
 pub fn valid_app_id(s: &str) -> bool {
     (3..=30).contains(&s.len())
         && s.bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
 }
 pub fn reserved_app_id(s: &str) -> bool {
-    matches!(s, "accounts" | "silicon-accounts" | "developer" | "apps")
+    matches!(
+        s,
+        "accounts" | "silicon-accounts" | "developer" | "apps" | CATALOG_AUDIENCE
+    )
 }
 pub fn version_tuple(s: &str) -> Option<(u64, u64, u64)> {
     let p: Vec<_> = s.split('.').collect();
