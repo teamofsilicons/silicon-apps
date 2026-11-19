@@ -1,8 +1,2 @@
-/**
- * An app the visitor cannot see answers this 404, inside the account site's layout. Empty for now (Anil, 2026-11-14).
- */
-import { Page } from "@/components/parts/page";
-
-export default function AppNotFound() {
-  return <Page />;
-}
+/** An app the visitor cannot see (missing, a draft, or private and not shared with them): the store's 404, the same gallery wall as app/not-found.tsx. */
+export { default, metadata } from "@/app/not-found";

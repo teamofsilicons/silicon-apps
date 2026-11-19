@@ -113,7 +113,7 @@ test("private apps and drafts answer 404 the same way to anyone they are not sha
     const response = await request.get(path);
     expect(response.status(), path).toBe(404);
     const page = await response.text();
-    expect(mainText(page), path).toContain("This page isn’t here");
+    expect(mainText(page), path).toContain("This page drifted off.");
     expect(page, path).not.toContain("Team Vault");
     expect(page, path).not.toContain("Draft Thing");
     expect(metaOf(page).robots, path).toContain("noindex");
@@ -139,7 +139,7 @@ test("a private app shows to the accounts it is shared with, marked private, and
   const novaPage = await nova.newPage();
   const hidden = await novaPage.goto("/apps/team-vault");
   expect(hidden?.status()).toBe(404);
-  await expect(novaPage.getByRole("heading", { level: 1 })).toHaveText("This page isn’t here");
+  await expect(novaPage.getByRole("heading", { level: 1 })).toHaveText("404 This page drifted off.");
   await novaPage.goto("/apps");
   await expect(novaPage.locator("main").getByRole("link", { name: /Team Vault/ })).toHaveCount(0);
   await nova.close();

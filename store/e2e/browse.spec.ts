@@ -111,7 +111,7 @@ test("an author's page lists their published apps", async ({ request, page }) =>
   for (const missing of ["/authors/nobody-here", "/authors/5a4e7c10-0000-4000-8000-00000000ffff"]) {
     const response = await request.get(missing);
     expect(response.status(), missing).toBe(404);
-    expect(mainText(await response.text()), missing).toContain("This page isn’t here");
+    expect(mainText(await response.text()), missing).toContain("This page drifted off.");
   }
 });
 
@@ -139,7 +139,7 @@ test("old store addresses keep working", async ({ request }) => {
   expect((await request.get("/apps", { maxRedirects: 0 })).status()).toBe(200);
 });
 
-test("unknown pages answer 404 with a way back", async ({ request, page }) => {
+test("unknown pages answer 404 with a way back and credit the art on the wall", async ({ request, page }) => {
   const response = await request.get("/no-such-page");
   expect(response.status()).toBe(404);
   const source = await response.text();
@@ -148,19 +148,19 @@ test("unknown pages answer 404 with a way back", async ({ request, page }) => {
   expect(meta.robots).toContain("noindex");
   const text = mainText(source);
   expect(text).toContain("404");
-  expect(text).toContain("This page isn’t here");
-  expect(text).toContain("The address may be mistyped, or the app was removed or is private.");
+  expect(text).toContain("This page drifted off.");
 
   await page.goto("/no-such-page");
   // The visitor keeps the address they asked for, and the page is the store's, with its sidebar.
   await expect(page).toHaveURL(/\/no-such-page$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("This page isn’t here");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("404 This page drifted off.");
   const main = page.locator("main");
-  await expect(main.getByRole("link", { name: "Go Home" })).toHaveAttribute("href", "/");
-  await expect(main.getByRole("link", { name: "Browse All Apps" })).toHaveAttribute("href", "/apps");
-  await expect(main.getByRole("button", { name: "Report a Problem" })).toBeVisible();
-  await main.getByRole("link", { name: "Browse All Apps" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "All Apps" })).toBeVisible();
+  // The artwork is whole, described, and credited with a link to the work.
+  const art = main.getByRole("figure");
+  await expect(art.getByRole("img")).toHaveAttribute("alt", /hot-air balloon/);
+  await expect(art.getByRole("link", { name: "Untitled II, Austin Augie" })).toHaveAttribute("href", "https://www.austinaugie.nyc/product-page/untitled-ii-1126");
+  await main.getByRole("link", { name: "Go Home" }).click();
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("no page scrolls sideways at 320 pixels", async ({ browser, baseURL }) => {
