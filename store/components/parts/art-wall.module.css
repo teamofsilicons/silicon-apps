@@ -1,0 +1,31 @@
+/* The 404's gallery wall (art-wall.tsx): the page panel on the quiet ground, the piece and the note side by side and
+   vertically centred (the piece about three fifths), the piece on a white mat with a hairline and a long soft shadow
+   as a hung print; the note in the page's type, then the wall label under a short rule, small, as a museum's. Under
+   900px one column, the piece first. */
+.wall { display: grid; flex: 1; min-height: 100%; grid-template-columns: minmax(0, 3fr) minmax(16rem, 2fr); align-items: center; gap: calc(var(--space-page) * 1.5); padding: calc(var(--space-page) * 1.5) clamp(var(--gutter), 5vw, calc(var(--space-page) * 2.5)); border-radius: inherit; background: var(--surface-muted); }
+.piece { margin: 0; }
+.mat { padding: clamp(var(--space-group), 2.4vw, var(--space-block)); border: 1px solid var(--border-subtle); background: var(--color-white); box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 6%, transparent), 0 24px 48px -16px color-mix(in oklab, var(--foreground) 22%, transparent); }
+.mat img { display: block; width: 100%; height: auto; }
+
+.side { display: grid; gap: var(--space-block); align-content: center; }
+.note { display: grid; justify-items: start; gap: var(--space-related); }
+.kicker { margin: 0; color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--text-sm); letter-spacing: 0.08em; }
+.title { margin: 0; font: var(--h1); letter-spacing: var(--h1-tracking); text-wrap: balance; }
+.lede { display: grid; gap: var(--space-related); max-width: 42ch; color: var(--text-soft); font: var(--body); line-height: var(--leading-read); letter-spacing: var(--body-tracking); text-wrap: pretty; }
+.lede p { margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-related); margin-top: var(--space-related); }
+
+.label { display: grid; gap: var(--space-hair); max-width: 34ch; padding-top: var(--space-group); border-top: 1px solid var(--border); font: var(--small); letter-spacing: var(--small-tracking); }
+.label p { margin: 0; }
+.labelKicker { margin-bottom: var(--space-tight) !important; color: var(--text-muted); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
+.artist { color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.work { color: var(--foreground); }
+.work cite { font-style: italic; }
+.medium { color: var(--text-secondary); }
+.links { display: flex; flex-wrap: wrap; gap: var(--space-hair) var(--space-group); margin-top: var(--space-tight) !important; }
+.links a { display: inline-flex; align-items: center; gap: var(--space-hair); color: var(--foreground); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.links a:hover { text-decoration-color: currentColor; }
+
+@media (max-width: 899px) {
+  .wall { min-height: calc(100dvh - var(--shell-top, 56px)); grid-template-columns: minmax(0, 1fr); align-items: start; gap: var(--space-block); padding: var(--space-block) var(--gutter) var(--page-end, var(--space-page)); }
+}
