@@ -8,6 +8,7 @@ mod integrations;
 pub mod model;
 mod objects;
 pub mod ratelimit;
+pub mod reports;
 pub mod routes;
 pub mod signing;
 pub mod store;
@@ -258,8 +259,55 @@ async fn dispatch(
         }
         return auth::handle_auth(&s, path, &method, &q, &headers, &raw).await;
     }
-    if raw.len() > 2 * 1024 * 1024 && !path.contains("/packages/") && !path.ends_with("/media") {
+    if path == "reports" && method == Method::POST {
+        if raw.len() > reports::MAX_REQUEST_BYTES {
+            return Err(ApiError::bad(
+                "A report with its screenshot is limited to 8 MiB.",
+            ));
+        }
+    } else if raw.len() > 2 * 1024 * 1024
+        && !path.contains("/packages/")
+        && !path.ends_with("/media")
+    {
         return Err(ApiError::bad("JSON requests are limited to 2 MiB."));
+    }
+    if let ["reports", report_id, "screenshot"] = path.split('/').collect::<Vec<_>>().as_slice() {
+        // The maintainers' mailed link; its key is the only credential.
+        let key = q.get("key").map(String::as_str).unwrap_or_default();
+        let (content_type, name, bytes) = s
+            .store
+            .lock()
+            .unwrap()
+            .report_screenshot(report_id, key)?
+            .ok_or_else(ApiError::missing)?;
+        let file: String = name
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || ".-_ ".contains(c) {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        return Ok((
+            [
+                ("Content-Type", content_type),
+                (
+                    "Content-Disposition",
+                    format!("inline; filename=\"{file}\""),
+                ),
+                ("X-Content-Type-Options", "nosniff".into()),
+                (
+                    "Content-Security-Policy",
+                    "default-src 'none'; sandbox".into(),
+                ),
+                ("Referrer-Policy", "no-referrer".into()),
+                ("Cache-Control", "private, no-store".into()),
+            ],
+            bytes,
+        )
+            .into_response());
     }
     let storage_path: Vec<_> = path.split('/').collect();
     if let ["apps", app, "storage", "users", user, ..] = storage_path.as_slice() {
@@ -627,6 +675,13 @@ async fn dispatch(
     }
 
     let mut prepared = Prepared::default();
+    if p == ["reports"] {
+        prepared.report_screenshot = reports::take_screenshot(&mut body, &s.config.public_url)?;
+        // Each screenshot is up to 5 MiB in the database; anonymous senders could fill the disk.
+        if prepared.report_screenshot.is_some() {
+            who.as_ref().ok_or_else(ApiError::auth)?;
+        }
+    }
     if p == ["apps"] && method == Method::POST
         || p.len() == 4 && p[2] == "secret" && p[3] == "rotate"
     {
@@ -732,10 +787,7 @@ async fn dispatch(
             ));
         }
     }
-    if path == "reports"
-        && s.config.mail_url.is_none()
-        && s.config.accounts_service_token.is_none()
-        && s.config.accounts_service_token.is_none()
+    if path == "reports" && s.config.mail_url.is_none() && s.config.accounts_service_token.is_none()
     {
         return Err(ApiError::unavailable(
             "Bug report email delivery is not configured (APPS_MAIL_URL).",

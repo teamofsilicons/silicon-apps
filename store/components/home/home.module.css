@@ -1,0 +1,13 @@
+/* The home page (app/page.tsx): its sections a page and a half apart. */
+.stack { display: grid; min-width: 0; gap: calc(var(--space-page) * 1.5); }
+
+/* A search's results (app/page.tsx): the title and count, matching categories as links, then the rows. */
+.results { display: grid; min-width: 0; gap: var(--space-group); }
+.resultsHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-related); }
+.resultsTitle { margin: 0; color: var(--foreground); font: var(--h1); letter-spacing: var(--h1-tracking); }
+.resultsCount, .resultsNote { margin: 0; color: var(--text-secondary); font: var(--body); letter-spacing: var(--body-tracking); }
+.resultsNote a { color: var(--accent); }
+.resultsCategories { display: flex; flex-wrap: wrap; gap: var(--space-tight) var(--space-group); font: var(--label); letter-spacing: var(--label-tracking); }
+.resultsCategories a { color: var(--accent); text-decoration: none; }
+.resultsCategories a::before { content: "Category: "; color: var(--text-secondary); }
+.resultsMore { display: flex; justify-content: center; }

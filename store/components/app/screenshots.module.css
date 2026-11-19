@@ -1,0 +1,16 @@
+/* An app page's screenshots (screenshots.tsx, Anil, 2026-11-18): a page's room above, the title (h2), then one strip
+   that scrolls sideways and snaps to each frame. Frames are one height (--shot-height: 320px; 210 on a phone, so a desktop frame, 336px wide, fits a 390px screen with the next one peeking in): a desktop
+   frame 16:10, a mobile frame 9:19.5, each in the cards' corner with a hairline on the quiet ground, the picture cropped
+   to it. The strip runs to the page box's right edge on a phone so the next frame peeks in. */
+.section { --shot-height: 320px; display: grid; min-width: 0; gap: var(--space-group); margin-top: var(--space-page); }
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.strip { display: flex; min-width: 0; gap: var(--space-inset); margin: 0; padding: 0 0 var(--space-related); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: thin; list-style: none; }
+.frame { --sq-r: var(--radius-container); --sq-stroke: var(--border-subtle); flex: none; height: var(--shot-height); overflow: hidden; border: 1px solid var(--sq-stroke); background: var(--surface-muted); scroll-snap-align: start; }
+.frame[data-form="desktop"] { aspect-ratio: 16 / 10; }
+.frame[data-form="mobile"] { aspect-ratio: 9 / 19.5; }
+.media { display: block; width: 100%; height: 100%; object-fit: cover; background: var(--surface-muted); }
+
+@media (max-width: 639px) {
+  .section { --shot-height: 210px; }
+  .strip { gap: var(--space-related); margin-right: calc(var(--gutter) * -1); padding-right: var(--gutter); }
+}

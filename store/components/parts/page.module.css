@@ -1,0 +1,21 @@
+/* The page container (page.tsx), as the account site's layout.module.css .page: a narrow centred column, --page-top above it (the
+   shell's: level with the sidebar's first row; 64px, twice --space-page, elsewhere) since the store's pages have no page bar yet (2026-11-14), 16px between its children (a section's own 16px makes 32 between sections), the room at the end below. */
+.page { display: grid; width: 100%; max-width: calc(var(--page-narrow) + 2 * var(--gutter)); min-width: 0; align-content: start; gap: var(--space-section); margin-inline: auto; padding: var(--page-top, calc(var(--space-page) * 2)) var(--gutter) var(--page-end); }
+.page > * { min-width: 0; }
+.page[data-layout="aside"] { max-width: calc(var(--page-max) + 2 * var(--gutter)); }
+/* Wide: an editorial page across --page-max, with a page's room above (the store's home). */
+.page[data-layout="wide"] { max-width: calc(var(--page-max) + 2 * var(--gutter)); }
+.columns { display: grid; min-width: 0; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); align-items: start; gap: var(--space-block); }
+.mainColumn, .sideColumn { display: grid; min-width: 0; align-content: start; gap: var(--space-section); }
+.mainColumn > *, .sideColumn > * { min-width: 0; }
+@media (max-width: 1023px) {
+  .page[data-layout="aside"] { max-width: calc(var(--page-narrow) + 2 * var(--gutter)); }
+  .columns { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The opening lines: a kicker in the caption role, the lede in small --text-soft (as a dialog's description), then
+   links or buttons. */
+.intro { display: grid; justify-items: start; gap: var(--space-tight); }
+.kicker { margin: 0; color: var(--text-secondary); font: var(--caption); letter-spacing: var(--caption-tracking); }
+.lede { max-width: 70ch; margin: 0; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); }
+.introActions { display: flex; flex-wrap: wrap; gap: var(--space-related); margin-top: var(--space-related); }

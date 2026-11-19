@@ -1,0 +1,37 @@
+/* An app page's Developer, Profile (developer.tsx, Anil, 2026-11-18): a page's room above, the title (h2), then two
+   columns (one when the section is under 44rem wide): the card (16 to 22rem; its padding a block, its ground set by data-card) with the people
+   and, under a hairline, the links; beside it More by, a compact list in columns at 16rem. */
+.section { display: grid; min-width: 0; gap: var(--space-related); margin-top: var(--space-page); container-type: inline-size; }
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.group { display: grid; min-width: 0; align-content: start; gap: var(--space-related); }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-group); }
+.subtitle { margin: 0; color: var(--foreground); font: var(--h3); letter-spacing: var(--h3-tracking); }
+.all { color: var(--accent); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.all:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.split { display: grid; grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); align-items: start; gap: var(--space-page); }
+.card { display: grid; gap: var(--space-group); padding: var(--space-block); border-radius: var(--radius-container); }
+.card[data-card="raised"] { background: var(--surface-raised); box-shadow: var(--shadow-hairline), var(--shadow-raised); }
+.card[data-card="outline"] { box-shadow: inset 0 0 0 1px var(--border); }
+.card[data-card="tint"] { background: var(--accent-subtle); }
+.card[data-card="glow"] { background: linear-gradient(150deg, var(--accent-subtle), var(--surface-raised) 70%); box-shadow: var(--shadow-hairline); }
+.cardPeople, .cardLinks, .compact { display: grid; gap: var(--space-related); margin: 0; padding: 0; list-style: none; }
+.cardLinks { padding-top: var(--space-group); border-top: 1px solid var(--border-subtle); }
+.cardPerson, .compactRow { display: flex; min-width: 0; align-items: center; gap: var(--space-related); color: inherit; text-decoration: none; }
+.cardPerson:hover .whoName, .compactRow:hover .whoName { text-decoration: underline; text-underline-offset: 3px; }
+/* A link: on hover the address (where it goes) underlines and darkens, not the label (Anil, 2026-11-18). */
+.cardLink:hover .cardHost { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }
+.who { display: grid; min-width: 0; }
+.whoName { overflow: hidden; color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); text-overflow: ellipsis; white-space: nowrap; }
+.whoId { overflow: hidden; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); text-overflow: ellipsis; white-space: nowrap; }
+.cardLink { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-related); color: inherit; text-decoration: none; }
+.cardIcon { grid-row: span 2; margin-top: var(--space-hair); color: var(--text-secondary); }
+.cardLabel { color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.cardHost { overflow: hidden; color: var(--text-muted); font: var(--small); letter-spacing: var(--small-tracking); text-overflow: ellipsis; white-space: nowrap; }
+.compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: var(--space-group) var(--space-block); }
+
+
+/* By the section's own width, not the window's, so it stacks wherever it sits narrow (a reading column too). */
+@container (max-width: 44rem) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+}

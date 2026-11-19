@@ -1,0 +1,79 @@
+/* An app page's Ratings and reviews (reviews.tsx, Anil, 2026-11-18): a page's room above, the title (h2), the average
+   large beside a bar per star count (at About's reading width), the line on how to rate it, then the reviews as cards
+   on the quiet ground in columns at the page's width (as many as fit at 18rem, one on a phone). Stars are Lucide's,
+   filled in the warning hue when on, the border hue when off. */
+.section { display: grid; min-width: 0; gap: var(--space-group); margin-top: var(--space-page); padding-bottom: var(--space-page); scroll-margin-top: var(--space-page); }
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.quiet { margin: 0; color: var(--text-muted); font: var(--small); letter-spacing: var(--small-tracking); }
+
+.summary { display: grid; max-width: 32rem; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-block); }
+.average { display: grid; justify-items: start; gap: var(--space-tight); }
+.score { --score-size: 3rem; margin: 0; color: var(--foreground); font: var(--display); font-size: var(--score-size); line-height: 1; font-variant-numeric: tabular-nums; }
+.stars { display: inline-flex; gap: var(--space-hair); }
+.star { color: var(--border); }
+.star[data-on] { color: var(--warning); }
+
+.bars { display: grid; gap: var(--space-tight); margin: 0; padding: 0; list-style: none; }
+.bars li { display: grid; grid-template-columns: 1ch minmax(0, 1fr) 3ch; align-items: center; gap: var(--space-related); color: var(--text-muted); font: var(--small); letter-spacing: var(--small-tracking); font-variant-numeric: tabular-nums; }
+.bar { --bar-height: 6px; display: block; height: var(--bar-height); overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-muted); }
+.bar > span { display: block; height: 100%; border-radius: inherit; background: var(--foreground); }
+.barCount { text-align: end; }
+
+.signIn { margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+.signIn a { color: var(--accent); font-weight: var(--weight-medium); text-decoration: none; }
+.signIn a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* The form, folded (Compose): one row on the quiet ground at 36rem, a pencil, the title, who's writing and the
+   triangle; open, the same ground holds the stars to pick (Lucide's, the warning hue up to the one chosen or hovered;
+   native radios over each star with no opacity), the words, then the button. */
+.compose { max-width: 36rem; border-radius: var(--radius-container); background: var(--surface-muted); }
+.compose > summary { display: flex; align-items: center; gap: var(--space-related); padding: var(--space-related) var(--space-inset); border-radius: inherit; list-style: none; cursor: pointer; }
+.compose > summary::-webkit-details-marker { display: none; }
+.compose > summary:hover .triangle { color: var(--foreground); }
+.compose > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pen { flex: none; color: var(--text-secondary); }
+.composeTitle { margin: 0; color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.composeHint { min-width: 0; flex: 1; overflow: hidden; color: var(--text-muted); font: var(--small); letter-spacing: var(--small-tracking); text-overflow: ellipsis; white-space: nowrap; }
+.compose[open] > summary .triangle { transform: rotate(180deg); }
+.composeBody { display: grid; gap: var(--space-group); padding: var(--space-related) var(--space-inset) var(--space-inset); border-top: 1px solid var(--border-subtle); }
+.form { display: grid; gap: var(--space-group); }
+.pick { display: grid; gap: var(--space-tight); margin: 0; padding: 0; border: 0; }
+.legend { margin-bottom: var(--space-tight); padding: 0; color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.pickStars { display: flex; width: max-content; }
+.pickStar { position: relative; display: grid; place-items: center; padding: var(--space-hair); border-radius: var(--radius-control); color: var(--border); cursor: pointer; transition: color 100ms ease; }
+.pickStars:has(:checked) .pickStar { color: var(--warning); }
+.pickStar:has(:checked) ~ .pickStar { color: var(--border); }
+.pickStars:hover .pickStar { color: var(--warning); }
+.pickStar:hover ~ .pickStar { color: var(--border); }
+.pickStar:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.radio { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.words { display: grid; gap: var(--space-tight); }
+.left { margin: 0; color: var(--text-muted); font: var(--small); letter-spacing: var(--small-tracking); font-variant-numeric: tabular-nums; }
+.formActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-related); }
+.remove > summary { width: max-content; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); cursor: pointer; }
+.remove > summary:hover { color: var(--foreground); }
+.removeForm { display: grid; justify-items: start; gap: var(--space-related); padding-top: var(--space-related); }
+.removeForm p { margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+@media (prefers-reduced-motion: reduce) { .pickStar { transition: none; } }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr)); gap: var(--space-group); margin: 0; padding: 0; list-style: none; }
+.card { display: flex; min-width: 0; padding: var(--space-inset); border-radius: var(--radius-container); background: var(--surface-muted); }
+.card[data-mine] { box-shadow: inset 0 0 0 1px var(--accent); }
+.article { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: var(--space-related); }
+.you { margin-left: var(--space-related); color: var(--accent); font: var(--label); letter-spacing: var(--label-tracking); }
+.cardHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-group); }
+.cardHead time { color: var(--text-muted); font: var(--small); letter-spacing: var(--small-tracking); white-space: nowrap; }
+.text { flex: 1; margin: 0; color: var(--text-soft); font: var(--body); line-height: var(--leading-read); letter-spacing: var(--body-tracking); overflow-wrap: anywhere; white-space: pre-line; }
+.by { display: flex; align-items: center; gap: var(--space-tight); margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+
+.more { display: grid; gap: var(--space-group); }
+.more > summary { display: flex; align-items: center; gap: var(--space-related); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); list-style: none; cursor: pointer; }
+.more > summary::-webkit-details-marker { display: none; }
+.more[open] > summary { margin-bottom: var(--space-group); }
+.triangle { flex: none; color: var(--text-muted); transform: rotate(90deg); transition: transform 150ms ease; }
+.more[open] > summary .triangle { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .triangle { transition: none; } }
+
+@media (max-width: 639px) {
+  .summary { grid-template-columns: minmax(0, 1fr); gap: var(--space-group); }
+}

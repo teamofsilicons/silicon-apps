@@ -1,0 +1,11 @@
+/* The not-found and error pages (status-page.tsx): one centred column a little way down the page, the icon in a soft
+   tile and a caption-role code; then the h1, the lede in --text-soft, the buttons in a row that wraps on a phone, and the
+   reference in mono at the end. */
+.status { display: grid; justify-items: center; gap: var(--space-tight); max-width: 34rem; margin: var(--space-page) auto 0; text-align: center; }
+.icon { --sq-r: var(--radius-container); display: grid; width: 56px; height: 56px; place-items: center; margin-bottom: var(--space-related); border: 1px solid var(--border-subtle); border-radius: var(--radius-container); background: var(--surface-muted); color: var(--text-secondary); }
+.code { margin: 0; color: var(--text-secondary); font: var(--caption); letter-spacing: var(--caption-tracking); }
+.title { margin: 0; font: var(--h2); letter-spacing: var(--h2-tracking); text-wrap: balance; }
+.lede { margin: 0; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); text-wrap: pretty; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-related); margin-top: var(--space-group); }
+.reference { margin: var(--space-group) 0 0; color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); }
+.reference code { font-family: var(--font-mono); font-size: var(--text-xs); }

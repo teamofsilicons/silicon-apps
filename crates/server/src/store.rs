@@ -25,13 +25,14 @@ pub const SORTS: [&str; 6] = [
     "updated",
     "newest",
 ];
-const MIGRATIONS: [&str; 6] = [
+const MIGRATIONS: [&str; 7] = [
     include_str!("../../../migrations/001_catalog.sql"),
     include_str!("../../../migrations/002_events.sql"),
     include_str!("../../../migrations/003_signing.sql"),
     include_str!("../../../migrations/004_account_uuid_backfill.sql"),
     include_str!("../../../migrations/005_retired_identity_events.sql"),
     include_str!("../../../migrations/006_user_storage.sql"),
+    include_str!("../../../migrations/007_report_screenshots.sql"),
 ];
 #[derive(Default)]
 pub struct Prepared {
@@ -43,6 +44,8 @@ pub struct Prepared {
     /// The API found that this create request's author is the configured
     /// owner of its 1–2 character historical app ID (`APPS_HISTORICAL_APP_IDS`).
     pub historical_app_id: bool,
+    /// A bug report's decoded screenshot, already validated.
+    pub report_screenshot: Option<crate::reports::Screenshot>,
 }
 pub struct Mutation<'a> {
     pub method: &'a str,
@@ -890,11 +893,45 @@ impl Store {
                 params![new_id(), kind, body.to_string(), now()],
             )?;
         }
+        if let (Some(shot), Some(report_id)) =
+            (&m.prepared.report_screenshot, response["id"].as_str())
+        {
+            tx.execute(
+                "INSERT INTO report_screenshots(report_id,key_hash,name,content_type,data,created_at) VALUES(?1,?2,?3,?4,?5,?6)",
+                params![report_id, hash(shot.key.as_bytes()), shot.name, shot.content_type, shot.bytes, now()],
+            )?;
+        }
         tx.commit()?;
         if appended > 0 {
             self.notify_events();
         }
         Ok((response, false))
+    }
+    /// A report's screenshot as `(content_type, name, bytes)` when `key` is
+    /// the one mailed to the maintainers.
+    pub fn report_screenshot(
+        &self,
+        report_id: &str,
+        key: &str,
+    ) -> Result<Option<(String, String, Vec<u8>)>> {
+        let row: Option<(String, String, String, Vec<u8>)> = self
+            .connection
+            .query_row(
+                "SELECT key_hash,content_type,name,data FROM report_screenshots WHERE report_id=?1",
+                [report_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .optional()?;
+        Ok(row.and_then(|(stored, content_type, name, data)| {
+            let given = hash(key.as_bytes());
+            let same = stored.len() == given.len()
+                && stored
+                    .bytes()
+                    .zip(given.bytes())
+                    .fold(0u8, |d, (a, b)| d | (a ^ b))
+                    == 0;
+            (!key.is_empty() && same).then_some((content_type, name, data))
+        }))
     }
     pub fn validation_failure(
         &mut self,
@@ -1092,9 +1129,21 @@ fn apply(c: &mut Catalog, m: &Mutation<'_>, outbox: &mut Vec<(String, Value)>) -
         if message.trim().is_empty() || message.len() > 20000 {
             return Err(ApiError::bad("message must contain 1–20,000 bytes."));
         }
-        let report = json!({"id":new_id(),"message":message,"pr":b.get("pr"),"actor_uuid":actor,"created_at":now(),"recipients":["saketdev12@gmail.com","shubhastro2@gmail.com","bugs@teamofsilicons.com"]});
+        let mut report = json!({"id":new_id(),"message":message,"pr":b.get("pr"),"actor_uuid":actor,"created_at":now(),"recipients":["saketdev12@gmail.com","shubhastro2@gmail.com","bugs@teamofsilicons.com"]});
+        let mut mail = report.clone();
+        if let Some(shot) = &m.prepared.report_screenshot {
+            let about =
+                json!({"name":shot.name,"content_type":shot.content_type,"size":shot.bytes.len()});
+            report["screenshot"] = about.clone();
+            // The mail bridge renders only `message` and `pr`, so the link
+            // also goes into the mailed message. The catalog keeps no link.
+            let url = shot.url(report["id"].as_str().unwrap());
+            mail["message"] = json!(crate::reports::message_with_link(message, &url));
+            mail["screenshot"] = about;
+            mail["screenshot"]["url"] = json!(url);
+        }
         c.reports.push(report.clone());
-        outbox.push(("mail.report".into(), report.clone()));
+        outbox.push(("mail.report".into(), mail));
         return Ok(json!({"id":report["id"],"status":"queued"}));
     }
     if p == ["apps"] && m.method == "POST" {

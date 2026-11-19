@@ -1,0 +1,107 @@
+/* An app's page (app/apps/[appId]/page.tsx), on Anil's sketch (2026-11-14) in the account site's style: the cover with
+   the icon overlapping its lower-left corner and the name and authors beside it; "Try it"; the facts in a row; a
+   hairline; About; Links. */
+
+/* The cover at 3:1 (2:1 on a phone), the cards' corner and the page box's hairline. */
+.head { display: grid; min-width: 0; }
+.cover { --sq-r: var(--radius-container); display: block; width: 100%; max-width: 100%; height: auto; aspect-ratio: 3 / 1; border: 1px solid var(--page-line, var(--border-subtle)); background: var(--surface-muted); object-fit: cover; }
+@media (max-width: 639px) { .cover { aspect-ratio: 2 / 1; } }
+
+/* The icon (96px, 72 on a phone) on the page's left edge, as everything under it, rising 40px into the cover on a white ring
+   (16px on a phone); the name and authors beside it, their last line level with the icon's
+   foot, so they sit below the cover's edge. */
+.identity { display: flex; min-width: 0; align-items: flex-end; gap: var(--space-group); margin-top: calc(var(--space-page) * -1.25); }
+.icon { --sq-r: 28%; display: flex; flex: none; padding: var(--space-tight); border-radius: 28%; background: var(--surface); }
+.names { display: grid; min-width: 0; gap: var(--space-hair); }
+.name { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-related); margin: 0; color: var(--foreground); font: var(--display); letter-spacing: var(--display-tracking); overflow-wrap: anywhere; }
+.by { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-tight) var(--space-related); margin: 0; color: var(--text-secondary); font: var(--body); letter-spacing: var(--body-tracking); }
+.byAuthor a { display: inline-flex; align-items: center; gap: var(--space-tight); }
+.appId { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs); }
+.category { display: inline-flex; align-items: center; gap: var(--space-tight); padding: var(--space-hair) var(--space-related); border-radius: var(--radius-control); background: var(--surface-muted); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.category:hover { background: var(--surface-pressed); }
+.by a { color: var(--foreground); text-decoration: none; }
+.by a:hover { text-decoration: underline; }
+@media (max-width: 639px) {
+  .identity { margin-top: calc(var(--space-related) * -2); }
+  .icon :first-child { width: 72px !important; height: 72px !important; }
+}
+
+/* Try it: a small label over the main button, the command and, for its authors, Manage App. */
+.try { display: grid; min-width: 0; gap: var(--space-related); margin-top: var(--space-block); }
+.tryLabel { margin: 0; color: var(--text-secondary); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
+.tryRow { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-related); }
+.tryCommand { flex: 1 1 18rem; min-width: 0; max-width: 30rem; }
+.tryNote { margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+.tryNote a, .muted a, .reviews a { color: var(--accent); }
+
+/* The facts: four columns, a small label over each value, between hairlines. */
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: var(--space-block) 0 0; padding-block: var(--space-group); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
+.facts > div { display: grid; min-width: 0; gap: var(--space-tight); padding-inline: var(--space-group); }
+.facts > div:first-child { padding-left: 0; }
+.facts > div + div { border-left: 1px solid var(--border-subtle); }
+.facts dt { color: var(--text-secondary); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
+.facts dd { display: flex; min-height: 1.5rem; align-items: center; margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); font-variant-numeric: tabular-nums; }
+@media (max-width: 639px) {
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: var(--space-group); }
+  .facts > div:nth-child(3) { padding-left: 0; border-left: 0; }
+}
+.star { color: var(--star); }
+.quiet { color: var(--text-muted); font: var(--body); letter-spacing: var(--body-tracking); }
+.mono { font-family: var(--font-mono); font-size: .9em; }
+
+/* About: its h2 (the account site's section title), the description, the tags. */
+.about { display: grid; min-width: 0; gap: var(--space-related); margin-top: var(--space-block); }
+.sectionTitle { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.prose { display: grid; gap: var(--space-related); max-width: 70ch; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); }
+.prose p { margin: 0; }
+.tags { display: flex; flex-wrap: wrap; gap: var(--space-tight); margin: var(--space-tight) 0 0; padding: 0; list-style: none; }
+
+/* The facts row's platforms: the systems' marks over their names. */
+.platformsFact { display: grid; gap: var(--space-hair); }
+.platformsNames { color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+
+/* The details, as the live store has them: a label on the left (a quarter), the value on the right, rows between
+   hairlines. Stacked on a phone. */
+.details { display: grid; margin-top: var(--space-block); border-top: 1px solid var(--border-subtle); }
+.detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: var(--space-group); padding-block: var(--space-group); border-bottom: 1px solid var(--border-subtle); }
+@media (max-width: 639px) { .detail { grid-template-columns: minmax(0, 1fr); gap: var(--space-related); } }
+.label { margin: 0; padding-top: var(--space-hair); color: var(--text-secondary); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
+.value { display: grid; min-width: 0; gap: var(--space-related); }
+.muted { margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+.links { display: flex; flex-wrap: wrap; gap: var(--space-tight) var(--space-block); margin: 0; padding: 0; list-style: none; }
+.links a { display: inline-flex; align-items: center; gap: var(--space-hair); color: var(--foreground); font: var(--body); letter-spacing: var(--body-tracking); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.links a:hover { text-decoration-color: currentColor; }
+.releases { display: grid; gap: var(--space-group); margin: 0; }
+.releases dt { color: var(--foreground); font: var(--body); letter-spacing: var(--body-tracking); }
+.releases dd { margin: var(--space-hair) 0 0; color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); }
+.withdrawn { display: grid; gap: var(--space-tight); }
+.withdrawn ul { display: grid; gap: var(--space-tight); margin: 0; padding: 0; list-style: none; }
+.withdrawn p { margin: 0; }
+.subLabel { margin: 0; color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.struck { color: var(--text-muted); text-decoration: line-through; }
+.more > summary { width: fit-content; color: var(--foreground); font: var(--small); letter-spacing: var(--small-tracking); cursor: pointer; }
+.moreBody { display: grid; gap: var(--space-group); margin-top: var(--space-related); }
+.moreBody > div { display: grid; gap: var(--space-tight); }
+.moreBody p { margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+.platforms { display: grid; gap: var(--space-related); margin: 0; padding: 0; list-style: none; color: var(--foreground); font: var(--body); letter-spacing: var(--body-tracking); }
+.platforms li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-related); }
+.people { display: grid; gap: var(--space-related); margin: 0; padding: 0; list-style: none; }
+.person { display: inline-flex; align-items: center; gap: var(--space-related); color: var(--foreground); font: var(--body); letter-spacing: var(--body-tracking); text-decoration: none; }
+.person:hover > span:nth-child(2) { text-decoration: underline; }
+.personId { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs); }
+
+/* Ratings and reviews: the average and the spread by stars, then each review. */
+.reviews { display: grid; min-width: 0; gap: var(--space-group); margin-top: var(--space-page); }
+.summary { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-tight) var(--space-block); max-width: 32rem; }
+.average { margin: 0; color: var(--foreground); font: var(--display); letter-spacing: var(--display-tracking); }
+.summary > .muted { grid-column: 1; }
+.bars { grid-column: 2; grid-row: 1 / span 2; display: grid; gap: var(--space-hair); margin: 0; padding: 0; list-style: none; }
+.bars li { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) 1.5rem; align-items: center; gap: var(--space-related); color: var(--text-secondary); font: var(--hint); font-variant-numeric: tabular-nums; }
+.bar { height: 6px; overflow: hidden; border-radius: var(--radius-detail); background: var(--surface-muted); }
+.bar > span { display: block; height: 100%; background: var(--star); }
+.barLabel, .barCount { white-space: nowrap; }
+.reviewList { display: grid; margin: 0; padding: 0; border-top: 1px solid var(--border-subtle); list-style: none; }
+.review { display: grid; gap: var(--space-tight); padding-block: var(--space-group); border-bottom: 1px solid var(--border-subtle); }
+.reviewHead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-related); color: var(--foreground); font: var(--small); letter-spacing: var(--small-tracking); }
+.reviewDate { margin-left: auto; color: var(--text-muted); }
+.reviewText { margin: 0; max-width: 70ch; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); }

@@ -1,0 +1,16 @@
+/* The app page's Sidebar layout (app-layout.tsx): the reading column and a 20rem sidebar on its right, a page's room
+   apart, the sidebar kept in view as you scroll. The sections in the reading column sit half as far apart again as a
+   page's room (Anil, 2026-11-18: "a bit more spacing in between sections"), 48px where the page's room is 32; the
+   first keeps the page's room under the header, level with the sidebar. Under 1024px one column, the sidebar first. */
+.sidebar { --section-gap: calc(var(--space-page) * 1.5); display: grid; grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; gap: var(--space-page); }
+.main { grid-column: 1; grid-row: 1; min-width: 0; }
+.main > section + section { margin-top: var(--section-gap); }
+.aside { position: sticky; top: var(--space-block); display: grid; grid-column: 2; grid-row: 1; gap: var(--space-block); margin-top: var(--space-page); }
+.facts { padding-block: var(--space-block); border-block: 1px solid var(--border-subtle); }
+.foot { margin-top: var(--space-page); padding-top: calc(var(--space-page) * 1.5); border-top: 1px solid var(--border-subtle); }
+
+@media (max-width: 1023px) {
+  .sidebar { grid-template-columns: minmax(0, 1fr); }
+  .main, .aside { grid-column: 1; grid-row: auto; }
+  .aside { position: static; }
+}

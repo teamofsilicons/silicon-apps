@@ -1,22 +1,31 @@
 "use client";
-/** The last resort when a page fails to render. Next logs the server error; nothing private is shown here. */
-import buttonStyles from "@/components/silicon-ui/button/button.module.css";
-import linkStyles from "@/components/foundation/button-link.module.css";
-import styles from "@/components/store/store.module.css";
+/**
+ * What a page shows when it fails to render, in the shell: what happened, Try Again (renders the page again, fetching
+ * it afresh), Go Home, Report a problem, and the error's reference (its digest, which the server's log carries) to
+ * quote in a report. The error's message is never shown: in production it says nothing useful and may say too much.
+ */
+import { startTransition } from "react";
+import { useRouter } from "next/navigation";
+import { TriangleAlert } from "lucide-react";
+import { Button } from "@teamofsilicons/silicon-ui/button";
+import { ButtonLink } from "@teamofsilicons/silicon-ui/button-link";
+import { StatusPage } from "@/components/parts/status-page";
 
-export default function PageError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const router = useRouter();
+  const retry = () => startTransition(() => { router.refresh(); reset(); });
   return (
-    <div className={`${styles.page} ${styles.narrow}`}>
-      <div className={styles.empty} data-sq="surface" role="alert">
-        <h1 className={styles.emptyTitle}>Something went wrong on our side</h1>
-        <div className={styles.emptyCopy}>
-          <p>This page could not load. Try again, and if it keeps happening run <code>silicon-apps report &quot;what happened&quot;</code> so the Team hears about it.</p>
-        </div>
-        <div className={styles.emptyActions}>
-          <button type="button" className={`${buttonStyles.button} ${buttonStyles.primary} ${buttonStyles.md}`} data-sq="surface" onClick={() => reset()}>Try again</button>
-          <a className={`${buttonStyles.button} ${buttonStyles.secondary} ${buttonStyles.md} ${linkStyles.link}`} data-sq="surface" data-variant="secondary" href="/">Back to the store</a>
-        </div>
-      </div>
-    </div>
+    <StatusPage
+      icon={<TriangleAlert size={24} strokeWidth={1.75} />}
+      code="Error"
+      title="This page couldn’t load"
+      reference={error.digest}
+      actions={<>
+        <Button type="button" onClick={retry}>Try Again</Button>
+        <ButtonLink href="/" variant="secondary">Go Home</ButtonLink>
+      </>}
+    >
+      Something went wrong on our side, not yours. Try again in a moment; if it keeps happening, tell us.
+    </StatusPage>
   );
 }

@@ -1,0 +1,13 @@
+/* The home page's categories (category-cards.tsx): the h3 a step over three columns of cards (one on a phone); each
+   card is one link: its picture (16:9, the container corner and a hairline) with the name under it, no box and
+   no side padding. */
+.section { display: grid; min-width: 0; gap: var(--space-inset); }
+.title { margin: 0; color: var(--foreground); font: var(--h3); letter-spacing: var(--h3-tracking); }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-block) var(--space-group); margin: 0; padding: 0; list-style: none; }
+.card { display: grid; min-width: 0; gap: var(--space-related); color: inherit; text-decoration: none; }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-hair); border-radius: var(--radius-container); }
+.picture { --sq-r: var(--radius-container); display: block; aspect-ratio: 16 / 9; border: 1px solid var(--page-line, var(--border-subtle)); background-color: var(--surface-muted); background-position: center; background-repeat: no-repeat; background-size: cover; transition: filter var(--duration-fast) var(--ease-standard); }
+@media (hover: hover) and (pointer: fine) { .card:hover .picture { filter: brightness(.96); } .card:hover .name { text-decoration: underline; text-underline-offset: 3px; } }
+/* The name in body text (16px, regular), as before it was bold (Anil, 2026-11-14). */
+.name { min-width: 0; color: var(--foreground); font: var(--body); letter-spacing: var(--body-tracking); }
+@media (max-width: 639px) { .cards { grid-template-columns: minmax(0, 1fr); } }

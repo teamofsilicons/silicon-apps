@@ -29,5 +29,5 @@ export async function POST(request: NextRequest) {
 }
 
 export function GET() {
-  return seeOther("/settings");
+  return seeOther("/");
 }

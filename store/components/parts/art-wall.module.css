@@ -1,0 +1,16 @@
+/* The 404's wall (art-wall.tsx): a 48rem column on the page's white, centred in the panel and left-aligned like an
+   article's opening: the h1 ("404" muted over the words) with Go Home at its foot on the right, then the piece across
+   the column, rounded with a faint hairline, and its caption small under it. On a phone Go Home goes under the h1. */
+.wall { display: grid; flex: 1; align-content: center; gap: var(--space-block); width: min(100%, 48rem); margin-inline: auto; padding: var(--space-page) var(--gutter); }
+.note { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-group); }
+.title { margin: 0; font: var(--h1); letter-spacing: var(--h1-tracking); text-wrap: balance; }
+.code { display: block; color: var(--text-muted); }
+.piece { display: grid; gap: var(--space-related); margin: 0; }
+.piece img { display: block; width: 100%; height: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-container); }
+.credit { color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+.credit a { color: inherit; text-decoration: none; }
+.credit a:hover { color: var(--foreground); }
+@media (max-width: 899px) {
+  .wall { align-content: start; padding-top: var(--space-block); }
+  .note { flex-direction: column; align-items: flex-start; }
+}

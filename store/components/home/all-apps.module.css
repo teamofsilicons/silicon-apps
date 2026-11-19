@@ -1,0 +1,4 @@
+/* App rows (all-apps.tsx): the boxed rows are rows.module.css; this is the empty box and the star. */
+.empty { --sq-r: var(--radius-container); --sq-fill: var(--surface); --sq-stroke: var(--border); border: 1px solid var(--sq-stroke); background: var(--sq-fill); }
+/* The rating's star, in the star colour. */
+.star { color: var(--star); }

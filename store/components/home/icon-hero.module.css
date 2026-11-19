@@ -1,0 +1,11 @@
+/* The home page's banner (hero.tsx): the account site's pink and blue gradient at 3:1 (2:1 on a phone), the cards'
+   corner and the page box's hairline, with the apps' icons in three staggered rows across it, the middle row offset by
+   half an icon, cut off at the sides so the wall reads as more than fits. */
+.hero { --sq-r: var(--radius-container); --icon: 64px; position: relative; display: grid; width: 100%; max-width: 100%; aspect-ratio: 3 / 1; place-items: center; overflow: hidden; border: 1px solid var(--page-line, var(--border-subtle)); background: var(--surface-muted) url("/banner/bg-102.webp") center / cover no-repeat; }
+@media (max-width: 639px) { .hero { --icon: 44px; aspect-ratio: 2 / 1; } }
+.wall { display: grid; gap: var(--space-group); }
+.row { display: flex; justify-content: center; gap: var(--space-group); }
+.row[data-offset] { translate: calc((var(--icon) + var(--space-group)) / 2) 0; }
+@media (max-width: 639px) { .wall, .row { gap: var(--space-related); } .row[data-offset] { translate: calc((var(--icon) + var(--space-related)) / 2) 0; } }
+/* An icon: the app-mark corner, a white ring and a soft lift off the gradient. */
+.icon { --sq-r: 24%; width: var(--icon); height: var(--icon); flex: none; border-radius: 24%; background: var(--surface); box-shadow: 0 0 0 2px var(--surface), var(--shadow-raised); object-fit: cover; }

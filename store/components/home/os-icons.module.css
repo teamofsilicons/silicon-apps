@@ -1,0 +1,3 @@
+/* The systems an app runs on (os-icons.tsx): 13px marks, 6px apart, in the row's quiet grey. */
+.icons { display: inline-flex; align-items: center; gap: var(--space-related); color: var(--text-secondary); }
+.icon { width: 13px; height: 13px; flex: none; fill: currentColor; }

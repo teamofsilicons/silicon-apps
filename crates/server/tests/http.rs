@@ -1447,3 +1447,265 @@ async fn expired_recovery_is_saved_and_rotated_again_without_extending_access_ex
     assert_ne!(observed[0].1, observed[1].1);
     task.abort();
 }
+fn report_app() -> (tempfile::TempDir, std::sync::Arc<AppState>, Router) {
+    let dir = tempfile::tempdir().unwrap();
+    let mut cfg = config(dir.path());
+    // Reports need a delivery transport; nothing is sent because the outbox
+    // worker is never started here.
+    cfg.mail_url = Some("http://127.0.0.1:9/never".into());
+    let state = AppState::new(cfg).unwrap();
+    let app = router(state.clone());
+    (dir, state, app)
+}
+fn report_png() -> Vec<u8> {
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    png.extend_from_slice(b"\0\0\0\rIHDR not a full image, only its signature");
+    png
+}
+async fn report(app: &Router, body: Value, key: &str) -> (StatusCode, Value) {
+    call(
+        app,
+        "POST",
+        "/v1/reports",
+        Some("dev:alice:c:alice"),
+        body,
+        Some(key),
+    )
+    .await
+}
+fn report_outbox(state: &AppState) -> Vec<Value> {
+    let store = state.store.lock().unwrap();
+    let mut st = store
+        .connection
+        .prepare("SELECT body FROM outbox WHERE kind='mail.report' ORDER BY created_at")
+        .unwrap();
+    st.query_map([], |r| r.get::<_, String>(0))
+        .unwrap()
+        .map(|b| serde_json::from_str(&b.unwrap()).unwrap())
+        .collect()
+}
+async fn get_bytes(app: &Router, uri: &str) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+    let response = app
+        .clone()
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (status, headers, bytes.to_vec())
+}
+#[tokio::test]
+async fn report_with_a_png_screenshot_mails_a_private_link() {
+    use base64::engine::general_purpose::STANDARD;
+    let (_dir, state, app) = report_app();
+    let png = report_png();
+    let data = STANDARD.encode(&png);
+    let long_name = format!("  {}.png  ", "s".repeat(200));
+    let (status, body) = report(
+        &app,
+        json!({"message":"The install button does nothing.","pr":"https://github.com/example/pull/1","screenshot":{"name":long_name,"content_type":"image/png","data":data}}),
+        "report-png",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let id = body["id"].as_str().unwrap();
+    let mail = report_outbox(&state);
+    assert_eq!(mail.len(), 1);
+    let mail = &mail[0];
+    let url = mail["screenshot"]["url"].as_str().unwrap();
+    assert!(url.starts_with(&format!(
+        "http://127.0.0.1:4311/v1/reports/{id}/screenshot?key="
+    )));
+    assert_eq!(
+        mail["message"],
+        format!("The install button does nothing.\n\nScreenshot: {url}")
+    );
+    assert_eq!(mail["screenshot"]["content_type"], "image/png");
+    assert_eq!(mail["screenshot"]["size"], png.len());
+    assert_eq!(
+        mail["screenshot"]["name"].as_str().unwrap().chars().count(),
+        120
+    );
+    // The base64 is kept nowhere: not in the outbox, the catalog or replays.
+    {
+        let store = state.store.lock().unwrap();
+        for (table, column) in [
+            ("outbox", "body"),
+            ("catalog", "document"),
+            ("idempotency", "response"),
+        ] {
+            let hits: i64 = store
+                .connection
+                .query_row(
+                    &format!("SELECT COUNT(*) FROM {table} WHERE CAST({column} AS TEXT) LIKE ?1"),
+                    [format!("%{data}%")],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(hits, 0, "{table} holds the screenshot's base64");
+        }
+        let catalog = store.catalog().unwrap();
+        let kept = &catalog.reports[0];
+        assert_eq!(kept["message"], "The install button does nothing.");
+        assert_eq!(kept["screenshot"]["size"], png.len());
+        assert!(kept["screenshot"].get("url").is_none(), "{kept}");
+    }
+    let path = url.strip_prefix("http://127.0.0.1:4311").unwrap();
+    let (status, headers, bytes) = get_bytes(&app, path).await;
+    assert_eq!(status, 200);
+    assert_eq!(headers["content-type"], "image/png");
+    assert_eq!(headers["x-content-type-options"], "nosniff");
+    assert_eq!(bytes, png);
+    for wrong in [
+        format!("/v1/reports/{id}/screenshot?key=00"),
+        format!("/v1/reports/{id}/screenshot"),
+        format!(
+            "/v1/reports/not-a-report/screenshot?{}",
+            path.split('?').nth(1).unwrap()
+        ),
+    ] {
+        let (status, _, bytes) = get_bytes(&app, &wrong).await;
+        assert_eq!(status, 404, "{wrong}");
+        assert_ne!(bytes, png);
+    }
+}
+#[tokio::test]
+async fn only_a_signed_in_caller_may_attach_a_screenshot() {
+    let (_dir, state, app) = report_app();
+    let data = base64::engine::general_purpose::STANDARD.encode(report_png());
+    let shot = json!({"name":"a.png","content_type":"image/png","data":data});
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/v1/reports",
+        None,
+        json!({"message":"Broken.","screenshot":shot}),
+        Some("anon-shot"),
+    )
+    .await;
+    assert_eq!(status, 401, "{body}");
+    assert!(report_outbox(&state).is_empty());
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/v1/reports",
+        None,
+        json!({"message":"Broken."}),
+        Some("anon-text"),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+}
+#[tokio::test]
+async fn report_without_a_screenshot_still_queues_mail() {
+    let (_dir, state, app) = report_app();
+    let (status, body) = report(&app, json!({"message":"Search is slow."}), "report-plain").await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["status"], "queued");
+    let mail = report_outbox(&state);
+    assert_eq!(mail[0]["message"], "Search is slow.");
+    assert!(mail[0].get("screenshot").is_none());
+    let (status, body) = report(
+        &app,
+        json!({"message":"Null screenshot.","screenshot":null}),
+        "report-null",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+}
+#[tokio::test]
+async fn report_screenshots_and_unknown_fields_are_refused_with_400() {
+    use base64::engine::general_purpose::STANDARD;
+    let (_dir, state, app) = report_app();
+    let png = STANDARD.encode(report_png());
+    let mut oversize = report_png();
+    oversize.resize(5 * 1024 * 1024 + 1, 0);
+    let oversize = STANDARD.encode(oversize);
+    let cases = [
+        (
+            "wrong type",
+            json!({"name":"a.gif","content_type":"image/gif","data":png}),
+            "content_type",
+        ),
+        (
+            "svg type",
+            json!({"name":"a.svg","content_type":"image/svg+xml","data":png}),
+            "content_type",
+        ),
+        (
+            "bytes of another type",
+            json!({"name":"a.jpg","content_type":"image/jpeg","data":png}),
+            "not a image/jpeg",
+        ),
+        (
+            "oversize",
+            json!({"name":"big.png","content_type":"image/png","data":oversize}),
+            "5 MiB",
+        ),
+        (
+            "bad base64",
+            json!({"name":"a.png","content_type":"image/png","data":"not base64!!"}),
+            "base64",
+        ),
+        (
+            "url-safe base64",
+            json!({"name":"a.png","content_type":"image/png","data":png.replace('+', "-").replace('/', "_") + "-_"}),
+            "base64",
+        ),
+        (
+            "empty data",
+            json!({"name":"a.png","content_type":"image/png","data":""}),
+            "empty",
+        ),
+        (
+            "missing data",
+            json!({"name":"a.png","content_type":"image/png"}),
+            "screenshot.data",
+        ),
+        (
+            "unknown screenshot field",
+            json!({"name":"a.png","content_type":"image/png","data":png,"url":"x"}),
+            "screenshot.url",
+        ),
+        (
+            "not an object",
+            json!("data:image/png;base64,AAAA"),
+            "must be an object",
+        ),
+    ];
+    for (i, (case, screenshot, expected)) in cases.into_iter().enumerate() {
+        let (status, body) = report(
+            &app,
+            json!({"message":"Broken.","screenshot":screenshot}),
+            &format!("report-bad-{i}"),
+        )
+        .await;
+        assert_eq!(status, 400, "{case}: {body}");
+        let text = body.to_string();
+        assert!(text.contains(expected), "{case}: {text}");
+        assert!(!text.contains(&png[..16]), "{case} echoed the data");
+    }
+    let (status, body) = report(
+        &app,
+        json!({"message":"Broken.","severity":"high"}),
+        "report-unknown",
+    )
+    .await;
+    assert_eq!(status, 400, "{body}");
+    assert!(
+        body.to_string().contains("Unknown field `severity`"),
+        "{body}"
+    );
+    assert!(report_outbox(&state).is_empty());
+    assert!(
+        state
+            .store
+            .lock()
+            .unwrap()
+            .catalog()
+            .unwrap()
+            .reports
+            .is_empty()
+    );
+}

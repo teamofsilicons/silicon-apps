@@ -5667,7 +5667,7 @@
       "post": {
         "operationId": "reportBug",
         "summary": "Report a bug",
-        "description": "Mails a bug report to the maintainers, with an optional pull request link.",
+        "description": "Mails a bug report to the maintainers, with an optional pull request link and screenshot. Unknown fields are refused with 400. The request body may be up to 8 MiB.",
         "tags": [
           "Accounts"
         ],
@@ -5699,11 +5699,42 @@
                   },
                   "pr": {
                     "type": "string"
+                  },
+                  "screenshot": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "File name. Surrounding whitespace and control characters are removed and it is cut to 120 characters; an empty name becomes `screenshot`."
+                      },
+                      "content_type": {
+                        "type": "string",
+                        "enum": [
+                          "image/png",
+                          "image/jpeg",
+                          "image/webp"
+                        ],
+                        "description": "The image type. The decoded bytes must start with that format's signature."
+                      },
+                      "data": {
+                        "type": "string",
+                        "contentEncoding": "base64",
+                        "description": "The image as standard base64 with padding, at most 5 MiB (5,242,880 bytes) once decoded."
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "content_type",
+                      "data"
+                    ],
+                    "additionalProperties": false,
+                    "description": "An optional screenshot. The report mail links to it at GET /v1/reports/{report_id}/screenshot with a random key only the recipients receive; mail is plain text, so it is not attached."
                   }
                 },
                 "required": [
                   "message"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }
@@ -5763,6 +5794,84 @@
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/reports/{report_id}/screenshot": {
+      "get": {
+        "operationId": "getReportScreenshot",
+        "summary": "Get a report's screenshot",
+        "description": "The screenshot sent with a bug report, for the maintainers who received the report mail. The `key` from the mailed link is the only credential; a missing report, missing screenshot or wrong key is 404.",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "description": "The report ID returned by POST /v1/reports.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "description": "The secret key from the mailed link.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The screenshot.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "Apps-Version": {
+                "$ref": "#/components/headers/AppsVersion"
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
           }
         }
       }

@@ -3,7 +3,8 @@
  * Review writes, as server actions behind plain forms: they work without JavaScript (the browser posts the form and
  * follows the redirect) and Next checks the form came from this origin before either runs. The visitor's own
  * session cookie goes to the API, which checks the account, the app's visibility, the 1 to 5 rating and the
- * 600-character limit again. The hidden idempotency key makes a double submit save once.
+ * 600-character limit again. The app's id and an idempotency key are bound to the action when the page renders (Next
+ * carries them in the form, so it still works without script); the key makes a double submit save once.
  */
 import { redirect } from "next/navigation";
 import { api, ApiError, APP_ID_PATTERN } from "@/lib/api";
@@ -16,10 +17,10 @@ function back(appId: string, status: string, code?: string): never {
   redirect(`/apps/${encodeURIComponent(appId)}?${params}#reviews`);
 }
 
-function read(formData: FormData) {
-  const appId = String(formData.get("app_id") ?? "");
+function read(rawId: unknown, rawKey: unknown) {
+  const appId = String(rawId ?? "");
   if (!APP_ID_PATTERN.test(appId)) redirect("/");
-  const key = String(formData.get("idempotency_key") ?? "");
+  const key = String(rawKey ?? "");
   return { appId, key: KEY.test(key) ? key : crypto.randomUUID() };
 }
 
@@ -32,8 +33,8 @@ function codeOf(error: unknown): string {
   return "failed";
 }
 
-export async function saveReview(formData: FormData): Promise<void> {
-  const { appId, key } = read(formData);
+export async function saveReview(rawId: string, rawKey: string, formData: FormData): Promise<void> {
+  const { appId, key } = read(rawId, rawKey);
   const rating = Number(formData.get("rating"));
   const text = String(formData.get("text") ?? "").replace(/\r\n/g, "\n").trim();
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) back(appId, "error", "rating");
@@ -48,8 +49,8 @@ export async function saveReview(formData: FormData): Promise<void> {
   back(appId, "saved");
 }
 
-export async function removeReview(formData: FormData): Promise<void> {
-  const { appId, key } = read(formData);
+export async function removeReview(rawId: string, rawKey: string): Promise<void> {
+  const { appId, key } = read(rawId, rawKey);
   let failure: string | null = null;
   try {
     await api(`/v1/apps/${encodeURIComponent(appId)}/review`, { method: "DELETE", idempotencyKey: key });

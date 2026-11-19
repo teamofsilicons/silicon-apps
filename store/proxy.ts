@@ -63,7 +63,8 @@ function legacy(request: NextRequest): NextResponse | null {
   if (pathname === "/store/apps" || pathname === "/store/apps/") return redirect(request, "/apps/silicon-apps");
   const storeApp = /^\/store\/([^/]+)\/?$/.exec(pathname);
   if (storeApp) return redirect(request, `/apps/${storeApp[1]}${search}`);
-  if (pathname === "/apps" || pathname === "/apps/") return redirect(request, `/${search}`);
+  // /apps is the All Apps gallery (2026-11-14); an old /apps?… search link still goes to the home page's search.
+  if ((pathname === "/apps" || pathname === "/apps/") && search) return redirect(request, `/${search}`);
   // Search and the store's list are one page now: /search?… keeps working.
   if (pathname === "/search" || pathname === "/search/") return redirect(request, `/${search}`);
   if (/^\/apps\/apps(\/|$)/.test(pathname)) return redirect(request, pathname.replace(/^\/apps\/apps/, "/apps/silicon-apps") + search);

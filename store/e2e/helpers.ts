@@ -2,10 +2,18 @@
  * Shared helpers for the store's e2e suite. The fixture catalog and accounts come from scripts/seed-fixture.mjs:
  * public apps (briefcase, dm, ring, remind, notes, orbit, ledgerly, silicon-accounts, silicon-apps), one private app
  * shared with c:mira (team-vault), one draft (draft-thing), and fixture sessions for c:mira, si:nova and c:ada.
+ * Authors who never sign in have Accounts UUIDs, so their pages (/authors/{uuid}) answer.
  */
 import { expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
 
 export const SESSIONS = { mira: "e2e-mira-session", nova: "e2e-nova-session", ada: "e2e-ada-session" } as const;
+
+/** The fixture authors' UUIDs (scripts/seed-fixture.mjs). */
+export const AUTHORS = {
+  saket: "5a4e7c10-0000-4000-8000-000000000001",
+  shubham: "5a4e7c10-0000-4000-8000-000000000002",
+  growth: "5a4e7c10-0000-4000-8000-000000000003",
+} as const;
 
 /** Signs a browser context in as a fixture account (APPS_DEV_AUTH=1 only), as the API's callback would. */
 export async function signIn(context: BrowserContext, baseURL: string, who: keyof typeof SESSIONS): Promise<void> {
@@ -65,16 +73,20 @@ export function jsonLd(page: string): Node[] {
 
 export const typesOf = (nodes: Node[]) => nodes.map(node => String(node["@type"]));
 
-/** The checks every public page passes: semantics, one h1, the full meta set and the site-wide JSON-LD. */
+/**
+ * The checks every public page passes: the shell (the top bar, the sidebar with its search form and section list, one
+ * <main>), one h1, the meta set and the site-wide JSON-LD. A page with a canonical address also names it as og:url.
+ */
 export function expectPageBasics(page: string, { canonical, indexed = true }: { canonical?: string; indexed?: boolean } = {}): Record<string, string> {
   expect(page).toMatch(/<html lang="en"/);
   expect(page.match(/<header[\s>]/g)?.length ?? 0).toBeGreaterThanOrEqual(1);
-  expect(page).toMatch(/<nav [^>]*aria-label="Main"/);
+  expect(page).toMatch(/<aside [^>]*aria-label="Sidebar"/);
+  expect(page).toMatch(/<nav [^>]*aria-label="Store sections"/);
+  expect(page).toMatch(/<form [^>]*role="search"/);
   expect(page.match(/<main[\s>]/g)).toHaveLength(1);
-  expect(page).toMatch(/<footer[\s>]/);
   expect(page.match(/<h1[\s>]/g)).toHaveLength(1);
   const meta = metaOf(page);
-  for (const key of ["title", "description", "og:title", "og:description", "og:image", "og:url", "og:type", "og:site_name", "twitter:card"]) {
+  for (const key of ["title", "description", "og:title", "og:description", "og:image", "og:type", "og:site_name", "twitter:card"]) {
     expect(meta[key], `meta ${key}`).toBeTruthy();
   }
   expect(meta["twitter:card"]).toBe("summary_large_image");

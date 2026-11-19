@@ -1,0 +1,33 @@
+/* Picture cards (picture-cards.tsx), the account site's (components/account/parts/picture-cards.module.css, copied
+   2026-11-14): no surface of its own; an h3 and three cards of one design, a picture over words. */
+/* 16px from the heading to the cards, like every Home section. */
+.banner { display: grid; gap: var(--space-inset); }
+.head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-group); }
+.title { margin: 0; color: var(--foreground); font: var(--h3); letter-spacing: var(--h3-tracking); }
+
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-group); margin: 0; padding: 0; list-style: none; }
+/* Scroll: wider cards (17.5rem) in one row that scrolls sideways and snaps to each card. */
+.cards[data-layout="scroll"] { grid-template-columns: none; grid-auto-columns: 17.5rem; grid-auto-flow: column; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.cards[data-layout="scroll"] > li { scroll-snap-align: start; }
+/* One design for every card: a clear border, the picture clipped by the card's corners, the words under it. */
+.card { --sq-r: var(--radius-container); --sq-fill: var(--surface); --sq-stroke: var(--border); display: grid; grid-template-rows: auto 1fr; overflow: hidden; border: 1px solid var(--sq-stroke); background: var(--sq-fill); }
+/* A card that goes somewhere or lights something: its link fills it, and the card rises a little on hover (Home's
+   card rule: no resting shadow; the shadow and a 2px lift only on hover). */
+.card[data-active] { cursor: pointer; transition: box-shadow var(--duration-fast) var(--ease-standard), translate var(--duration-fast) var(--ease-standard); }
+@media (hover: hover) and (pointer: fine) { .card[data-active]:hover { box-shadow: var(--shadow-raised); translate: 0 calc(var(--space-hair) * -1); } }
+@media (prefers-reduced-motion: reduce) { .card[data-active] { transition: none; } }
+.link { display: grid; grid-template-rows: subgrid; grid-row: 1 / -1; color: inherit; text-decoration: none; }
+.link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.picture { display: block; background-repeat: no-repeat; background-size: cover; border-bottom: 1px solid var(--border-subtle); }
+.words { display: grid; align-content: start; gap: var(--space-hair); padding: var(--space-related); }
+/* The title in body text and its line in the primary colour (Anil, 2026-11-11). */
+.cardTitle { color: var(--foreground); font: var(--body); letter-spacing: var(--body-tracking); }
+.cardLine { color: var(--foreground); font: var(--small); letter-spacing: var(--small-tracking); }
+
+@media (max-width: 639px) {
+  .cards, .cards[data-layout="scroll"] { grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; overflow-x: visible; }
+  /* One column: the picture beside the words, so three cards don't take a whole screen. */
+  .card { grid-template-columns: 7rem minmax(0, 1fr); grid-template-rows: auto; }
+  .link { grid-template-columns: subgrid; grid-template-rows: auto; grid-column: 1 / -1; grid-row: auto; }
+  .picture { aspect-ratio: auto !important; min-height: 100%; border-bottom: 0; border-right: 1px solid var(--border-subtle); }
+}

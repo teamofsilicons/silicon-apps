@@ -1,0 +1,86 @@
+/* The What's new lab's four designs (designs.tsx). Shared: the title (h2) and the notes at About's reading width and
+   line height. */
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.notes { display: grid; gap: var(--space-related); max-width: 70ch; color: var(--text-soft); font: var(--body); line-height: var(--leading-read); letter-spacing: var(--body-tracking); overflow-wrap: anywhere; text-wrap: pretty; }
+.notes p { margin: 0; }
+.small { font: var(--small); line-height: var(--leading-read); letter-spacing: var(--small-tracking); }
+.quiet { margin: 0; color: var(--text-muted); font: var(--small); letter-spacing: var(--small-tracking); }
+.mono { font-family: var(--font-mono); }
+.pill { padding: var(--space-hair) var(--space-related); border-radius: var(--radius-pill); background: var(--accent-subtle); color: var(--accent-ink); font: var(--caption); letter-spacing: var(--caption-tracking); }
+.count { margin-left: var(--space-tight); color: var(--text-muted); font-weight: var(--weight-regular); }
+:is(.timeline, .pulse) summary { cursor: pointer; }
+
+/* Shared by Pulse: its fold of earlier releases between hairlines, and a release's head line. */
+.history { margin-top: var(--space-related); border-top: 1px solid var(--border-subtle); }
+.history > summary { padding-block: var(--space-group); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.historyHead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-group); margin: 0; color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.historyHead time { color: var(--text-muted); font: var(--small); }
+
+/* B · Timeline: three columns, the date (7rem, right-aligned), the rail with a dot (the latest's filled with the accent),
+   the release; the rail runs down between dots. On a phone the date goes above the version. */
+.timeline { display: grid; min-width: 0; gap: var(--space-group); }
+.tl { --tl-date: 7rem; --tl-dot: 12px; display: grid; margin: 0; padding: 0; list-style: none; }
+.tlItem { position: relative; display: grid; grid-template-columns: var(--tl-date) var(--tl-dot) minmax(0, 1fr); column-gap: var(--space-inset); padding-bottom: var(--space-block); }
+.tlItem::before { content: ""; position: absolute; top: calc(var(--tl-dot) + var(--space-tight)); bottom: 0; left: calc(var(--tl-date) + var(--space-inset) + var(--tl-dot) / 2); width: 1px; background: var(--border); transform: translateX(-50%); }
+.tl > .tlItem:last-child::before { display: none; }
+.tlDate { padding-top: var(--space-hair); color: var(--text-muted); font: var(--small); letter-spacing: var(--small-tracking); text-align: right; white-space: nowrap; }
+.tlDot { width: var(--tl-dot); height: var(--tl-dot); margin-top: var(--space-tight); border: 2px solid var(--border-strong); border-radius: 50%; background: var(--surface); }
+.tlDot[data-latest] { border-color: var(--accent); background: var(--accent); }
+.tlBody { display: grid; min-width: 0; gap: var(--space-tight); }
+.tlHead { display: flex; align-items: center; gap: var(--space-related); margin: 0; }
+.tlVersion { color: var(--foreground); font: var(--h3); font-family: var(--font-mono); }
+.tlMore > summary { width: fit-content; margin-left: calc(var(--tl-date) + var(--tl-dot) + 2 * var(--space-inset)); margin-bottom: var(--space-group); color: var(--accent); font: var(--label); letter-spacing: var(--label-tracking); }
+@media (max-width: 639px) {
+  .tlItem { grid-template-columns: var(--tl-dot) minmax(0, 1fr); }
+  .tlItem::before { left: calc(var(--tl-dot) / 2); }
+  .tlDate { grid-column: 2; text-align: left; }
+  .tlDot { grid-row: 1; grid-column: 1; }
+  .tlBody { grid-column: 2; }
+  .tlMore > summary { margin-left: calc(var(--tl-dot) + var(--space-inset)); }
+}
+
+/* C · Notes window: a framed panel; the versions down the left (14rem) on the quiet ground, the chosen one's notes on the
+   right. Each release is a radio, its label (a tab on the left) and its panel; the checked one's label lights and its
+   panel shows, across the right column. On a phone the versions are a row of pills above the notes. */
+.windowSection { display: grid; min-width: 0; gap: var(--space-group); }
+.window { --sq-r: var(--radius-container); --sq-stroke: var(--border); position: relative; display: grid; min-width: 0; grid-template-columns: 14rem minmax(0, 1fr); grid-auto-rows: min-content; overflow: hidden; border: 1px solid var(--sq-stroke); background: var(--surface); }
+.window::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 14rem; border-right: 1px solid var(--border); background: var(--neutral-1, var(--surface-muted)); }
+.winItem { display: contents; }
+.winRadio { position: absolute; opacity: 0; pointer-events: none; }
+.winTab { z-index: 1; display: grid; grid-column: 1; gap: 0; padding: var(--space-related) var(--space-group); border-bottom: 1px solid var(--border-subtle); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); cursor: pointer; }
+.winTab:hover { background: var(--surface-muted); }
+.winDate { color: var(--text-muted); font: var(--hint); letter-spacing: var(--hint-tracking); }
+.winRadio:checked + .winTab { background: var(--surface); box-shadow: inset 2px 0 0 var(--accent); }
+.winRadio:focus-visible + .winTab { outline: 2px solid var(--accent); outline-offset: -2px; }
+.winPanel { display: none; grid-column: 2; grid-row: 1 / span 99; align-content: start; gap: var(--space-related); min-height: 16rem; max-height: 24rem; padding: var(--space-inset) var(--space-block); overflow-y: auto; }
+.winRadio:checked + .winTab + .winPanel { display: grid; }
+.winHead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-tight) var(--space-group); margin: 0 0 var(--space-tight); }
+.winVersion { color: var(--foreground); font: var(--h3); letter-spacing: var(--h3-tracking); }
+.winHead time { color: var(--text-muted); font: var(--small); }
+@media (max-width: 639px) {
+  .window { display: flex; flex-wrap: wrap; gap: var(--space-tight); padding: var(--space-group); }
+  .window::before { display: none; }
+  .winTab { padding: var(--space-hair) var(--space-related); border: 1px solid var(--border); border-radius: var(--radius-pill); }
+  .winDate { display: none; }
+  .winRadio:checked + .winTab { border-color: var(--foreground); box-shadow: none; }
+  .winPanel { order: 99; width: 100%; max-height: none; min-height: 0; padding: var(--space-group) 0 0; }
+}
+
+/* D · Pulse: how lately and how often first (the big line in h2's size, the count under it), a strip with a tick per
+   release placed by date between the first release and today (the latest in the accent), then the latest release in a
+   quiet box, then the earlier ones folded as one-line rows. */
+.pulse { display: grid; min-width: 0; max-width: 70ch; gap: var(--space-group); }
+.pulseStats { display: grid; gap: var(--space-hair); }
+.pulseBig { margin: 0; color: var(--foreground); font: var(--h1); letter-spacing: var(--h1-tracking); }
+.strip { --tick: 14px; position: relative; height: 3rem; margin-inline: var(--space-tight); }
+.track { position: absolute; top: calc(var(--space-tight) + var(--tick) / 2); transform: translateY(-50%); right: 0; left: 0; height: 2px; border-radius: var(--radius-pill); background: var(--surface-pressed); }
+.tick { position: absolute; top: var(--space-tight); width: var(--tick); height: var(--tick); margin-left: calc(var(--tick) / -2); border: 2px solid var(--surface); border-radius: 50%; background: var(--text-muted); }
+.tick[data-latest] { background: var(--accent); }
+.stripStart, .stripEnd { position: absolute; bottom: 0; color: var(--text-muted); font: var(--hint); letter-spacing: var(--hint-tracking); }
+.stripStart { left: 0; }
+.stripEnd { right: 0; }
+.pulseLatest { --sq-r: var(--radius-container); --sq-fill: var(--surface-muted); display: grid; gap: var(--space-related); padding: var(--space-inset); background: var(--sq-fill); }
+.compact { display: grid; margin: 0; padding: 0 0 var(--space-group); list-style: none; }
+.compact li { display: grid; grid-template-columns: 5rem minmax(0, 1fr) auto; align-items: baseline; gap: var(--space-group); padding-block: var(--space-related); border-top: 1px solid var(--border-subtle); color: var(--foreground); font: var(--small); letter-spacing: var(--small-tracking); }
+.compactNote { overflow: hidden; color: var(--text-soft); text-overflow: ellipsis; white-space: nowrap; }
+.compact time { color: var(--text-muted); white-space: nowrap; }
