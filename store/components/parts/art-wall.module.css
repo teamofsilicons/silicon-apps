@@ -1,15 +1,14 @@
-/* The 404's wall (art-wall.tsx): the piece and the note side by side on the quiet ground, centred; the piece on a
-   white mat with a soft shadow, its credit small under it. Under 900px one column. */
-.wall { display: grid; flex: 1; min-height: 100%; grid-template-columns: minmax(0, 3fr) minmax(14rem, 2fr); align-items: center; gap: calc(var(--space-page) * 1.5); padding: calc(var(--space-page) * 1.5) clamp(var(--gutter), 5vw, calc(var(--space-page) * 2.5)); border-radius: inherit; background: var(--surface-muted); }
+/* The 404's wall (art-wall.tsx): one centred column on the page's white, at every width: the piece flat (no mat, no
+   shadow), its credit small under it, then 404, the h1 and Go Home. */
+.wall { display: grid; flex: 1; align-content: center; justify-items: center; gap: var(--space-block); width: min(100%, 40rem); margin-inline: auto; padding: var(--space-page) var(--gutter); text-align: center; }
 .piece { display: grid; gap: var(--space-related); margin: 0; }
-.mat { padding: clamp(var(--space-group), 2.4vw, var(--space-block)); background: var(--color-white); box-shadow: 0 24px 48px -16px color-mix(in oklab, var(--foreground) 22%, transparent); }
-.mat img { display: block; width: 100%; height: auto; }
+.piece img { display: block; width: 100%; height: auto; }
 .credit { color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
 .credit a { color: inherit; text-decoration: none; }
 .credit a:hover { color: var(--foreground); }
-.note { display: grid; justify-items: start; gap: var(--space-group); }
+.note { display: grid; justify-items: center; gap: var(--space-group); }
 .code { margin: 0; color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--text-sm); }
 .title { margin: 0; font: var(--h1); letter-spacing: var(--h1-tracking); text-wrap: balance; }
 @media (max-width: 899px) {
-  .wall { min-height: calc(100dvh - var(--shell-top, 56px)); grid-template-columns: minmax(0, 1fr); align-content: start; gap: var(--space-block); padding: var(--space-block) var(--gutter); }
+  .wall { align-content: start; padding-top: var(--space-block); }
 }
