@@ -5,13 +5,14 @@
  * Apps, Report a problem: the sidebar's report dialog), and a reference to quote where there is one. Works without
  * script (the report button is a native popover target).
  */
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Button } from "@teamofsilicons/silicon-ui/button";
 import { REPORT_ID } from "@/components/shell/report";
 import { Page } from "./page";
 import styles from "./status-page.module.css";
 
-type Picture = { src: string; width: number; height: number };
+/** `ink`: the code's colour where white would vanish into the picture (white by default). */
+type Picture = { src: string; width: number; height: number; ink?: string };
 
 export function StatusPage({ icon, picture, code, title, children, actions, reference }: { icon?: ReactNode; picture?: Picture; code: string; title: string; children: ReactNode; actions: ReactNode; reference?: string }) {
   const words = (
@@ -31,7 +32,7 @@ export function StatusPage({ icon, picture, code, title, children, actions, refe
       <section className={styles.full} aria-labelledby="status-title">
         {/* eslint-disable-next-line @next/next/no-img-element -- a static picture from public/, already sized; decorative */}
         <img className={styles.backdrop} src={picture.src} alt="" width={picture.width} height={picture.height} decoding="async" fetchPriority="high" />
-        <p className={styles.bigCode}>{code}</p>
+        <p className={styles.bigCode} style={picture.ink ? ({ "--code-ink": picture.ink } as CSSProperties) : undefined}>{code}</p>
         <div className={styles.card} data-sq="surface">{words}</div>
       </section>
     );
