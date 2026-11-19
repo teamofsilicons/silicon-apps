@@ -33,7 +33,8 @@ function withoutReport(path: string): string {
   return `${url.pathname}${url.search}`;
 }
 
-export function ReportDialog({ path }: { path: string }) {
+/** A screenshot needs a signed-in visitor (the API refuses one from anyone else); signed out, the report is text. */
+export function ReportDialog({ path, signedIn }: { path: string; signedIn: boolean }) {
   return (
     <div id={REPORT_ID} popover="auto" className={styles.dialog} data-sq="surface" role="dialog" aria-labelledby={`${REPORT_ID}-title`}>
       <div className={styles.head}>
@@ -45,7 +46,7 @@ export function ReportDialog({ path }: { path: string }) {
       <p className={styles.lede}>Tell us what happened and what you expected. If you’ve already fixed it, add the pull request; we’d be grateful.</p>
       <form action={sendReport.bind(null, withoutReport(path), crypto.randomUUID())} className={styles.form}>
         <Textarea label="What happened" name="message" rows={5} required minLength={3} maxLength={10000} />
-        <ReportScreenshot dialogId={REPORT_ID} />
+        {signedIn && <ReportScreenshot dialogId={REPORT_ID} />}
         <Input label="Pull request (optional)" name="pr" type="url" placeholder="https://github.com/teamofsilicons/silicon-apps/pull/1" pattern="https://.*" />
         <div className={styles.actions}>
           <Button type="button" variant="secondary" size="sm" popoverTarget={REPORT_ID} popoverTargetAction="hide">Cancel</Button>

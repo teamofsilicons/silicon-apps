@@ -123,7 +123,7 @@ export function Shell({ path, account, children }: { path: string; account: Acco
           </div>
           <Sidebar path={path} account={account} id="menu" />
         </div>
-        <ReportDialog path={path} />
+        <ReportDialog path={path} signedIn={Boolean(account)} />
       </div>
     </StoreLinks>
   );

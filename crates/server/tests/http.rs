@@ -1571,6 +1571,33 @@ async fn report_with_a_png_screenshot_mails_a_private_link() {
     }
 }
 #[tokio::test]
+async fn only_a_signed_in_caller_may_attach_a_screenshot() {
+    let (_dir, state, app) = report_app();
+    let data = base64::engine::general_purpose::STANDARD.encode(report_png());
+    let shot = json!({"name":"a.png","content_type":"image/png","data":data});
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/v1/reports",
+        None,
+        json!({"message":"Broken.","screenshot":shot}),
+        Some("anon-shot"),
+    )
+    .await;
+    assert_eq!(status, 401, "{body}");
+    assert!(report_outbox(&state).is_empty());
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/v1/reports",
+        None,
+        json!({"message":"Broken."}),
+        Some("anon-text"),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+}
+#[tokio::test]
 async fn report_without_a_screenshot_still_queues_mail() {
     let (_dir, state, app) = report_app();
     let (status, body) = report(&app, json!({"message":"Search is slow."}), "report-plain").await;

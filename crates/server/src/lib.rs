@@ -677,6 +677,10 @@ async fn dispatch(
     let mut prepared = Prepared::default();
     if p == ["reports"] {
         prepared.report_screenshot = reports::take_screenshot(&mut body, &s.config.public_url)?;
+        // Each screenshot is up to 5 MiB in the database; anonymous senders could fill the disk.
+        if prepared.report_screenshot.is_some() {
+            who.as_ref().ok_or_else(ApiError::auth)?;
+        }
     }
     if p == ["apps"] && method == Method::POST
         || p.len() == 4 && p[2] == "secret" && p[3] == "rotate"
