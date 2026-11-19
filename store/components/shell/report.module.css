@@ -1,0 +1,26 @@
+/* Report a problem (report.tsx): a centred dialog on the raised surface over a dimmed page (the popover's backdrop),
+   32rem at most, the page's gutter round it on a phone; the title and a close button, a line, then the form, its
+   buttons at the end. The notice after a report sits at the top of the page, inside its gutters. */
+.dialog { --sq-r: var(--radius-overlay); width: min(32rem, calc(100% - var(--space-group) * 2)); max-height: calc(100dvh - var(--space-group) * 2); margin: auto; padding: var(--space-block); overflow-y: auto; border: 1px solid var(--border); background: var(--surface-raised); box-shadow: var(--shadow-floating); color: var(--foreground); }
+.dialog::backdrop { background: var(--overlay, rgb(0 0 0 / 0.32)); }
+.dialog:popover-open { display: grid; gap: var(--space-group); }
+.head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-group); }
+.title { margin: 0; font: var(--h3); letter-spacing: var(--h3-tracking); }
+.lede { margin: 0; color: var(--text-soft); font: var(--small); line-height: var(--leading-read); letter-spacing: var(--small-tracking); }
+.form { display: grid; gap: var(--space-group); }
+.actions { display: flex; justify-content: flex-end; gap: var(--space-related); }
+.notice { padding: var(--space-group) var(--page-gutter, var(--space-block)) 0; }
+
+/* The screenshot (report-screenshot.tsx): a field like the others, its label over its buttons (no box of its own);
+   once there is one, a thumbnail with its name and size, Retake and Remove. Without script, the file field. */
+.shot { display: grid; gap: var(--space-tight); }
+.shotLabel { color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.askActions { display: flex; flex-wrap: wrap; gap: var(--space-tight); }
+.preview { display: flex; min-width: 0; align-items: center; gap: var(--space-related); padding: var(--space-tight); border: 1px solid var(--border); border-radius: var(--radius-control); }
+.thumb { width: 72px; height: 48px; flex: none; border-radius: var(--radius-detail); object-fit: cover; object-position: top; box-shadow: var(--shadow-hairline); }
+.previewWords { display: grid; min-width: 0; flex: 1; }
+.previewName { overflow: hidden; color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); text-overflow: ellipsis; white-space: nowrap; }
+.previewActions { display: flex; flex: none; gap: var(--space-hair); }
+.shotHint { color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); }
+.shotError { margin: 0; color: var(--danger); font: var(--small); letter-spacing: var(--small-tracking); }
+.file { font: var(--small); }

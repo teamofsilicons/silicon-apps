@@ -1,9 +1,10 @@
 /**
- * /settings: Settings. Empty for now (Anil, 2026-11-14), to be designed again inside the account site's layout. Signing
- * in is the top bar's Sign In; signing out is /sign-out (a form post), which nothing on a page offers yet.
+ * /settings: retired (Anil, 2026-11-19). What it held moved to the sidebar: the account and Sign Out to the account
+ * menu (components/shell/account-menu.tsx), Report a problem to the sidebar's foot (components/shell/report.tsx). Old
+ * links land on the home page.
  */
-import { Page } from "@/components/parts/page";
+import { permanentRedirect } from "next/navigation";
 
 export default function Settings() {
-  return <Page />;
+  permanentRedirect("/");
 }

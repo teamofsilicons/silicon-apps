@@ -15,10 +15,6 @@
 .foot { display: flex; flex-wrap: wrap; gap: var(--space-tight); padding-block: var(--space-group); border-top: 1px solid var(--border-subtle); }
 /* The profile sits a group's room over the hairline (the sidebar's own gap is a block). */
 .account { display: flex; min-width: 0; margin-top: auto; margin-bottom: calc(var(--space-group) - var(--space-block)); }
-/* Sign In, or the signed-in account (its picture and id, one quiet button to Settings), across the sidebar's width. */
-.wide { width: 100%; min-width: 0; }
-.profile { justify-content: flex-start; }
-.profileId { overflow: hidden; font-family: var(--font-mono); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
 /* As the account site: the section icons at 18px and labels at --text-base (16px), not NavList's 16px and 14px (a
    tolerated reach into its rows until Silicon UI has a size option). */
 .sidebar nav[aria-label="Store sections"] svg { width: 18px; height: 18px; }
@@ -29,3 +25,5 @@
 .groupLabel { padding-inline: var(--space-related); color: var(--text-secondary); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
 .sidebar nav[aria-label="Categories"] svg { width: 18px; height: 18px; }
 .sidebar nav[aria-label="Categories"] a { font-size: var(--text-base); }
+/* Sign In across the sidebar's width (the signed-in account is account-menu.tsx's). */
+.wide { width: 100%; min-width: 0; }

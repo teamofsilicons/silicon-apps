@@ -7,8 +7,9 @@ import { SESSIONS, signIn } from "./helpers";
 
 test("Sign in goes through the Apps API to Silicon Accounts and comes back to the same page", async ({ page, request }) => {
   await page.goto("/apps/briefcase");
-  const header = page.getByRole("banner");
-  await expect(header.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", `/sign-in?return_to=${encodeURIComponent("/apps/briefcase")}`);
+  // The shell's sidebar (components/shell/shell.tsx) holds Sign In, where the top bar used to.
+  const sidebar = page.getByRole("complementary", { name: "Sidebar" });
+  await expect(sidebar.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", `/sign-in?return_to=${encodeURIComponent("/apps/briefcase")}`);
 
   const start = await request.get(`/sign-in?return_to=${encodeURIComponent("/apps/briefcase#reviews")}`, { maxRedirects: 0 });
   expect(start.status()).toBe(303);
@@ -29,17 +30,19 @@ test("Sign in goes through the Apps API to Silicon Accounts and comes back to th
   expect(outside.headers().location).toBe(`/v1/auth/login?return_to=${encodeURIComponent("/")}`);
 });
 
-test("signed in, the header shows the account; Sign out ends the session", async ({ browser, baseURL }) => {
+test("signed in, the sidebar's account menu shows the account; Sign Out ends the session", async ({ browser, baseURL }) => {
   const context = await browser.newContext({ baseURL });
   await signIn(context, baseURL!, "ada");
   const page = await context.newPage();
-  await page.goto("/");
-  await expect(page.getByRole("link", { name: "Settings, signed in as c:ada" })).toBeVisible();
-  await page.goto("/settings");
-  await expect(page.getByRole("region", { name: "Silicon Accounts" })).toContainText("c:ada · Carbon");
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/settings$/);
-  await expect(page.getByRole("banner").getByRole("link", { name: "Sign in" })).toBeVisible();
+  await page.goto("/apps/briefcase");
+  const sidebar = page.getByRole("complementary", { name: "Sidebar" });
+  await sidebar.getByRole("button", { name: "Account, signed in as c:ada" }).click();
+  const menu = page.getByRole("dialog", { name: "Account" });
+  await expect(menu).toContainText("c:ada · Carbon");
+  await page.screenshot({ path: "test-results/account-menu.png" });
+  await menu.getByRole("button", { name: "Sign Out" }).click();
+  await expect(page).toHaveURL(/\/apps\/briefcase$/);
+  await expect(page.getByRole("complementary", { name: "Sidebar" }).getByRole("link", { name: "Sign in" })).toBeVisible();
   expect((await context.cookies()).find(cookie => cookie.name === "apps_session")).toBeUndefined();
   await context.close();
 });

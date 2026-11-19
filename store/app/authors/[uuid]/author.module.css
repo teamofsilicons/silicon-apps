@@ -1,0 +1,34 @@
+/* A developer's page (page.tsx, Anil, 2026-11-18), on the app page's header (components/app/app-header.module.css):
+   the 72px picture with the name (display) and the id beside it; a block's room, a hairline, the labelled facts across
+   the page (a caption over each value); then the apps, a page's room below, their title (h2) and count over the grid.
+   Under 640px the picture steps down to 56px. */
+.header { display: grid; min-width: 0; gap: var(--space-block); }
+.top { display: flex; min-width: 0; align-items: center; gap: var(--space-inset); }
+.picture { display: flex; flex: none; }
+.picture > * { width: 72px; height: 72px; }
+.words { display: grid; min-width: 0; gap: var(--space-tight); }
+.name { margin: 0; color: var(--foreground); font: var(--display); letter-spacing: var(--display-tracking); overflow-wrap: anywhere; }
+.line { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-related); margin: 0; color: var(--text-soft); font: var(--body); letter-spacing: var(--body-tracking); }
+.id { font-family: var(--font-mono); }
+
+.facts { display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-group) var(--space-page); margin: 0; padding-top: var(--space-block); border-top: 1px solid var(--border); }
+.facts > div { display: grid; min-width: 0; align-content: start; gap: var(--space-related); }
+.facts dt { color: var(--text-muted); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
+.facts dd { display: flex; min-width: 0; min-height: 1.75rem; align-items: center; margin: 0; color: var(--foreground); font: var(--small); letter-spacing: var(--small-tracking); font-variant-numeric: tabular-nums; }
+
+.chips { display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-tight); margin: 0; padding: 0; list-style: none; }
+.chip { display: inline-flex; align-items: center; gap: var(--space-tight); padding: var(--space-hair) var(--space-related); border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }
+.mark { width: 14px; height: 14px; flex: none; fill: currentColor; }
+/* Works with: a chip per person, their picture at its start, a link to their page. */
+.person { display: inline-flex; min-width: 0; align-items: center; gap: var(--space-tight); padding: var(--space-hair) var(--space-related) var(--space-hair) var(--space-hair); border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.person:hover { background: var(--surface-pressed); }
+.person:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.apps { display: grid; min-width: 0; gap: var(--space-related); margin-top: var(--space-page); }
+.appsHead { display: flex; align-items: baseline; gap: var(--space-related); }
+.title { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.count { margin: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); }
+
+@media (max-width: 639px) {
+  .picture > * { width: 56px; height: 56px; }
+}

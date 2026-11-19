@@ -8,7 +8,7 @@
  * Server components (no hooks), so they render with JavaScript off.
  */
 import type { ReactNode } from "react";
-import { ChevronRight } from "lucide-react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
 import { Badge } from "@teamofsilicons/silicon-ui/badge";
 import styles from "./rows.module.css";
 
@@ -90,7 +90,7 @@ export function LinkItem({ href, lead, title, detail, meta, end, label, external
           {meta ? <span className={styles.rowMeta}>{meta}</span> : null}
         </span>
         {end ? <span className={styles.end}>{end}</span> : null}
-        <ChevronRight className={styles.chevron} size={16} strokeWidth={2} aria-hidden="true" />
+        {external ? <ArrowUpRight className={styles.chevron} size={16} strokeWidth={2} aria-hidden="true" /> : <ChevronRight className={styles.chevron} size={16} strokeWidth={2} aria-hidden="true" />}
       </a>
     </li>
   );

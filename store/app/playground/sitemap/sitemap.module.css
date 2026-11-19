@@ -1,0 +1,69 @@
+/* /playground/sitemap (page.tsx): the title, the sidebar band, the diagram (its own sideways scroll under 900px), the
+   cards for every page, then redirects and machine files side by side. */
+.lab { display: grid; min-width: 0; gap: var(--space-page); }
+.head { display: grid; gap: var(--space-tight); }
+.title { margin: 0; color: var(--foreground); font: var(--h1); letter-spacing: var(--h1-tracking); }
+.lede, .note { max-width: 70ch; margin: 0; color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); }
+.h2 { margin: 0; color: var(--foreground); font: var(--h2); letter-spacing: var(--h2-tracking); }
+.section { display: grid; min-width: 0; align-content: start; gap: var(--space-group); }
+
+/* The sidebar band: a label, then its links as quiet chips. */
+.sidebar { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-related) var(--space-group); padding: var(--space-group) var(--space-inset); border-radius: var(--radius-container); background: var(--surface-muted); }
+.sidebarTitle { margin: 0; color: var(--text-muted); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
+.sidebar ul { display: flex; flex-wrap: wrap; gap: var(--space-tight); margin: 0; padding: 0; list-style: none; }
+.sidebar a { display: inline-flex; padding: var(--space-hair) var(--space-related); border-radius: var(--radius-pill); background: var(--surface-raised); box-shadow: var(--shadow-hairline); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.sidebar a:hover { background: var(--surface-pressed); }
+
+.flow { display: grid; min-width: 0; gap: var(--space-group); scroll-margin-top: var(--space-page); }
+.flowHead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-group); }
+.open { flex: none; color: var(--accent); font: var(--label); letter-spacing: var(--label-tracking); text-decoration: none; }
+.open:hover { text-decoration: underline; }
+
+.legend { display: flex; flex-wrap: wrap; gap: var(--space-related) var(--space-block); margin: 0; padding: 0; color: var(--text-secondary); font: var(--small); letter-spacing: var(--small-tracking); list-style: none; }
+.legend li { display: inline-flex; align-items: center; gap: var(--space-tight); }
+.swatch { width: 14px; height: 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-detail); background: var(--surface-raised); }
+.swatch[data-kind="step"] { border-style: dashed; background: transparent; }
+.swatch[data-kind="away"] { border-color: transparent; background: var(--surface-pressed); }
+.loop { color: var(--text-muted); }
+
+/* The diagram: full width; under 900px it keeps 900px and scrolls inside its own box. */
+.scroller { min-width: 0; overflow-x: auto; padding: var(--space-group); border-radius: var(--radius-container); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.diagram { display: block; width: 100%; min-width: 900px; height: auto; font-family: var(--font-body); }
+.edge { fill: none; stroke: var(--border-strong); stroke-width: 1.5; }
+.edge[data-on] { stroke: var(--accent); stroke-width: 2; }
+.edge[data-off] { opacity: 0.15; }
+.head { fill: var(--border-strong); }
+.headLit { fill: var(--accent); }
+.node rect { fill: var(--surface-raised); stroke: var(--border-strong); stroke-width: 1; }
+.node[data-kind="step"] rect { fill: var(--background); stroke-dasharray: 5 4; }
+.node[data-kind="away"] rect { fill: var(--surface-pressed); stroke: none; }
+.node[data-focus] rect { stroke: var(--accent); stroke-width: 2.5; }
+.node[data-off] { opacity: 0.3; }
+.node:hover rect { stroke: var(--accent); }
+.node:focus-visible { outline: none; }
+.node:focus-visible rect { stroke: var(--accent); stroke-width: 3; }
+.nodeLabel { fill: var(--foreground); font-size: var(--text-base); font-weight: var(--weight-medium); }
+.nodePath { fill: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs); }
+
+/* Every page: cards in as many columns as fit at 20rem. */
+.cards { display: grid; min-width: 0; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: var(--space-group); }
+.card { display: grid; min-width: 0; align-content: start; gap: var(--space-related); padding: var(--space-inset); border-radius: var(--radius-container); background: var(--surface-raised); box-shadow: var(--shadow-hairline); }
+.card[data-kind="step"] { background: transparent; box-shadow: inset 0 0 0 1px var(--border); }
+.card[data-kind="away"] { background: var(--surface-muted); box-shadow: none; }
+.cardHead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-related); }
+.cardTitle { margin: 0; font: var(--h3); letter-spacing: var(--h3-tracking); }
+.cardTitle a { color: var(--foreground); text-decoration: none; }
+.cardTitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.path { margin: 0; overflow-wrap: anywhere; color: var(--text-muted); font: var(--small); font-family: var(--font-mono); }
+.links { display: grid; gap: var(--space-tight); padding-top: var(--space-related); border-top: 1px solid var(--border-subtle); }
+.linksTitle { margin: 0; color: var(--text-muted); font: var(--caption); letter-spacing: var(--caption-tracking); text-transform: uppercase; }
+.links ul { display: grid; gap: var(--space-tight); margin: 0; padding: 0; list-style: none; }
+.links li { color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); }
+.links strong { color: var(--foreground); font-weight: var(--weight-medium); }
+
+/* Redirects and machine files, side by side (one column under 900px). */
+.pair { display: grid; min-width: 0; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--space-page); }
+.table { display: grid; margin: 0; border-top: 1px solid var(--border-subtle); }
+.table > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-group); padding-block: var(--space-related); border-bottom: 1px solid var(--border-subtle); }
+.table dt { overflow-wrap: anywhere; color: var(--foreground); font: var(--small); font-family: var(--font-mono); }
+.table dd { margin: 0; color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); }

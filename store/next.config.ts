@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
   // App logos and media are shown as they are, never fetched or resized by this server.
   images: { unoptimized: true },
   allowedDevOrigins: ["127.0.0.1"],
+  // Report a problem posts a screenshot of up to 5 MB through a server action (components/shell/report-action.ts);
+  // the default limit is 1 MB.
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
 };
 
 export default nextConfig;

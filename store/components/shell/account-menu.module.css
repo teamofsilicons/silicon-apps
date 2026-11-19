@@ -1,0 +1,29 @@
+/* The account menu (account-menu.tsx), in Silicon UI's DropdownMenu look (as choice-menu.module.css) on a native
+   popover: the trigger across the sidebar's width, the picture, the id in mono, the chevrons at its end; the menu
+   above it, as wide as the sidebar (16rem at least), who you are over a hairline, then its rows. */
+.trigger { width: 100%; min-width: 0; justify-content: flex-start; anchor-name: var(--anchor); }
+.id { min-width: 0; flex: 1; overflow: hidden; font-family: var(--font-mono); font-size: var(--text-sm); text-align: start; text-overflow: ellipsis; white-space: nowrap; }
+.chevron { flex: none; color: var(--text-muted); }
+
+.menu { min-width: 16rem; padding: var(--space-tight); border: 1px solid var(--border); border-radius: var(--radius-container); background: var(--surface-raised); box-shadow: var(--shadow-floating); color: var(--foreground); }
+.menu:popover-open { display: grid; gap: var(--space-hair); }
+@supports (anchor-name: --a) {
+  .menu { position-anchor: var(--anchor); inset: auto; width: anchor-size(width); margin: 0 0 var(--space-tight); position-area: block-start span-inline-end; position-try-fallbacks: flip-block; }
+}
+.who { display: flex; min-width: 0; align-items: center; gap: var(--space-related); margin-bottom: var(--space-tight); padding: var(--space-related); border-bottom: 1px solid var(--border-subtle); }
+.words { display: grid; min-width: 0; }
+.name { overflow: hidden; font: var(--label); letter-spacing: var(--label-tracking); text-overflow: ellipsis; white-space: nowrap; }
+.detail { overflow: hidden; color: var(--text-soft); font: var(--small); letter-spacing: var(--small-tracking); text-overflow: ellipsis; white-space: nowrap; }
+.signOut { display: grid; margin: 0; }
+.item { display: flex; width: 100%; min-height: var(--control-height-sm); align-items: center; justify-content: space-between; gap: var(--space-group); padding: 0 var(--space-related); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); text-align: start; text-decoration: none; cursor: pointer; }
+.item svg { color: var(--text-muted); }
+.item:hover, .item:focus-visible { background: var(--surface-muted); outline: none; }
+/* Silicon UI's Button centres its label in nested spans (slot, content, phase) that shrink to fit; here the label
+   runs the button's width, so the trigger's id fills it (the chevrons at the end) and Sign Out lines up with Manage
+   your account (a tolerated reach into Button, which has no full-width label option yet). */
+.trigger > span, .trigger > span > span, .trigger > span > span > span,
+.item > span, .item > span > span, .item > span > span > span { width: 100%; min-width: 0; flex: 1; }
+.trigger > span > span > span { justify-content: flex-start; }
+.item > span > span > span { justify-content: space-between; }
+/* Sign Out is a Button: its own padding and size give way to the rows' (a step more specific than Button's class). */
+.signOut .item { min-height: var(--control-height-sm); padding: 0 var(--space-related); color: var(--foreground); font: var(--label); letter-spacing: var(--label-tracking); }

@@ -6,7 +6,8 @@
  *
  * The sidebar is the account site's (sidebar.tsx there) in its inset form (Anil, 2026-11-14): search at its head, the
  * section list (Silicon UI's NavList: Home and All Apps, then the categories under a small label), then at its foot the profile, full width (the signed-in account, which opens
- * Settings, or Sign In), over a hairline and the other sites as small grey chips. Below 900px the same sidebar opens from a menu button in the top bar, as
+ * the account menu, components/shell/account-menu.tsx, with Sign Out; or Sign In), over a hairline the other sites as small
+ * grey chips and Report a problem, which opens its dialog (report.tsx; Anil, 2026-11-19, where Settings was). Below 900px the same sidebar opens from a menu button in the top bar, as
  * a native popover sheet where the account site uses Silicon UI's BottomSheet, so it works without script.
  * From 900px the sidebar's width can be changed in three steps by dragging the page box's left edge (the account
  * site's handle, sidebar-resize.tsx, Anil 2026-11-17); it needs script, so without it the sidebar stays at 248px.
@@ -14,18 +15,18 @@
  */
 import type { ReactNode } from "react";
 import { House, LayoutGrid, Menu, X } from "lucide-react";
-import { Avatar } from "@teamofsilicons/silicon-ui/avatar";
 import { Button } from "@teamofsilicons/silicon-ui/button";
 import { ButtonLink } from "@teamofsilicons/silicon-ui/button-link";
 import { NavItem, NavList } from "@teamofsilicons/silicon-ui/nav-list";
 import { CategoryIcon } from "@/components/parts/category-icon";
 import { BrandGlyph } from "@/components/site/brand";
 import { CATEGORIES } from "@/lib/categories";
-import { safeImage } from "@/lib/format";
 import { signInHref } from "@/lib/session";
 import { LINKS } from "@/lib/site";
 import type { Account } from "@/lib/types";
+import { AccountMenu } from "./account-menu";
 import { StoreLinks } from "./links";
+import { REPORT_ID, ReportDialog, ReportNotice } from "./report";
 import { SearchInput } from "./search-field";
 import { ShellBody } from "./sidebar-resize";
 import styles from "./shell.module.css";
@@ -79,10 +80,7 @@ function Sidebar({ path, account, id, brand = false }: { path: string; account: 
       </div>
       <div className={sidebar.account}>
         {account ? (
-          <ButtonLink href="/settings" variant="ghost" size="sm" className={`${sidebar.wide} ${sidebar.profile}`} aria-label={`Settings, signed in as ${account.id}`}>
-            <Avatar name={account.display_name || account.id} src={safeImage(account.pfp_url)} size="sm" aria-hidden="true" />
-            <span className={sidebar.profileId}>{account.id}</span>
-          </ButtonLink>
+          <AccountMenu account={account} path={path} id={id} />
         ) : (
           <ButtonLink href={signInHref(path)} variant="secondary" size="sm" rel="nofollow" className={sidebar.wide}>Sign In</ButtonLink>
         )}
@@ -90,6 +88,7 @@ function Sidebar({ path, account, id, brand = false }: { path: string; account: 
       <nav className={sidebar.foot} aria-label="Other sites">
         <ButtonLink href={LINKS.developers} variant="soft" size="xs" target="_blank" rel="noopener noreferrer">Developers</ButtonLink>
         <ButtonLink href={LINKS.appsDocs} variant="soft" size="xs" target="_blank" rel="noopener noreferrer">Docs</ButtonLink>
+        <Button variant="soft" size="xs" popoverTarget={REPORT_ID} aria-haspopup="dialog">Report a problem</Button>
       </nav>
     </div>
   );
@@ -111,6 +110,7 @@ export function Shell({ path, account, children }: { path: string; account: Acco
         {/* The sidebar's width in steps, with a handle on the page box's edge (sidebar-resize.tsx, the account site's). */}
         <ShellBody controls="store-sidebar" aside={<aside id="store-sidebar" className={styles.aside} aria-label="Sidebar"><Sidebar path={path} account={account} id="side" brand /></aside>}>
           <main id="main" data-sq-native="" className={styles.main} tabIndex={-1}>
+            <ReportNotice path={path} />
             {children}
           </main>
         </ShellBody>
@@ -123,6 +123,7 @@ export function Shell({ path, account, children }: { path: string; account: Acco
           </div>
           <Sidebar path={path} account={account} id="menu" />
         </div>
+        <ReportDialog path={path} />
       </div>
     </StoreLinks>
   );
